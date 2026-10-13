@@ -28,6 +28,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Products')
 @Controller()
@@ -52,6 +53,7 @@ export class ProductsController {
     return this.productsService.getPublicProducts(query);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('products/:productId')
   @ApiOperation({ summary: 'Get public product details by ID or slug' })
   @ApiResponse({ status: 200, description: 'Public product details.' })

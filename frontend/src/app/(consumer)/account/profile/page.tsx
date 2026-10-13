@@ -6,19 +6,37 @@ import { ArrowLeft, User, Mail, Phone, Check } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { useAuth } from "@/features/auth/AuthContext";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ProfileEditPage() {
-  const { user } = useAuth();
-  const [name, setName] = useState(user?.name || "Sanne de Jong");
-  const [email, setEmail] = useState(user?.email || "sanne@example.nl");
-  const [phone, setPhone] = useState("+31 6 12345678");
+  const { data: profile, error, loading, reload } = useApiResource("consumer-profile", () => api.getConsumerProfile());
+  // null = untouched, so the field shows the saved profile value.
+  const [nameInput, setNameInput] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  const name = nameInput ?? profile?.displayName ?? "";
+  const phone = phoneInput ?? profile?.phone ?? "";
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.updateConsumerProfile({ displayName: name.trim(), phone: phone.trim() });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setSaveError(getErrorMessage(err, "Opslaan is mislukt."));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -35,12 +53,17 @@ export default function ProfileEditPage() {
             <p className="text-xs text-[#B7B7B7]">Beheer je persoonlijke gegevens</p>
           </div>
 
+          {loading ? (
+            <LoadingState label="Profiel laden..." />
+          ) : error || !profile ? (
+            <ErrorState title="Profiel niet beschikbaar" message={error} onRetry={reload} />
+          ) : (
           <form onSubmit={handleSave} className="space-y-4">
             <Input
               label="Volledige Naam"
               icon={<User className="w-4 h-4" />}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setNameInput(e.target.value)}
               required
             />
 
@@ -48,19 +71,25 @@ export default function ProfileEditPage() {
               label="E-mailadres"
               type="email"
               icon={<Mail className="w-4 h-4" />}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              value={profile.email ?? ""}
+              readOnly
+              disabled
             />
 
             <Input
               label="Telefoonnummer"
               icon={<Phone className="w-4 h-4" />}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhoneInput(e.target.value)}
             />
 
-            <Button type="submit" variant="primary" size="lg" fullWidth className="mt-4 gap-2">
+            {saveError && (
+              <div role="alert" className="bg-[#F2D9DE]/50 border border-[#ED4C5C]/30 text-[#555555] text-xs rounded-2xl p-3">
+                {saveError}
+              </div>
+            )}
+
+            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={saving} className="mt-4 gap-2">
               {saved ? (
                 <>
                   <Check className="w-5 h-5" /> Opslaan Succesvol!
@@ -70,6 +99,7 @@ export default function ProfileEditPage() {
               )}
             </Button>
           </form>
+          )}
         </div>
       </div>
     </ConsumerLayout>

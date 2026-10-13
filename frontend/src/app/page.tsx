@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Search, Sparkles, SlidersHorizontal, MapPin, Store } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { SegmentedSwitch } from "@/components/ui/SegmentedSwitch";
@@ -14,49 +14,34 @@ import { LoadingState, ProductCardSkeleton } from "@/components/feedback/Loading
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Product } from "@/types/product";
-import { Business } from "@/types/business";
-import { Workshop } from "@/types/workshop";
-import { Shoproute } from "@/types/shoproute";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+
+type DiscoveryTab = "producten" | "workshops" | "shoproutes";
 
 export default function DiscoveryHomePage() {
-  const [activeTab, setActiveTab] = useState<"producten" | "workshops" | "shoproutes">("producten");
+  const [activeTab, setActiveTab] = useState<DiscoveryTab>("producten");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [workshops, setWorkshops] = useState<Workshop[]>([]);
-  const [shoproutes, setShoproutes] = useState<Shoproute[]>([]);
+  const onProducts = activeTab === "producten";
+  const productsRes = useApiResource(
+    onProducts ? `home-products:${selectedCategory ?? ""}:${searchQuery}` : null,
+    () => api.getProducts({ category: selectedCategory || undefined, query: searchQuery || undefined })
+  );
+  const businessesRes = useApiResource(onProducts ? `home-businesses:${selectedCity ?? ""}` : null, () =>
+    api.getBusinesses({ city: selectedCity || undefined })
+  );
+  const workshopsRes = useApiResource(activeTab === "workshops" ? "home-workshops" : null, () => api.getWorkshops());
+  const routesRes = useApiResource(activeTab === "shoproutes" ? `home-routes:${selectedCity ?? ""}` : null, () =>
+    api.getShoproutes({ city: selectedCity || undefined })
+  );
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [prods, bizs, ws, routes] = await Promise.all([
-          api.getProducts({ category: selectedCategory || undefined, query: searchQuery || undefined }),
-          api.getBusinesses({ city: selectedCity || undefined }),
-          api.getWorkshops(),
-          api.getShoproutes({ city: selectedCity || undefined }),
-        ]);
-        setProducts(prods);
-        setBusinesses(bizs);
-        setWorkshops(ws);
-        setShoproutes(routes);
-      } catch (err) {
-        setError("Error loading data");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchData();
-  }, [activeTab, selectedCategory, selectedCity, searchQuery]);
+  const products = productsRes.data ?? [];
+  const businesses = businessesRes.data ?? [];
+  const workshops = workshopsRes.data ?? [];
+  const shoproutes = routesRes.data ?? [];
 
   const searchPlaceholder =
     activeTab === "shoproutes"
@@ -78,7 +63,7 @@ export default function DiscoveryHomePage() {
             ]}
             activeId={activeTab}
             onChange={(id) => {
-              setActiveTab(id as any);
+              setActiveTab(id as DiscoveryTab);
               setSelectedCategory(null);
               setSelectedCity(null);
             }}
@@ -139,14 +124,14 @@ export default function DiscoveryHomePage() {
               <span className="text-xs font-bold text-[#8A95A5]">{products.length} results</span>
             </div>
 
-            {isLoading ? (
+            {productsRes.loading ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
               </div>
-            ) : error ? (
-              <ErrorState message={error} />
+            ) : productsRes.error ? (
+              <ErrorState message={productsRes.error} onRetry={productsRes.reload} />
             ) : products.length === 0 ? (
               <EmptyState
                 title="No products found"
@@ -173,11 +158,19 @@ export default function DiscoveryHomePage() {
                   Our Locals (Shops)
                 </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {businesses.slice(0, 4).map((business) => (
-                  <BusinessCard key={business.id} business={business} />
-                ))}
-              </div>
+              {businessesRes.loading ? (
+                <LoadingState label="Loading shops..." />
+              ) : businessesRes.error ? (
+                <ErrorState message={businessesRes.error} onRetry={businessesRes.reload} />
+              ) : businesses.length === 0 ? (
+                <EmptyState title="No shops found" description="There are no shops available yet." />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {businesses.slice(0, 4).map((business) => (
+                    <BusinessCard key={business.id} business={business} />
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -190,8 +183,10 @@ export default function DiscoveryHomePage() {
               <span className="text-xs font-bold text-[#B7B7B7]">{workshops.length} workshops</span>
             </div>
 
-            {isLoading ? (
+            {workshopsRes.loading ? (
               <LoadingState label="Loading workshops..." />
+            ) : workshopsRes.error ? (
+              <ErrorState message={workshopsRes.error} onRetry={workshopsRes.reload} />
             ) : workshops.length === 0 ? (
               <EmptyState
                 title="No workshops found"
@@ -215,8 +210,10 @@ export default function DiscoveryHomePage() {
               <span className="text-xs font-bold text-[#B7B7B7]">{shoproutes.length} routes</span>
             </div>
 
-            {isLoading ? (
+            {routesRes.loading ? (
               <LoadingState label="Loading shop routes..." />
+            ) : routesRes.error ? (
+              <ErrorState message={routesRes.error} onRetry={routesRes.reload} />
             ) : shoproutes.length === 0 ? (
               <EmptyState
                 title="No shop routes found"

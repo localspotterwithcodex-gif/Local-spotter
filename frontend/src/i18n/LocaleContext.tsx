@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { dictionaries, Locale, TranslationKey } from "./dictionaries";
 
-const COOKIE_KEY = "localspotter_locale";
+export const LOCALE_COOKIE_KEY = "localspotter_locale";
 
 interface LocaleContextType {
   locale: Locale;
@@ -13,29 +13,22 @@ interface LocaleContextType {
 
 const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
 
-function readCookie(): Locale | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`${COOKIE_KEY}=([^;]+)`));
-  const value = match?.[1];
-  return value === "en" || value === "nl" ? value : null;
-}
-
-export const LocaleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [locale, setLocaleState] = useState<Locale>("en");
-
-  useEffect(() => {
-    const fromCookie = readCookie();
-    if (fromCookie) {
-      setLocaleState(fromCookie);
-      return;
-    }
-    const browserLang = typeof navigator !== "undefined" ? navigator.language : "en";
-    setLocaleState(browserLang.toLowerCase().startsWith("nl") ? "nl" : "en");
-  }, []);
+/**
+ * The initial locale is resolved on the SERVER (cookie, then Accept-Language)
+ * in the root layout and passed in, so server and client render the same
+ * language on first paint — no effect-driven state change, no hydration
+ * mismatch, and the same value is used across the consumer, owner and admin
+ * portals because they all sit under this one provider.
+ */
+export const LocaleProvider: React.FC<{ initialLocale: Locale; children: React.ReactNode }> = ({
+  initialLocale,
+  children,
+}) => {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
-    document.cookie = `${COOKIE_KEY}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    document.cookie = `${LOCALE_COOKIE_KEY}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     document.documentElement.lang = next;
   }, []);
 

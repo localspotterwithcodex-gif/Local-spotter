@@ -6,17 +6,42 @@ import { useSearchParams } from "next/navigation";
 import { CheckCircle2, ShoppingBag, Truck, ArrowRight, ShieldCheck, MapPin } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
-import { MOCK_PRODUCTS } from "@/data/mock/products";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 import { formatCurrency } from "@/lib/utils";
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
-  const orderNumber = searchParams.get("order") || "LS-2026-" + Math.floor(1000 + Math.random() * 9000);
+  const orderId = searchParams.get("orderId");
+  const { data: order, error, loading, reload } = useApiResource(orderId ? `order:${orderId}` : null, async () => {
+    const found = await api.getOrderById(orderId as string);
+    if (!found) throw new Error("Deze bestelling is niet gevonden.");
+    return found;
+  });
 
-  const sampleItems = MOCK_PRODUCTS.slice(0, 2);
-  const subtotal = sampleItems.reduce((acc, p) => acc + p.price, 0);
-  const shipping = 3.95;
-  const total = subtotal + shipping;
+  if (!orderId) {
+    return (
+      <div className="max-w-2xl mx-auto my-6 sm:my-10">
+        <EmptyState
+          title="Geen bestelling geselecteerd"
+          description="Bekijk je bestellingen in je account."
+        />
+      </div>
+    );
+  }
+  if (loading) return <LoadingState label="Bestelling laden..." />;
+  if (error || !order) {
+    return (
+      <div className="max-w-2xl mx-auto my-6 sm:my-10">
+        <ErrorState title="Bestelling niet beschikbaar" message={error} onRetry={reload} />
+      </div>
+    );
+  }
+
+  const { items, subtotal, deliveryFee: shipping, total, orderNumber, deliveryAddress } = order;
 
   return (
     <div className="max-w-2xl mx-auto my-6 sm:my-10 space-y-6">
@@ -28,7 +53,7 @@ function CheckoutSuccessContent() {
 
         <div className="space-y-1">
           <span className="inline-block px-3 py-1 bg-[#FAE2F0] text-[#FA1EFF] rounded-full text-xs font-bold font-manrope">
-            Bestelling Bevestigd
+            Bestelling Ontvangen
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold font-rubik text-[#111111]">
             Bedankt voor je bestelling!
@@ -39,13 +64,13 @@ function CheckoutSuccessContent() {
         </div>
 
         <p className="text-sm text-[#111111] max-w-md mx-auto">
-          We hebben een bevestiging gemaild. De lokale ondernemer maakt je pakket nu met zorg gereed!
+          Je bestelling is geplaatst bij {order.businessName}. De lokale ondernemer kan nu aan de slag!
         </p>
 
         {/* Estimated Delivery Badge */}
         <div className="flex items-center justify-center gap-2 p-3 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] max-w-md mx-auto text-xs text-[#111111] font-bold">
           <Truck className="w-4 h-4 text-[#FA1EFF]" />
-          <span>Verwachte bezorging: Morgen tussen 14:00 - 18:00</span>
+          <span>Wacht op bevestiging van {order.businessName}</span>
         </div>
       </div>
 
@@ -58,18 +83,18 @@ function CheckoutSuccessContent() {
 
         {/* Product Items */}
         <div className="space-y-4">
-          {sampleItems.map((product) => (
-            <div key={product.id} className="flex items-center gap-4 pb-4 border-b border-[#EAEAEA] last:border-b-0 last:pb-0">
-              <img
-                src={product.images[0]}
-                alt={product.name}
-                className="w-16 h-16 rounded-xl object-cover border border-[#EAEAEA]"
-              />
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center gap-4 pb-4 border-b border-[#EAEAEA] last:border-b-0 last:pb-0">
+              <div className="w-16 h-16 rounded-xl bg-[#F9F9F9] border border-[#EAEAEA] flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-6 h-6 text-[#B7B7B7]" />
+              </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-[#111111] truncate">{product.name}</h3>
-                <p className="text-xs text-[#B7B7B7]">{product.category} • Aantal: 1</p>
+                <h3 className="text-sm font-bold text-[#111111] truncate">{item.productName}</h3>
+                <p className="text-xs text-[#B7B7B7]">
+                  {item.variantSize ? `${item.variantSize} • ` : ""}Aantal: {item.quantity}
+                </p>
                 <span className="text-xs font-bold text-[#FA1EFF] block mt-1">
-                  {formatCurrency(product.price)}
+                  {formatCurrency(item.totalPrice)}
                 </span>
               </div>
             </div>
@@ -83,11 +108,11 @@ function CheckoutSuccessContent() {
             <span className="font-bold">{formatCurrency(subtotal)}</span>
           </div>
           <div className="flex justify-between text-[#111111]">
-            <span>Verzendkosten (Lokaal):</span>
+            <span>Bezorgkosten:</span>
             <span className="font-bold">{formatCurrency(shipping)}</span>
           </div>
           <div className="flex justify-between text-sm font-extrabold text-[#111111] pt-2 border-t border-[#EAEAEA]">
-            <span>Totaal Betaald:</span>
+            <span>Totaal:</span>
             <span className="text-[#FA1EFF]">{formatCurrency(total)}</span>
           </div>
         </div>
@@ -98,17 +123,16 @@ function CheckoutSuccessContent() {
             <span className="font-bold text-[#111111] flex items-center gap-1 mb-1">
               <MapPin className="w-4 h-4 text-[#FA1EFF]" /> Bezorgadres
             </span>
-            <p className="text-[#111111] font-medium">Jan de Vries</p>
-            <p className="text-[#B7B7B7]">Keizersgracht 142</p>
-            <p className="text-[#B7B7B7]">1015 CX Amsterdam</p>
+            <p className="text-[#B7B7B7]">{deliveryAddress.street} {deliveryAddress.houseNumber}</p>
+            <p className="text-[#B7B7B7]">{deliveryAddress.postalCode} {deliveryAddress.city}</p>
           </div>
 
           <div className="p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-1">
             <span className="font-bold text-[#111111] flex items-center gap-1 mb-1">
               <ShieldCheck className="w-4 h-4 text-[#54D1CA]" /> Betaalmethode
             </span>
-            <p className="text-[#111111] font-medium">iDEAL (ING Bank)</p>
-            <p className="text-[#3B9B52] font-bold mt-1">✓ Betaling Ontvangen</p>
+            <p className="text-[#111111] font-medium">Betaling nog niet verwerkt</p>
+            <p className="text-[#B7B7B7]">Online betalen is nog niet beschikbaar; de betaling volgt later.</p>
           </div>
         </div>
 

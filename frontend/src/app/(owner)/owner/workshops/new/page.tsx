@@ -2,37 +2,95 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Upload } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Users, AlertCircle } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { api } from "@/lib/api";
+import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AddWorkshopPage() {
   const router = useRouter();
+  const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
 
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("49.00");
-  const [capacity, setCapacity] = useState("8");
-  const [location, setLocation] = useState("Mussenberg 128, Horn");
-  const [date, setDate] = useState("2026-04-25");
-  const [startTime, setStartTime] = useState("13:30");
-  const [finishTime, setFinishTime] = useState("16:30");
+  const [price, setPrice] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [location, setLocation] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [finishTime, setFinishTime] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState(
-    "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=600&q=80"
-  );
+  const [imageUrl, setImageUrl] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    if (!business) {
+      setError("Je hebt nog geen winkel. Maak eerst een winkel aan.");
+      return;
+    }
+    const priceNum = parseFloat(price);
+    const capacityNum = parseInt(capacity, 10);
+    if (Number.isNaN(priceNum) || Number.isNaN(capacityNum)) {
+      setError("Vul a.u.b. alle verplichte velden in.");
+      return;
+    }
+    if (finishTime <= startTime) {
+      setError("De eindtijd moet na de starttijd liggen.");
+      return;
+    }
+
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await api.createWorkshop({
+        businessId: business.id,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        price: priceNum,
+        capacity: capacityNum,
+        location: location.trim() || undefined,
+        date,
+        startTime,
+        finishTime,
+        imageUrl: imageUrl.trim() || undefined,
+      });
       router.push("/owner");
-    }, 500);
+    } catch (err) {
+      setError(getErrorMessage(err, "Workshop aanmaken mislukt"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (businessLoading || businessError || !business) {
+    return (
+      <OwnerLayout>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+            <ArrowLeft className="w-4 h-4" />
+            Terug naar dashboard
+          </Link>
+          {businessLoading ? (
+            <LoadingState label="Winkel laden..." />
+          ) : businessError ? (
+            <ErrorState message={businessError} onRetry={reloadBusiness} />
+          ) : (
+            <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om workshops toe te voegen." />
+          )}
+        </div>
+      </OwnerLayout>
+    );
+  }
 
   return (
     <OwnerLayout>
@@ -48,13 +106,28 @@ export default function AddWorkshopPage() {
             <p className="text-xs text-[#B7B7B7]">Organiseer een creatieve workshop of masterclass voor je klanten</p>
           </div>
 
+          {error && (
+            <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Workshop Image Preview */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-[#111111]">Workshop Afbeelding</label>
               <div className="relative h-44 rounded-2xl overflow-hidden bg-[#790166]/10 border border-[#EAEAEA]">
-                <img src={imageUrl} alt="Workshop preview" className="w-full h-full object-cover" />
+                {/^https?:\/\//.test(imageUrl.trim()) && (
+                  <Image src={imageUrl.trim()} alt="Workshop preview" fill unoptimized className="object-cover" />
+                )}
               </div>
+              <Input
+                placeholder="https://voorbeeld.nl/workshop.jpg"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                helperText="Plak de URL van een afbeelding (optioneel). Bestanden uploaden wordt nog niet ondersteund."
+              />
             </div>
 
             {/* Workshop Name */}

@@ -6,15 +6,27 @@ import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { apiClient, ApiError } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    if (!email) return;
+    setError("");
+    setIsLoading(true);
+    try {
+      // The backend answers identically whether or not the address exists.
+      await apiClient.post("/auth/forgot-password", { email });
       setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Verzenden is mislukt.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,6 +55,9 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">{error}</div>
+            )}
             <Input
               label="E-mailadres"
               type="email"
@@ -53,7 +68,7 @@ export default function ForgotPasswordPage() {
               required
             />
 
-            <Button type="submit" variant="primary" size="lg" fullWidth>
+            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
               Verstuur Herstellink
             </Button>
           </form>

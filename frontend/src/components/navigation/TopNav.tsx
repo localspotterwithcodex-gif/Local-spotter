@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, ShoppingBag, MapPin, Calendar, Store, ShieldCheck, LogOut } from "lucide-react";
+import { ShoppingBag, MapPin, Calendar, Store, ShieldCheck, LogOut } from "lucide-react";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useCart } from "@/features/cart/CartContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";

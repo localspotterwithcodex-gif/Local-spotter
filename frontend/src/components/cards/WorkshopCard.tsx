@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, MapPin, Users } from "lucide-react";
+import { Clock, MapPin } from "lucide-react";
 import { Workshop } from "@/types/workshop";
 import { formatCurrency, formatShortDate } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";

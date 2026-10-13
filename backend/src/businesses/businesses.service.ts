@@ -4,7 +4,8 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
-import { BusinessStatus, UserRole } from '@prisma/client';
+import { Prisma, BusinessStatus, SubscriptionStatus, UserRole } from '@prisma/client';
+import { QueryBusinessDto } from './dto/query-business.dto';
 
 @Injectable()
 export class BusinessesService {
@@ -53,10 +54,43 @@ export class BusinessesService {
       include: {
         category: true,
         hours: true,
+        logoAsset: { select: { url: true } },
+        coverAsset: { select: { url: true } },
+        _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
         },
       },
+    });
+  }
+
+  /** Public listing: only ACTIVE businesses whose subscription is currently running. */
+  async getPublicBusinesses(query: QueryBusinessDto) {
+    const where: Prisma.BusinessWhereInput = {
+      deletedAt: null,
+      status: BusinessStatus.ACTIVE,
+      subscription: { status: SubscriptionStatus.ACTIVE, currentPeriodEnd: { gt: new Date() } },
+    };
+    if (query.city) where.city = { contains: query.city, mode: 'insensitive' };
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+    return this.prisma.business.findMany({
+      where,
+      include: {
+        category: true,
+        hours: true,
+        logoAsset: { select: { url: true } },
+        coverAsset: { select: { url: true } },
+        _count: { select: { products: { where: { active: true, deletedAt: null } } } },
+        subscription: { include: { plan: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: query.limit ?? 100,
     });
   }
 
@@ -74,6 +108,9 @@ export class BusinessesService {
       include: {
         category: true,
         hours: true,
+        logoAsset: { select: { url: true } },
+        coverAsset: { select: { url: true } },
+        _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
         },
@@ -93,6 +130,9 @@ export class BusinessesService {
       include: {
         category: true,
         hours: true,
+        logoAsset: { select: { url: true } },
+        coverAsset: { select: { url: true } },
+        _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
         },
@@ -141,6 +181,9 @@ export class BusinessesService {
       include: {
         category: true,
         hours: true,
+        logoAsset: { select: { url: true } },
+        coverAsset: { select: { url: true } },
+        _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
         },
@@ -160,6 +203,10 @@ export class BusinessesService {
       await this.verifyOwnership(id, user);
       if (dto.status !== BusinessStatus.DRAFT && dto.status !== BusinessStatus.PENDING_APPROVAL) {
         throw new ForbiddenException('Alleen beheerders kunnen winkels activeren of schorsen');
+      }
+      // An owner must not be able to lift a suspension/disable imposed by an admin.
+      if (business.status === BusinessStatus.SUSPENDED || business.status === BusinessStatus.DISABLED) {
+        throw new ForbiddenException('Deze winkel is door een beheerder geblokkeerd');
       }
     }
 

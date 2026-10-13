@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { User, UserRole } from "@/types/user";
-import { apiClient, setToken, getToken, ApiError } from "@/lib/api/client";
+import { apiClient, ApiError } from "@/lib/api/client";
 
 interface BackendUser {
   id: string;
@@ -65,46 +65,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
 
-  const hydrate = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const me = await apiClient.get<BackendUser>("/auth/me");
-      setUser(mapBackendUser(me));
-      // Re-write the middleware cookie alongside the confirmed-valid token.
-      // The cookie (read by middleware.ts at the edge) and the localStorage
-      // token (read here, client-side) are two separate copies of the same
-      // fact; if they ever drift — e.g. the cookie's max-age lapsed, or it
-      // was cleared by the browser while localStorage wasn't — the user
-      // ends up in the exact state seen in these screenshots: the app
-      // renders as fully logged in (this hydrate call succeeded) while
-      // middleware still bounces every navigation to /login because *it*
-      // sees no cookie. Refreshing the cookie here every time hydrate
-      // succeeds self-heals that drift instead of letting it persist for
-      // the rest of the session.
-      setToken(token);
-    } catch {
-      setToken(null);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
+  // The session lives in an HttpOnly cookie that JavaScript cannot read, so the
+  // only way to know who is signed in is to ask the backend.
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<BackendUser>("/auth/me")
+      .then((me) => {
+        if (!cancelled) setUser(mapBackendUser(me));
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
   const login = useCallback(async (identifier: string, password: string) => {
-    const res = await apiClient.post<{ accessToken: string; user: BackendUser }>(
-      "/auth/login",
-      { identifier, password },
-      { auth: false }
-    );
-    setToken(res.accessToken);
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/login", { identifier, password });
     const mapped = mapBackendUser(res.user);
     setUser(mapped);
     return mapped;
@@ -115,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingVerification: boolean;
       verificationChannel: "EMAIL" | "MOBILE";
       identifier: string;
-    }>("/auth/register", payload, { auth: false });
+    }>("/auth/register", payload);
 
     setPendingVerification({
       identifier: res.identifier,
@@ -129,12 +111,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!pendingVerification) {
         throw new ApiError("Geen verificatie in behandeling", 400, null);
       }
-      const res = await apiClient.post<{ accessToken: string; user: BackendUser }>(
-        "/auth/verify-code",
-        { identifier: pendingVerification.identifier, code },
-        { auth: false }
-      );
-      setToken(res.accessToken);
+      const res = await apiClient.post<{ user: BackendUser }>("/auth/verify-code", {
+        identifier: pendingVerification.identifier,
+        code,
+      });
       const mapped = mapBackendUser(res.user);
       setUser(mapped);
       setPendingVerification(null);
@@ -145,21 +125,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendCode = useCallback(async () => {
     if (!pendingVerification) return;
-    await apiClient.post("/auth/resend-code", { identifier: pendingVerification.identifier }, { auth: false });
+    await apiClient.post("/auth/resend-code", { identifier: pendingVerification.identifier });
   }, [pendingVerification]);
 
   const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    setPendingVerification(null);
-    // A full navigation (not router.push) guarantees every portal's
-    // in-memory state (owner/admin dashboards, cart, etc.) is discarded
-    // and the middleware re-evaluates auth on the way to /login — a
-    // client-side-only state clear left the old protected page visible
-    // until the next manual navigation (PROMPT.md item 3).
-    if (typeof window !== "undefined") {
-      window.location.assign("/login");
-    }
+    // Ask the backend to clear the HttpOnly cookie, then do a full navigation so
+    // every portal's in-memory state (dashboards, cart) is discarded and the
+    // middleware re-evaluates the (now absent) session.
+    const finish = () => {
+      setUser(null);
+      setPendingVerification(null);
+      if (typeof window !== "undefined") window.location.assign("/login");
+    };
+    apiClient.post("/auth/logout").then(finish, finish);
   }, []);
 
   return (

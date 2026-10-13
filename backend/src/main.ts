@@ -1,10 +1,15 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.disable('x-powered-by');
+  // Behind a reverse proxy / the Next.js rewrite, trust X-Forwarded-For so
+  // rate limiting sees the real client IP (set TRUST_PROXY=1 in that case).
+  if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
 
   const port = process.env.PORT || 4000;
   const apiPrefix = process.env.API_PREFIX || '/api/v1';

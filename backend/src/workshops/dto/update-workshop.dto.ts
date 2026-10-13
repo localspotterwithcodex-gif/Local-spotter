@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Min, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WorkshopStatus } from '@prisma/client';
 
@@ -7,7 +7,7 @@ export class UpdateWorkshopDto {
   @ApiPropertyOptional({ example: 'Gewijzigde titel', description: 'Workshop title (min 3 chars)' })
   @IsOptional()
   @IsString()
-  @Min(3, { message: 'Titel moet minimaal 3 tekens bevatten' })
+  @MinLength(3, { message: 'Titel moet minimaal 3 tekens bevatten' })
   title?: string;
 
   @ApiPropertyOptional({ example: 'Bijgewerkte beschrijving', description: 'Workshop description' })

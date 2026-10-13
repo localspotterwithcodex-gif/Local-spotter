@@ -1,29 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Business } from "@/types/business";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function ConsumerFollowingPage() {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadFollowing() {
-      setIsLoading(true);
-      const data = await api.getBusinesses();
-      // Filter workshop plan businesses as followed examples
-      setBusinesses(data.filter((b) => b.subscriptionPlan === "workshop"));
-      setIsLoading(false);
-    }
-    loadFollowing();
-  }, []);
+  const { data, error, loading: isLoading, reload } = useApiResource("my-following", () => api.getFollowedBusinesses());
+  const businesses = data ?? [];
 
   return (
     <ConsumerLayout>
@@ -40,6 +30,8 @@ export default function ConsumerFollowingPage() {
 
         {isLoading ? (
           <LoadingState label="Gevolgde winkels laden..." />
+        ) : error ? (
+          <ErrorState title="Gevolgde winkels niet beschikbaar" message={error} onRetry={reload} />
         ) : businesses.length === 0 ? (
           <EmptyState
             title="Je volgt nog geen winkels"

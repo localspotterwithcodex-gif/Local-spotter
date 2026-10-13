@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, use } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { Star, Heart, MapPin, Phone, FileText, Clock, ShoppingBag, Calendar, Lock, Check } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Star, Heart, MapPin, Phone, FileText, ShoppingBag, Calendar, Lock, Check } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
@@ -12,57 +12,76 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
-import { Business } from "@/types/business";
-import { Product } from "@/types/product";
-import { Workshop } from "@/types/workshop";
-import { Review } from "@/types/review";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/features/auth/AuthContext";
 
 export default function BusinessDetailPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
   const { role, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [workshops, setWorkshops] = useState<Workshop[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const businessRes = useApiResource(`business:${businessId}`, () => api.getBusinessById(businessId));
+  const business = businessRes.data ?? null;
+  const resolvedId = business?.id ?? null;
+  const productsRes = useApiResource(resolvedId ? `business-products:${resolvedId}` : null, () =>
+    api.getProducts({ businessId: resolvedId as string })
+  );
+  const workshopsRes = useApiResource(resolvedId ? `business-workshops:${resolvedId}` : null, () =>
+    api.getWorkshops({ businessId: resolvedId as string })
+  );
+  const reviewsRes = useApiResource(resolvedId ? `business-reviews:${resolvedId}` : null, () =>
+    api.getBusinessReviews(resolvedId as string)
+  );
+  const isConsumer = isAuthenticated && role === "CONSUMER";
+  const followRes = useApiResource(resolvedId && isConsumer ? `follow-status:${resolvedId}` : null, () =>
+    api.getFollowStatus(resolvedId as string)
+  );
+  const products = productsRes.data ?? [];
+  const workshops = workshopsRes.data ?? [];
+  const reviews = reviewsRes.data ?? [];
+
   const [activeTab, setActiveTab] = useState<"products" | "workshops" | "map" | "reviews">("products");
+  const [followOverride, setFollowOverride] = useState<boolean | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const serverFollowing = followRes.data ?? false;
+  const isFollowing = followOverride ?? serverFollowing;
+  const followerCount = (business?.followerCount ?? 0) + (isFollowing ? 1 : 0) - (serverFollowing ? 1 : 0);
+  const isLoading = businessRes.loading;
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      const b = await api.getBusinessById(businessId);
-      setBusiness(b);
-
-      if (b) {
-        setFollowerCount(b.followerCount);
-        const [prods, ws, revs] = await Promise.all([
-          api.getProducts({ businessId: b.id }),
-          api.getWorkshops({ businessId: b.id }),
-          api.getReviews({ businessId: b.id }),
-        ]);
-        setProducts(prods);
-        setWorkshops(ws);
-        setReviews(revs);
-      }
-      setIsLoading(false);
+  const toggleFollow = async () => {
+    if (!business) return;
+    if (!isAuthenticated) {
+      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
+      return;
     }
-    loadData();
-  }, [businessId]);
-
-  const toggleFollow = () => {
-    setIsFollowing(!isFollowing);
-    setFollowerCount((prev) => (isFollowing ? prev - 1 : prev + 1));
+    setFollowBusy(true);
+    setFollowError(null);
+    try {
+      const next = isFollowing ? await api.unfollowBusiness(business.id) : await api.followBusiness(business.id);
+      setFollowOverride(next);
+    } catch (err) {
+      setFollowError(getErrorMessage(err, "Volgen is niet gelukt."));
+    } finally {
+      setFollowBusy(false);
+    }
   };
 
   if (isLoading) {
     return (
       <ConsumerLayout>
         <LoadingState label="Winkelprofiel laden..." />
+      </ConsumerLayout>
+    );
+  }
+
+  if (businessRes.error) {
+    return (
+      <ConsumerLayout>
+        <ErrorState title="Winkel niet beschikbaar" message={businessRes.error} onRetry={businessRes.reload} />
       </ConsumerLayout>
     );
   }
@@ -123,6 +142,8 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   variant={isFollowing ? "outline" : "primary"}
                   size="md"
                   onClick={toggleFollow}
+                  isLoading={followBusy}
+                  disabled={isAuthenticated && !isConsumer}
                   className="gap-2"
                 >
                   {isFollowing ? (
@@ -137,6 +158,12 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 </Button>
               </div>
             </div>
+
+            {followError && (
+              <div role="alert" className="bg-[#F2D9DE]/50 border border-[#ED4C5C]/30 text-[#555555] text-xs rounded-2xl p-3">
+                {followError}
+              </div>
+            )}
 
             {/* Stats Row */}
             <div className="grid grid-cols-4 gap-2 py-3 px-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] text-center my-4">
@@ -236,7 +263,11 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
         {/* 1. Products Tab */}
         {activeTab === "products" && (
           <div>
-            {products.length === 0 ? (
+            {productsRes.loading ? (
+              <LoadingState label="Producten laden..." />
+            ) : productsRes.error ? (
+              <ErrorState message={productsRes.error} onRetry={productsRes.reload} />
+            ) : products.length === 0 ? (
               <EmptyState title="Geen producten" description="Deze winkel heeft nog geen producten geplaatst." />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -259,6 +290,10 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   Deze winkel heeft het Workshop-abonnement nog niet geactiveerd.
                 </p>
               </div>
+            ) : workshopsRes.loading ? (
+              <LoadingState label="Workshops laden..." />
+            ) : workshopsRes.error ? (
+              <ErrorState message={workshopsRes.error} onRetry={workshopsRes.reload} />
             ) : workshops.length === 0 ? (
               <EmptyState title="Geen workshops" description="Er zijn momenteel geen workshops gepland." />
             ) : (
@@ -309,6 +344,10 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   Klantbeoordelingen zijn beschikbaar voor winkels met het Workshop abonnement.
                 </p>
               </div>
+            ) : reviewsRes.loading ? (
+              <LoadingState label="Reviews laden..." />
+            ) : reviewsRes.error ? (
+              <ErrorState message={reviewsRes.error} onRetry={reviewsRes.reload} />
             ) : reviews.length === 0 ? (
               <EmptyState title="Nog geen reviews" description="Wees de eerste die een review schrijft voor deze winkel!" />
             ) : (

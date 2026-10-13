@@ -197,9 +197,25 @@ export class WorkshopsService {
       throw new ForbiddenException('Je hebt geen toegang tot deze workshop');
     }
 
+    const remainingSeats = Math.max(workshop.capacity - workshop.bookedCount, 0);
+
+    if (isOwnerOrAdmin) {
+      return { ...workshop, remainingSeats };
+    }
+
+    // Public view: never expose attendee identities or the business's private
+    // fields (KvK number, contact details, subscription).
+    const { bookings: _bookings, business, ...publicWorkshop } = workshop;
     return {
-      ...workshop,
-      remainingSeats: Math.max(workshop.capacity - workshop.bookedCount, 0),
+      ...publicWorkshop,
+      business: {
+        id: business.id,
+        name: business.name,
+        slug: business.slug,
+        city: business.city,
+        logoAssetId: business.logoAssetId,
+      },
+      remainingSeats,
     };
   }
 

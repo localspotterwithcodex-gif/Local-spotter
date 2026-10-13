@@ -1,39 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Search, Calendar } from "lucide-react";
+import React, { useState } from "react";
+import { Search } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
 import { Input } from "@/components/ui/Input";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Workshop } from "@/types/workshop";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function WorkshopListingPage() {
-  const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadWorkshops() {
-      setIsLoading(true);
-      const data = await api.getWorkshops();
-      if (searchQuery) {
-        setWorkshops(
-          data.filter(
-            (w) =>
-              w.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              w.description.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        );
-      } else {
-        setWorkshops(data);
-      }
-      setIsLoading(false);
-    }
-    loadWorkshops();
-  }, [searchQuery]);
+  const { data, error, loading: isLoading, reload } = useApiResource("workshops", () => api.getWorkshops());
+  const needle = searchQuery.toLowerCase();
+  const workshops = (data ?? []).filter(
+    (w) => !needle || w.title.toLowerCase().includes(needle) || w.description.toLowerCase().includes(needle)
+  );
 
   return (
     <ConsumerLayout>
@@ -56,6 +40,8 @@ export default function WorkshopListingPage() {
 
         {isLoading ? (
           <LoadingState label="Workshops laden..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : workshops.length === 0 ? (
           <EmptyState
             title="Geen workshops gevonden"

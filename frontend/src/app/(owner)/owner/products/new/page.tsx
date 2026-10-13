@@ -3,28 +3,37 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, X, Check, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/ui/ImageUploader";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { ProductSize } from "@/types/product";
 import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AddProductPage() {
   const router = useRouter();
+  const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
+  const categories = useApiResource("product-categories", () => api.getProductCategories());
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [stock, setStock] = useState("10");
-  const [category, setCategory] = useState("Bag");
+  const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
+  const [imageUrlsText, setImageUrlsText] = useState("");
 
-  const [selectedSizes, setSelectedSizes] = useState<ProductSize[]>(["M", "L"]);
-  // Files the user has manually picked via ImageUploader — nothing is
-  // uploaded to storage until this form is submitted (PROMPT.md items 7 & 8).
+  const [selectedSizes, setSelectedSizes] = useState<ProductSize[]>([]);
+  // Files picked via ImageUploader. The backend stores image URLs only and has
+  // no file-upload endpoint yet, so these are not sent (see the note below).
   const [imageFiles, setImageFiles] = useState<File[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,35 +51,74 @@ export default function AddProductPage() {
     e.preventDefault();
     setError("");
 
-    if (!name || !price) {
+    if (!business) {
+      setError("Je hebt nog geen winkel. Maak eerst een winkel aan.");
+      return;
+    }
+    const priceNum = parseFloat(price);
+    const stockNum = parseInt(stock, 10);
+    if (!name.trim() || Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
       setError("Vul a.u.b. alle verplichte velden in.");
       return;
     }
 
+    const imageUrls = imageUrlsText
+      .split(/\s+/)
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (imageUrls.length > 3) {
+      setError("Maximaal 3 afbeeldingen toegestaan.");
+      return;
+    }
+
     setIsSubmitting(true);
+    let createdId: string | null = null;
     try {
-      // TODO: upload each File in imageFiles to the Supabase `products`
-      // storage bucket here (PROMPT.md item 15), then pass the resulting
-      // public URLs as `images` below instead of an empty array.
-      await api.createProduct({
-        name,
-        price: parseFloat(price),
-        compareAtPrice: compareAtPrice ? parseFloat(compareAtPrice) : undefined,
-        stock: parseInt(stock, 10),
-        category,
-        description,
-        externalUrl: externalUrl || undefined,
-        images: [],
-        businessId: "bus-1",
-        businessName: "Bag Shop Horn Center",
+      const created = await api.createProduct(business.id, {
+        name: name.trim(),
+        price: priceNum,
+        stock: stockNum,
+        categoryId: categoryId || undefined,
+        description: description.trim() || undefined,
+        shopUrl: externalUrl.trim() || undefined,
+        imageUrls,
       });
+      createdId = created.id;
+      for (const size of selectedSizes) {
+        await api.addProductVariant(created.id, { size, stock: stockNum });
+      }
       router.push("/owner");
-    } catch (err: any) {
-      setError(err.message || "Product aanmaken mislukt");
+    } catch (err) {
+      const message = getErrorMessage(err, "Product aanmaken mislukt");
+      setError(
+        createdId
+          ? `Het product is aangemaakt, maar het opslaan van de maten is mislukt: ${message}`
+          : message
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const pageShell = (content: React.ReactNode) => (
+    <OwnerLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+          <ArrowLeft className="w-4 h-4" />
+          Terug naar dashboard
+        </Link>
+        {content}
+      </div>
+    </OwnerLayout>
+  );
+
+  if (businessLoading) return pageShell(<LoadingState label="Winkel laden..." />);
+  if (businessError) return pageShell(<ErrorState message={businessError} onRetry={reloadBusiness} />);
+  if (!business) {
+    return pageShell(
+      <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om producten toe te voegen." />
+    );
+  }
 
   return (
     <OwnerLayout>
@@ -96,6 +144,23 @@ export default function AddProductPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Product Images (Max 3 enforced) — manual upload only, PROMPT.md items 7 & 8 */}
             <ImageUploader label="Product Images" maxImages={3} onChange={setImageFiles} />
+            {imageFiles.length > 0 && (
+              <p className="text-xs font-bold text-[#E54666] flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Bestanden uploaden wordt nog niet ondersteund: deze foto&apos;s worden niet opgeslagen. Gebruik hieronder afbeeldings-URL&apos;s.
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-bold text-[#111111]">Afbeeldings-URL&apos;s (max. 3)</label>
+              <textarea
+                rows={3}
+                className="w-full bg-[#EAEAEA] text-[#111111] text-base p-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
+                placeholder={"https://voorbeeld.nl/foto-1.jpg\nhttps://voorbeeld.nl/foto-2.jpg"}
+                value={imageUrlsText}
+                onChange={(e) => setImageUrlsText(e.target.value)}
+              />
+              <span className="text-xs text-[#B7B7B7]">Een URL per regel. Alleen links naar bestaande afbeeldingen worden opgeslagen.</span>
+            </div>
 
             {/* Product Name */}
             <Input
@@ -124,6 +189,7 @@ export default function AddProductPage() {
                 placeholder="179.00"
                 value={compareAtPrice}
                 onChange={(e) => setCompareAtPrice(e.target.value)}
+                helperText="Wordt nog niet opgeslagen: de server ondersteunt nog geen oude prijs."
               />
             </div>
 
@@ -134,23 +200,34 @@ export default function AddProductPage() {
                 type="number"
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
+                helperText={selectedSizes.length > 0 ? "Wordt toegepast op elke geselecteerde maat." : undefined}
+                min={0}
                 required
               />
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-[#111111]">Categorie *</label>
                 <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  disabled={categories.loading || !!categories.error}
+                  required
+                  className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent disabled:opacity-60"
                 >
-                  <option value="Bag">Bag (Tassen)</option>
-                  <option value="Dress">Dress (Jurken)</option>
-                  <option value="Trousers">Trousers (Broeken)</option>
-                  <option value="Jacket">Jacket (Jassen)</option>
-                  <option value="Furniture">Furniture (Wonen)</option>
-                  <option value="Interior">Interior (Interieur)</option>
-                  <option value="Beauty">Beauty (Verzorging)</option>
+                  <option value="">{categories.loading ? "Categorieën laden..." : "Kies een categorie"}</option>
+                  {(categories.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
+                {categories.error && (
+                  <span className="text-xs text-[#ED4C5C] font-medium block">
+                    Categorieën konden niet worden geladen.{" "}
+                    <button type="button" onClick={categories.reload} className="underline font-bold">
+                      Opnieuw proberen
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
 

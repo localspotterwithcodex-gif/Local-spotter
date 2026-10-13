@@ -391,7 +391,7 @@ export class AdminService {
     }
 
     const [products, total] = await Promise.all([
-      this.prisma.product.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const }, include: { business: { select: { name: true } }, category: { select: { name: true } } } }),
+      this.prisma.product.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const }, include: { business: { select: { name: true } }, category: { select: { name: true } }, images: { orderBy: { sortOrder: 'asc' as const }, take: 1, select: { mediaAsset: { select: { url: true } } } } } }),
       this.prisma.product.count({ where }),
     ]);
 
@@ -670,7 +670,7 @@ export class AdminService {
     }
 
     const [payouts, total] = await Promise.all([
-      this.prisma.payout.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const } }),
+      this.prisma.payout.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const }, include: { business: { select: { name: true } } } }),
       this.prisma.payout.count({ where }),
     ]);
 

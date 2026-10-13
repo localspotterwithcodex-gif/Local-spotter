@@ -1,0 +1,33 @@
+# LocalSpotter — Decisions & Conflicts Log
+
+Sources: **REQ** = Requirements Document – LocalSpotter v1.1 (1 Oct 2026, PDF) · **PROMPT** = `PROMPT.md` / `docs/*` · **CODE** = current repository.
+Precedence used: latest user decision → REQ → PROMPT/docs → CODE. Nothing below is implemented until the owner decides; non-conflicting work continues.
+
+| ID | Topic | REQ says | PROMPT/docs/CODE say | Impact | Recommendation | Blocks |
+|---|---|---|---|---|---|---|
+| D-001 | Multi-store checkout & order model | §6 FR-CART-05: one checkout, one payment; Customer Order split into per-store Merchant Orders (own fulfilment, returns, refunds, settlement) | CODE: `Order` has one `businessId`; cart/orders consumer-only. Docs 11-COMMERCE-SPEC not aligned | Schema migration (`customer_orders` + `merchant_orders`), order APIs, owner/admin views, payouts | Follow REQ: add CustomerOrder + MerchantOrder, keep existing `orders` as MerchantOrder via forward migration (no destructive reset) | Phase 6/7/8 order work |
+| D-002 | Guest checkout | §9 FR-GUEST-01/02: purchase without account; confirmation; optional account linking | CODE: `POST /orders`, `/cart` require `CONSUMER` | Guest cart (server or signed cookie), guest order contact fields, order lookup token, abuse/rate limits | Follow REQ: guest cart + order access via emailed signed link; link order on later signup | Phase 7 |
+| D-003 | Product returns | §13 returns centralised; §2/§33 "request returns" MUST; retailer "process returns" MUST; admin views refunds/returns | PROMPT §56 + `docs/01`, `docs/11`: **no product-return workflow in MVP**; only cancellation/refund | Whether to build return request/RMA, commission reversal (§14), return-shipping-cost rules (open item §35.5) | REQ is newer and is the stated precedence → implement returns **after** owner confirms; until then build only cancellation/refund | Phase 7–9 returns |
+| D-004 | Payment methods & provider | §8: Dutch-relevant methods incl. iDEAL; marketplace split payments (FR-PAY-06); provider TBD (§35.3) | PROMPT/docs 10: iDEAL, PayPal, **Tikkie** required; CODE enum IDEAL/PAYPAL/TIKKIE/CARD/BANK_TRANSFER/provider MOLLIE/STRIPE/PAYPAL/TIKKIE/MANUAL | Provider choice drives webhook, split payments (Mollie Connect / Stripe Connect), payouts | Owner picks marketplace PSP (Mollie Connect or Stripe Connect). Tikkie is not a checkout method on either; confirm intent | Phase 6 payments |
+| D-005 | Order status vocabulary | `new → paid → processing → ready/shipped → completed`, plus `cancelled`, `refunded` | CODE enum PENDING/CONFIRMED/PREPARING/READY/OUT_FOR_DELIVERY/DELIVERED/CANCELLED/REJECTED | Display labels, DB enum migration | Keep DB enum, add mapping layer + `REFUNDED`; do not rename applied enum values | Phase 6 |
+| D-006 | Commission, payouts | Configurable per store/plan/transaction type/category (BR-REV-01/02); weekly payout; reversals vs future payouts | CODE: env `PLATFORM_COMMISSION_PERCENTAGE=0`, unused; `Payout`, `BusinessLedgerEntry` exist | Needs commission-rule table, weekly payout job, ledger rules | Build rules table; exact % and reserves are owner inputs (§35.2/35.4) | Phase 9 |
+| D-007 | Product variants | §5: variants/size/colour optional | PROMPT narrower in places | Low | Keep existing `ProductVariant`; no change | — |
+| D-008 | Language | REQ silent on locale | CHANGELOG/code: `en`+`nl` scaffold; default state `en`; UI copy mostly Dutch; PROMPT: "may use English internally" | Which default (nl vs en) | Default **nl** (Dutch market), keep `en` option — please confirm | Phase 4 |
+| D-009 (resolved) | Shop-registration storage | — | CODE: widget → MongoDB via Next route; backend has Postgres `ShopRegistration` | Two stores | **Done:** widget now writes to PostgreSQL via the backend; Mongo route removed. Still open: whether to migrate existing Mongo leads | — |
+| D-010 (resolved) | Token storage | FR "securely log in" | CODE: localStorage + JS cookie | XSS exposure | **Done:** HttpOnly SameSite=Lax cookie + Origin check, same-origin via Next rewrite (`BACKEND_URL`) | — |
+
+## Open owner inputs (from REQ §35, still undecided)
+Subscription tiers/prices · commission % and exceptions · PSP · payout conditions/reserves · return policy & shipping-cost responsibility · workshop cancellation deadlines · 360°/3D technology · upload limits · chat/data retention · moderation procedure · notification channels · local delivery rules · tax/legal setup.
+
+
+## Decisions I need from you (nothing dependent on these has been built beyond the current backend behaviour)
+
+**D-001 Order model (customer order vs per-store merchant orders).** Options: (A) keep today's model — one cart/order per store (what runs now); (B) CustomerOrder + MerchantOrder per REQ FR-CART-05 (one checkout/payment, split fulfilment, refunds, settlement). B needs a schema migration (irreversible once data exists), new order APIs, owner/admin views and payout splitting. *Recommendation: B, since REQ says one checkout across stores and payouts depend on it, done as an additive forward migration with the current `orders` becoming merchant orders.* Until you decide: carts accept one store only.
+
+**D-002 Guest checkout.** (A) login required (current); (B) guest cart + order by email link (REQ FR-GUEST). B adds a guest cart store, order access tokens, abuse limits and later account linking. *Recommendation: B after D-001, because guest orders need the CustomerOrder identity.*
+
+**D-003 Returns.** (A) cancellation/refund only (docs/PROMPT); (B) return requests/RMA (REQ §13). B affects commission reversal and refund rules. *Recommendation: A for the first release, B once payments are live — but it is your policy decision.*
+
+**D-004 Payment provider.** (A) Mollie Connect (iDEAL-first, marketplace split payments); (B) Stripe Connect. Tikkie is not a checkout method on either; confirm whether you mean payment links outside checkout. Drives webhook signature verification, split payments and payouts, and decides how paid subscriptions are activated. *Recommendation: Mollie Connect for a Dutch iDEAL-centric marketplace; Stripe Connect if you need cards/PayPal breadth and mature payouts tooling.* Consequence of waiting: no real money moves; production subscriptions stay INCOMPLETE unless you set `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true`.
+
+**D-008 Default language — please answer: Dutch (`nl`) or English (`en`)?** Current resolution: saved choice → browser language → English. Options: (A) default `nl` with `en` switch (matches the Dutch market and the largely Dutch UI copy); (B) default `en`. *Recommendation: A.* I have not changed the default.

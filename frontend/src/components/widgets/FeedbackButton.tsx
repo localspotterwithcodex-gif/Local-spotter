@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MessageSquarePlus } from "lucide-react";
 
 const REGISTRATION_FORM_URL =
@@ -40,68 +40,48 @@ function defaultPosition(): Position {
  * remembered between visits via localStorage. A plain click/tap (no drag)
  * opens the Local Spotter shop-owner registration form in a new tab.
  */
+function subscribeNoop(): () => void {
+  return () => {};
+}
+
+/** Reads the saved position (or the default) — only ever called on the client. */
+function readInitialPosition(): Position {
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      return clampPosition(JSON.parse(saved) as Position);
+    } catch {
+      // fall through to default
+    }
+  }
+  return defaultPosition();
+}
+
 export const FeedbackButton: React.FC = () => {
-  const [position, setPosition] = useState<Position | null>(null);
+  // false during SSR/hydration, true afterwards — avoids reading `window`
+  // while rendering on the server without needing a setState-in-effect.
+  const isClient = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  const [dragPosition, setDragPosition] = useState<Position | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragMoved = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Restore a saved position (or fall back to bottom-right) once mounted,
-  // so we never read `window` during server rendering.
-  useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        setPosition(clampPosition(JSON.parse(saved) as Position));
-        return;
-      } catch {
-        // fall through to default
-      }
-    }
-    setPosition(defaultPosition());
-  }, []);
+  // Until the user has dragged/resized, the position is derived from storage.
+  const position: Position | null = dragPosition ?? (isClient ? readInitialPosition() : null);
 
   // Keep the button on-screen if the viewport is resized.
   useEffect(() => {
     function handleResize() {
-      setPosition((prev) => (prev ? clampPosition(prev) : prev));
+      setDragPosition((prev) => clampPosition(prev ?? readInitialPosition()));
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  const handlePointerMove = useCallback((event: PointerEvent) => {
-    dragMoved.current = true;
-    setPosition(
-      clampPosition({
-        x: event.clientX - dragOffset.current.x,
-        y: event.clientY - dragOffset.current.y,
-      }),
-    );
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent) => {
-      setIsDragging(false);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-
-      setPosition((prev) => {
-        const next = prev
-          ? clampPosition({
-              x: event.clientX - dragOffset.current.x,
-              y: event.clientY - dragOffset.current.y,
-            })
-          : prev;
-        if (next) {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        }
-        return next;
-      });
-    },
-    [handlePointerMove],
-  );
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -112,8 +92,37 @@ export const FeedbackButton: React.FC = () => {
       y: event.clientY - rect.top,
     };
     setIsDragging(true);
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    function pointToPosition(e: PointerEvent): Position {
+      return clampPosition({
+        x: e.clientX - dragOffset.current.x,
+        y: e.clientY - dragOffset.current.y,
+      });
+    }
+
+    function onMove(e: PointerEvent) {
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < DRAG_THRESHOLD && !dragMoved.current) return;
+      dragMoved.current = true;
+      setDragPosition(pointToPosition(e));
+    }
+
+    function onUp(e: PointerEvent) {
+      setIsDragging(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const next = pointToPosition(e);
+      setDragPosition(next);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // storage unavailable (private mode) — position just isn't remembered
+      }
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   function handleClick() {

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
@@ -14,10 +14,11 @@ export class RegisterDto {
   @ApiProperty({ example: 'Password123!', description: 'Minimum 8 characters' })
   @IsString()
   @MinLength(8, { message: 'Wachtwoord moet minimaal 8 tekens lang zijn' })
+  @MaxLength(72, { message: 'Wachtwoord mag maximaal 72 tekens lang zijn' })
   password: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.CONSUMER, description: 'CONSUMER or BUSINESS_OWNER' })
-  @IsEnum(UserRole, { message: 'Rol moet CONSUMER of BUSINESS_OWNER zijn' })
+  @IsIn([UserRole.CONSUMER, UserRole.BUSINESS_OWNER], { message: 'Rol moet CONSUMER of BUSINESS_OWNER zijn' })
   role: UserRole;
 
   @ApiProperty({ example: 'Sophie Vis', description: 'Public display name' })

@@ -2,10 +2,16 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShieldCheck, CreditCard, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
-import { MOCK_SUBSCRIPTION_PLANS } from "@/data/mock/subscriptions";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { getErrorMessage } from "@/lib/errors";
 import { formatCurrency } from "@/lib/utils";
 
 function SubscriptionPaymentContent() {
@@ -13,17 +19,67 @@ function SubscriptionPaymentContent() {
   const searchParams = useSearchParams();
   const planSlug = searchParams.get("plan") || "workshop";
 
-  const plan = MOCK_SUBSCRIPTION_PLANS.find((p) => p.slug === planSlug) || MOCK_SUBSCRIPTION_PLANS[2];
+  const plansRes = useApiResource("subscription-plans", () => api.getSubscriptionPlans());
+  const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
+  const plan = plansRes.data?.find((p) => p.slug === planSlug);
   const [paymentMethod, setPaymentMethod] = useState<"ideal" | "paypal" | "tikkie">("ideal");
   const [selectedBank, setSelectedBank] = useState("ING");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState("");
 
-  const handlePay = () => {
+  if (plansRes.loading || businessLoading) {
+    return (
+      <ConsumerLayout>
+        <LoadingState label="Betalingsgegevens laden..." />
+      </ConsumerLayout>
+    );
+  }
+  const loadError = plansRes.error ?? businessError;
+  if (loadError) {
+    return (
+      <ConsumerLayout>
+        <ErrorState message={loadError} onRetry={plansRes.error ? plansRes.reload : reloadBusiness} />
+      </ConsumerLayout>
+    );
+  }
+  if (!plan) {
+    return (
+      <ConsumerLayout>
+        <EmptyState
+          title="Abonnement niet gevonden"
+          description="Het gekozen abonnement bestaat niet (meer). Kies opnieuw een pakket."
+          actionLabel="Terug naar abonnementen"
+          onAction={() => router.push("/onboarding/subscription")}
+        />
+      </ConsumerLayout>
+    );
+  }
+  if (!business) {
+    return (
+      <ConsumerLayout>
+        <EmptyState
+          title="Nog geen winkel"
+          description="Registreer eerst je winkelgegevens voordat je een abonnement kiest."
+          actionLabel="Winkelgegevens invullen"
+          onAction={() => router.push("/onboarding/business")}
+        />
+      </ConsumerLayout>
+    );
+  }
+
+  const handlePay = async () => {
+    setError("");
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      // No payment provider is connected yet: this registers the chosen plan.
+      // The backend activates it only when payment is not required (non-production).
+      await api.selectPlan(business.id, plan.slug);
       router.push("/onboarding/success");
-    }, 800);
+    } catch (err) {
+      setError(getErrorMessage(err, "Abonnement bevestigen mislukt"));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const vatAmount = plan.monthlyPrice * 0.21;
@@ -148,10 +204,18 @@ function SubscriptionPaymentContent() {
           </div>
         </div>
 
-        {/* Security badge note */}
+        {/* Honest payment status note (no payment provider connected yet, decision D-004) */}
         <p className="text-[11px] text-[#B7B7B7] text-center">
-          🔒 Je betaling verloopt via een beveiligde SSL-verbinding. Wij slaan nooit je bank- of kaartgegevens op.
+          Online betalen is nog niet beschikbaar. Je pakket wordt geregistreerd en er wordt nu geen bedrag afgeschreven.
+          Het abonnement wordt actief zodra de betaling is verwerkt.
         </p>
+
+        {error && (
+          <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         <Button
           variant="primary"
@@ -161,7 +225,7 @@ function SubscriptionPaymentContent() {
           onClick={handlePay}
           className="gap-2 mt-4"
         >
-          BEVESTIG & BETAAL {formatCurrency(totalAmount)}
+          BEVESTIG PAKKET {plan.name.toUpperCase()}
         </Button>
       </div>
     </ConsumerLayout>

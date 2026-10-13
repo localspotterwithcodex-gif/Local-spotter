@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
   @ApiProperty({ example: 'token-uuid-1234', description: 'Password reset token' })
@@ -10,5 +10,6 @@ export class ResetPasswordDto {
   @ApiProperty({ example: 'NewPassword123!', description: 'New password (min 8 chars)' })
   @IsString()
   @MinLength(8, { message: 'Nieuw wachtwoord moet minimaal 8 tekens lang zijn' })
+  @MaxLength(72, { message: 'Wachtwoord mag maximaal 72 tekens lang zijn' })
   newPassword: string;
 }

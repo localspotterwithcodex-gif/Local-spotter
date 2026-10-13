@@ -23,9 +23,10 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Shop Routes')
-@Controller('shop-routes')
+@Controller()
 export class ShopRoutesController {
   constructor(private readonly shopRoutesService: ShopRoutesService) {}
 
@@ -40,6 +41,7 @@ export class ShopRoutesController {
     return this.shopRoutesService.getPublicRoutes(query);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('shop-routes/:routeId')
   @ApiOperation({ summary: 'Get shop route details by ID' })
   @ApiResponse({ status: 200, description: 'Shop route details.' })

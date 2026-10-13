@@ -5,8 +5,11 @@ export class UserPayloadDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty()
-  email: string;
+  @ApiProperty({ required: false, nullable: true })
+  email?: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  username?: string | null;
 
   @ApiProperty({ enum: UserRole })
   role: UserRole;
@@ -22,9 +25,6 @@ export class UserPayloadDto {
 }
 
 export class AuthResponseDto {
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-  accessToken: string;
-
   @ApiProperty({ type: UserPayloadDto })
   user: UserPayloadDto;
 }

@@ -169,7 +169,7 @@ const EMPTY_FORM: FormState = {
   biggestChallenge: "",
 };
 
-const COPY: Record<Language, any> = {
+const COPY = {
   en: {
     eyebrow: "Discover. Connect. Shop Local.",
     registration: "Shop Owner Registration",
@@ -439,7 +439,11 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors(({ [key as string]: _removed, ...rest }) => rest);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key as string];
+      return next;
+    });
   };
   const toggleFeature = (option: string) => {
     set("valuableFeatures", form.valuableFeatures.includes(option) ? form.valuableFeatures.filter((v) => v !== option) : [...form.valuableFeatures, option]);
@@ -490,18 +494,13 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
     setFormError("");
     setSubmitting(true);
     try {
-      // Same-origin route — handled by frontend/src/app/api/shop-registrations/route.ts,
-      // which stores the submission directly in MongoDB.
-      const response = await fetch("/api/shop-registrations", {
+      // Stored in PostgreSQL by the NestJS backend (POST /api/v1/shop-registrations, public + validated).
+      const response = await fetch("/api/v1/shop-registrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = (await response.json().catch(() => null)) as { success?: boolean; fieldErrors?: Record<string, string> } | null;
-      if (!response.ok || !data?.success) {
-        if (data?.fieldErrors) {
-          setErrors((prev) => ({ ...prev, ...data.fieldErrors }));
-        }
+      if (!response.ok) {
         setFormError(copy.validation.save);
         return;
       }
@@ -584,7 +583,7 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
               {/* Step indicator */}
               <ol className="flex items-center gap-2">
-                {copy.steps.map((item: any, index: number) => (
+                {copy.steps.map((item, index) => (
                   <li key={item.title} className="flex flex-1 items-center gap-2">
                     <span
                       className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${

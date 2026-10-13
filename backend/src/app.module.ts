@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { validateEnv } from './config/env.validation';
+import { MailModule } from './mail/mail.module';
+import { OriginCheckGuard } from './common/guards/origin-check.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -22,7 +26,9 @@ import { ShopRegistrationsModule } from './shop-registrations/shop-registrations
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnv,
     }),
+    MailModule,
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -40,5 +46,6 @@ import { ShopRegistrationsModule } from './shop-registrations/shop-registrations
     AdminModule,
     ShopRegistrationsModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: OriginCheckGuard }],
 })
 export class AppModule {}

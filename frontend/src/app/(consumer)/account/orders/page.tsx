@@ -1,29 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { ArrowLeft, ShoppingBag, Store } from "lucide-react";
+import { ArrowLeft, Store } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Order } from "@/types/order";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function ConsumerOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadOrders() {
-      setIsLoading(true);
-      const data = await api.getOrders({ consumerId: "cons-1" });
-      setOrders(data);
-      setIsLoading(false);
-    }
-    loadOrders();
-  }, []);
+  const { data, error, loading: isLoading, reload } = useApiResource("my-orders", () => api.getMyOrders());
+  const orders = data ?? [];
 
   return (
     <ConsumerLayout>
@@ -40,6 +31,8 @@ export default function ConsumerOrdersPage() {
 
         {isLoading ? (
           <LoadingState label="Bestellingen laden..." />
+        ) : error ? (
+          <ErrorState title="Bestellingen niet beschikbaar" message={error} onRetry={reload} />
         ) : orders.length === 0 ? (
           <EmptyState
             title="Nog geen bestellingen"
@@ -71,7 +64,7 @@ export default function ConsumerOrdersPage() {
                   {order.items.map((item) => (
                     <div key={item.id} className="flex justify-between items-center text-xs">
                       <span className="text-[#555555]">
-                        {item.quantity}x {item.productName} {item.variantColor ? `(${item.variantColor})` : ""}
+                        {item.quantity}x {item.productName} {item.variantSize ? `(${item.variantSize})` : ""}
                       </span>
                       <span className="font-bold text-[#111111]">{formatCurrency(item.totalPrice)}</span>
                     </div>

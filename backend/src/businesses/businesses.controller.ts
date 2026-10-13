@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { BusinessesService } from './businesses.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
+import { QueryBusinessDto } from './dto/query-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
@@ -21,6 +22,13 @@ export class BusinessesController {
   @ApiResponse({ status: 200, description: 'Active business categories.' })
   async getCategories() {
     return this.businessesService.getCategories();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Public list of active businesses with a running subscription' })
+  @ApiResponse({ status: 200, description: 'Public businesses.' })
+  async list(@Query() query: QueryBusinessDto) {
+    return this.businessesService.getPublicBusinesses(query);
   }
 
   @Post()

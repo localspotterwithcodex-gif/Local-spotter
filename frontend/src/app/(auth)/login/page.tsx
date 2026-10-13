@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Input } from "@/components/ui/Input";
@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { ApiError } from "@/lib/api/client";
-import { UserRole } from "@/types/user";
+import { routeForRole, safeRedirect } from "@/lib/auth/redirect";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const { t } = useLocale();
 
@@ -21,12 +22,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const redirectForRole = (role: UserRole) => {
-    if (role === "SUPER_ADMIN") router.push("/admin");
-    else if (role === "BUSINESS_OWNER") router.push("/owner");
-    else router.push("/products");
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +34,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const user = await login(identifier, password);
-      redirectForRole(user.role);
+      // Honour ?redirectTo= only when it is a safe same-origin path.
+      router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Inloggen is mislukt.");
     } finally {
@@ -108,5 +104,14 @@ export default function LoginPage() {
         </div>
       </div>
     </ConsumerLayout>
+  );
+}
+
+export default function LoginPage() {
+  // useSearchParams() needs a Suspense boundary for static prerendering.
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

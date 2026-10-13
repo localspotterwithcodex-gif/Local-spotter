@@ -9,6 +9,7 @@ import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { CreateShopRegistrationDto } from './dto/create-shop-registration.dto';
 import { ShopRegistrationsService } from './shop-registrations.service';
 
@@ -21,6 +22,8 @@ export class ShopRegistrationsController {
   // every page of the site posts to. No auth: the visitor filling it in is
   // (usually) not yet a registered user.
   @Post()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000 }) // public endpoint: limit spam per client
   @ApiOperation({ summary: 'Nieuwe shop-owner registratie (pilot aanmelding)' })
   @ApiResponse({ status: 201, description: 'Registratie opgeslagen' })
   async create(@Body() dto: CreateShopRegistrationDto) {

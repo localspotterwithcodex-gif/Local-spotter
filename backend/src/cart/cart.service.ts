@@ -11,6 +11,8 @@ import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { BusinessStatus } from '@prisma/client';
 
+import { getFlatShippingFee } from '../common/config/shipping';
+
 @Injectable()
 export class CartService {
   constructor(
@@ -47,7 +49,7 @@ export class CartService {
     });
 
     if (!cart) {
-      return { id: null, items: [], subtotal: 0, deliveryFee: 0, business: null };
+      return { id: null, items: [], subtotal: 0, deliveryFee: getFlatShippingFee(), business: null };
     }
 
     const items = cart.items.map((item) => {
@@ -68,7 +70,7 @@ export class CartService {
       business: cart.business,
       items,
       subtotal,
-      deliveryFee: 0,
+      deliveryFee: getFlatShippingFee(),
       createdAt: cart.createdAt,
       updatedAt: cart.updatedAt,
     };

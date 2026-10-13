@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { X, Search, MapPin, Sparkles } from "lucide-react";
-import { MOCK_PRODUCT_CATEGORIES } from "@/data/mock/products";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -47,6 +48,9 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   onSelectCity,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const categories = useApiResource(isOpen && mode === "products" ? "product-categories" : null, () =>
+    api.getProductCategories()
+  );
 
   if (!isOpen) return null;
 
@@ -138,22 +142,33 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
                 Product Categorieën
               </span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {MOCK_PRODUCT_CATEGORIES.filter((c) =>
-                  c.name.toLowerCase().includes(searchTerm.toLowerCase())
-                ).map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      onSelectCategory?.(cat.name);
-                      onClose();
-                    }}
-                    className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
+              {categories.loading ? (
+                <p className="text-xs text-[#B7B7B7]">Categorieën laden...</p>
+              ) : categories.error ? (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#F2D9DE]/50 border border-[#ED4C5C]/30">
+                  <p className="text-xs text-[#555555]">{categories.error}</p>
+                  <Button variant="outline" size="sm" onClick={categories.reload}>
+                    Opnieuw proberen
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {(categories.data ?? []).filter((c) =>
+                    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  ).map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        onSelectCategory?.(cat.name);
+                        onClose();
+                      }}
+                      className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

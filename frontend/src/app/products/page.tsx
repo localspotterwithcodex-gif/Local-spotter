@@ -1,35 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { Input } from "@/components/ui/Input";
 import { CategoryModal } from "@/components/modals/CategoryModal";
-import { ProductCardSkeleton, LoadingState } from "@/components/feedback/LoadingState";
+import { ProductCardSkeleton } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Product } from "@/types/product";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function ProductListingPage() {
-  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadProducts() {
-      setIsLoading(true);
-      const data = await api.getProducts({
-        category: selectedCategory || undefined,
-        query: searchQuery || undefined,
-      });
-      setProducts(data);
-      setIsLoading(false);
-    }
-    loadProducts();
-  }, [searchQuery, selectedCategory]);
+  const {
+    data,
+    error,
+    loading: isLoading,
+    reload,
+  } = useApiResource(`products:${selectedCategory ?? ""}:${searchQuery}`, () =>
+    api.getProducts({ category: selectedCategory || undefined, query: searchQuery || undefined })
+  );
+  const products = data ?? [];
 
   return (
     <ConsumerLayout>
@@ -76,6 +71,8 @@ export default function ProductListingPage() {
               <ProductCardSkeleton key={i} />
             ))}
           </div>
+        ) : error ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : products.length === 0 ? (
           <EmptyState
             title="Geen producten gevonden"

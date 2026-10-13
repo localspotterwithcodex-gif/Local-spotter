@@ -1,16 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { Star, Trash2 } from "lucide-react";
+import { Star, Trash2, Eye } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
-import { MOCK_REVIEWS } from "@/data/mock/reviews";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { adminApi } from "@/lib/api/admin";
+import { AdminPager } from "../_components/AdminPager";
+import { ActionError } from "../_components/ActionError";
+import { useAdminAction } from "../_components/useAdminAction";
+
+const PAGE_SIZE = 20;
 
 export default function AdminReviewsPage() {
-  const [reviews, setReviews] = useState(MOCK_REVIEWS);
-
-  const handleDelete = (id: string) => {
-    setReviews((prev) => prev.filter((r) => r.id !== id));
-  };
+  const [offset, setOffset] = useState(0);
+  const { data, error, loading, reload } = useApiResource(`admin-reviews-${offset}`, () =>
+    adminApi.getReviews({ limit: PAGE_SIZE, offset })
+  );
+  const action = useAdminAction(reload);
+  const reviews = data?.items ?? [];
 
   return (
     <AdminLayout>
@@ -20,30 +30,65 @@ export default function AdminReviewsPage() {
           <p className="text-xs text-[#B7B7B7]">Beheer en modereer geschreven reviews van consumenten</p>
         </div>
 
-        <div className="space-y-3">
-          {reviews.map((r) => (
-            <div key={r.id} className="bg-white p-4 rounded-2xl border border-[#EAEAEA] flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#111111]">{r.consumerName}</span>
-                  <div className="flex items-center text-[#D4B011]">
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <span className="text-xs font-bold ml-1">{r.rating}</span>
-                  </div>
-                </div>
-                {r.title && <h4 className="text-xs font-bold text-[#111111]">{r.title}</h4>}
-                <p className="text-xs text-[#555555]">{r.comment}</p>
-              </div>
+        <ActionError message={action.error} />
 
-              <button
-                onClick={() => handleDelete(r.id)}
-                className="p-2 text-[#ED4C5C] hover:bg-[#F2D9DE] rounded-xl transition-colors shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {error ? (
+          <ErrorState message={error} onRetry={reload} />
+        ) : loading ? (
+          <LoadingState />
+        ) : !data || reviews.length === 0 ? (
+          <EmptyState title="Geen reviews gevonden" description="Er zijn nog geen reviews geschreven." />
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((r) => {
+              const visible = r.status === "PUBLISHED" || r.status === "PENDING";
+              return (
+                <div
+                  key={r.id}
+                  className={`bg-white p-4 rounded-2xl border border-[#EAEAEA] flex items-start justify-between gap-4 ${visible ? "" : "opacity-60"}`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#111111]">{r.consumerName}</span>
+                      <div className="flex items-center text-[#D4B011]">
+                        <Star className="w-3.5 h-3.5 fill-current" />
+                        <span className="text-xs font-bold ml-1">{r.rating}</span>
+                      </div>
+                      <span className="text-[10px] text-[#B7B7B7]">
+                        {r.businessName} • {r.status}
+                      </span>
+                    </div>
+                    {r.title && <h4 className="text-xs font-bold text-[#111111]">{r.title}</h4>}
+                    <p className="text-xs text-[#555555]">{r.comment}</p>
+                  </div>
+
+                  {visible ? (
+                    <button
+                      onClick={() => action.run(r.id, () => adminApi.moderateReview(r.id, "HIDDEN"))}
+                      disabled={action.busyId !== null}
+                      className="p-2 text-[#ED4C5C] hover:bg-[#F2D9DE] rounded-xl transition-colors shrink-0 disabled:opacity-50"
+                      title="Verberg review"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => action.run(r.id, () => adminApi.moderateReview(r.id, "PUBLISHED"))}
+                      disabled={action.busyId !== null}
+                      className="p-2 text-[#3B9B52] hover:bg-[#CBF5D5] rounded-xl transition-colors shrink-0 disabled:opacity-50"
+                      title="Herstel review"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            <div className="bg-white rounded-2xl border border-[#EAEAEA] overflow-hidden empty:hidden">
+              <AdminPager meta={data.meta} onOffsetChange={setOffset} />
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

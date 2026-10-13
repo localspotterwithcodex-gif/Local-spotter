@@ -44,7 +44,7 @@ export class FollowersController {
   ): Promise<FollowStatusDto> {
     return this.followersService.followBusiness(
       param.businessId,
-      user.consumerProfileId,
+      user.profileId,
     );
   }
 
@@ -65,7 +65,7 @@ export class FollowersController {
   ): Promise<FollowStatusDto> {
     return this.followersService.unfollowBusiness(
       param.businessId,
-      user.consumerProfileId,
+      user.profileId,
     );
   }
 
@@ -85,7 +85,7 @@ export class FollowersController {
   ): Promise<FollowStatusDto> {
     return this.followersService.checkFollowStatus(
       param.businessId,
-      user.consumerProfileId,
+      user.profileId,
     );
   }
 
@@ -101,7 +101,7 @@ export class FollowersController {
     @CurrentUser() user: any,
   ): Promise<{ id: string; name: string; followed: boolean }[]> {
     return this.followersService.getFollowedBusinesses(
-      user.consumerProfileId,
+      user.profileId,
     );
   }
 }

@@ -28,6 +28,15 @@ export class SubscriptionsService {
     const now = new Date();
     const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
+    // No payment provider is integrated yet (decision D-004). Outside production the
+    // plan activates immediately so the app can be developed end to end. In production
+    // a selected plan stays INCOMPLETE (no entitlements, shop not publicly listed)
+    // until a verified payment activates it, unless an operator explicitly opts in
+    // with ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true (e.g. invoiced pilot customers).
+    const activateNow =
+      process.env.NODE_ENV !== 'production' || process.env.ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION === 'true';
+    const initialStatus = activateNow ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INCOMPLETE;
+
     const existingSub = await this.prisma.businessSubscription.findUnique({
       where: { businessId },
     });
@@ -37,7 +46,7 @@ export class SubscriptionsService {
         where: { businessId },
         data: {
           planId: plan.id,
-          status: SubscriptionStatus.ACTIVE,
+          status: initialStatus,
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
@@ -49,7 +58,7 @@ export class SubscriptionsService {
       data: {
         businessId,
         planId: plan.id,
-        status: SubscriptionStatus.ACTIVE,
+        status: initialStatus,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
         provider: PaymentProvider.MANUAL,

@@ -43,7 +43,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   deliveryAddress: DeliveryAddress;
-  paymentMethod: "ideal" | "paypal" | "tikkie";
+  paymentMethod?: "ideal" | "paypal" | "tikkie";
   createdAt: string;
   updatedAt: string;
 }

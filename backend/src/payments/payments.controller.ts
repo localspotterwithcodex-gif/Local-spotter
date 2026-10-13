@@ -7,6 +7,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { AuthUser } from '../common/types/auth-user';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -35,22 +39,22 @@ export class PaymentsController {
   // ==========================================
 
   @Post('payments/intent')
-  @Roles(UserRole.CONSUMER)
+  @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER)
   @ApiOperation({
-    summary: 'Create payment intent for order or workshop booking',
+    summary: 'Create payment intent for an order, workshop booking or business subscription',
     description:
-      'Create a payment record for a product order or workshop booking. ' +
-      'The payment starts in PENDING status and is updated via webhook.',
+      'The amount is derived server-side; any client-sent amount is rejected. ' +
+      'The payment starts in PENDING status and becomes PAID only via a verified provider webhook.',
   })
   @ApiResponse({ status: 201, description: 'Payment intent created.' })
   @ApiResponse({ status: 400, description: 'Invalid input data.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden (not the order owner or business owner).' })
   async createPaymentIntent(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
     @Body() dto: CreatePaymentIntentDto,
   ) {
-    return this.paymentsService.createPaymentIntent(user.id, dto);
+    return this.paymentsService.createPaymentIntent(user, dto);
   }
 
   // ==========================================
@@ -66,9 +70,9 @@ export class PaymentsController {
   @ApiResponse({ status: 404, description: 'Payment not found.' })
   async getPayment(
     @Param('paymentId') paymentId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.paymentsService.getPayment(paymentId, user.id);
+    return this.paymentsService.getPayment(paymentId, user);
   }
 
   // ==========================================
@@ -84,9 +88,9 @@ export class PaymentsController {
   @ApiResponse({ status: 404, description: 'Business not found.' })
   async getBusinessPayments(
     @Param('businessId') businessId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.paymentsService.getBusinessPayments(businessId, user.id);
+    return this.paymentsService.getBusinessPayments(businessId, user);
   }
 
   // ==========================================
@@ -97,15 +101,21 @@ export class PaymentsController {
   @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Process refund for a payment' })
   @ApiParam({ name: 'paymentId', description: 'Payment UUID' })
-  @ApiResponse({ status: 200, description: 'Refund processed.' })
+  @ApiResponse({ status: 200, description: 'Refund confirmed by the payment provider.' })
+  @ApiResponse({ status: 503, description: 'No payment provider configured / provider unavailable.' })
   @ApiResponse({ status: 400, description: 'Invalid refund amount or payment not paid.' })
   @ApiResponse({ status: 403, description: 'Forbidden (not the business owner or admin).' })
   @HttpCode(HttpStatus.OK)
   async processRefund(
-    @Param('paymentId') paymentId: string,
-    @Body('amount') amount: number,
-    @CurrentUser() user: any,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @Body() dto: RefundPaymentDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.paymentsService.processRefund(paymentId, amount, user.id);
+    return this.paymentsService.processRefund(paymentId, user, {
+      amount: dto.amount,
+      reason: dto.reason,
+      idempotencyKey: idempotencyKey?.slice(0, 128),
+    });
   }
 }

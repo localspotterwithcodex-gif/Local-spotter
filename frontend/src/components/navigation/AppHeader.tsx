@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Menu, Search, ShoppingBag, User as UserIcon, LogOut } from "lucide-react";
+import { Menu, ShoppingBag, LogOut } from "lucide-react";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useCart } from "@/features/cart/CartContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";

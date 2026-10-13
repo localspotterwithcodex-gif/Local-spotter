@@ -2,16 +2,22 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Crown, ArrowRight, ShieldCheck } from "lucide-react";
+import { Check, Crown, ArrowRight } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
-import { MOCK_SUBSCRIPTION_PLANS } from "@/data/mock/subscriptions";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 import { PlanSlug } from "@/types/subscription";
 import { formatCurrency } from "@/lib/utils";
 
 export default function SubscriptionSelectionPage() {
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<PlanSlug>("workshop");
+  const plansRes = useApiResource("subscription-plans", () => api.getSubscriptionPlans());
+  const plans = plansRes.data ?? [];
 
   const handleNext = () => {
     router.push(`/onboarding/subscription/payment?plan=${selectedPlan}`);
@@ -32,9 +38,15 @@ export default function SubscriptionSelectionPage() {
           </p>
         </div>
 
+        {plansRes.loading && <LoadingState label="Abonnementen laden..." />}
+        {plansRes.error && <ErrorState message={plansRes.error} onRetry={plansRes.reload} />}
+        {!plansRes.loading && !plansRes.error && plans.length === 0 && (
+          <EmptyState title="Geen abonnementen beschikbaar" description="Er zijn momenteel geen abonnementen om uit te kiezen." />
+        )}
+
         {/* 3 Subscription Plan Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {MOCK_SUBSCRIPTION_PLANS.map((plan) => {
+          {plans.map((plan) => {
             const isSelected = selectedPlan === plan.slug;
             const isPopular = plan.slug === "workshop";
 
@@ -103,7 +115,7 @@ export default function SubscriptionSelectionPage() {
 
         {/* Action Button */}
         <div className="flex justify-end pt-4 max-w-md mx-auto sm:max-w-none">
-          <Button variant="primary" size="lg" className="w-full sm:w-64 gap-2" onClick={handleNext}>
+          <Button variant="primary" size="lg" className="w-full sm:w-64 gap-2" onClick={handleNext} disabled={!plans.some((p) => p.slug === selectedPlan)}>
             NEXT <ArrowRight className="w-5 h-5" />
           </Button>
         </div>

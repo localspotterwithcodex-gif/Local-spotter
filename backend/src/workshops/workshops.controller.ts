@@ -27,9 +27,10 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Workshops')
-@Controller('workshops')
+@Controller()
 export class WorkshopsController {
   constructor(private readonly workshopsService: WorkshopsService) {}
 
@@ -44,6 +45,22 @@ export class WorkshopsController {
     return this.workshopsService.getPublicWorkshops(query);
   }
 
+  // NOTE: static `workshops/bookings` must be declared before `workshops/:workshopId`,
+  // otherwise Express matches 'bookings' as a workshopId.
+  @Get('workshops/bookings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get consumer own workshop bookings' })
+  @ApiResponse({ status: 200, description: 'List of consumer bookings.' })
+  async getConsumerBookings(
+    @CurrentUser() user: any,
+    @Query() query: QueryBookingDto,
+  ) {
+    return this.workshopsService.getConsumerBookings(user, query);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('workshops/:workshopId')
   @ApiOperation({ summary: 'Get public workshop details by ID' })
   @ApiResponse({ status: 200, description: 'Public workshop details.' })
@@ -141,19 +158,6 @@ export class WorkshopsController {
     @Body() dto: CreateBookingDto,
   ) {
     return this.workshopsService.createBooking(workshopId, user, dto);
-  }
-
-  @Get('workshops/bookings')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CONSUMER)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get consumer own workshop bookings' })
-  @ApiResponse({ status: 200, description: 'List of consumer bookings.' })
-  async getConsumerBookings(
-    @CurrentUser() user: any,
-    @Query() query: QueryBookingDto,
-  ) {
-    return this.workshopsService.getConsumerBookings(user, query);
   }
 
   @Get('workshops/bookings/:bookingId')

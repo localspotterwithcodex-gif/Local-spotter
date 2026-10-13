@@ -68,9 +68,15 @@ export class ReviewsService {
     }
 
     // Business owner can see all reviews, consumers can see published reviews
-    const where = business.ownerProfile.userId === user.id
-      ? {} // Owner sees all
-      : { status: ReviewStatus.PUBLISHED }; // Consumers only see published
+    // Only the owning user or a super admin may see unpublished reviews; everyone
+    // else gets published ones. Always scoped to THIS business.
+    const canSeeAll = user?.role === 'SUPER_ADMIN' || business.ownerProfile.userId === user?.id;
+    if (user?.role === 'BUSINESS_OWNER' && !canSeeAll) {
+      throw new ForbiddenException('Geen toegang tot reviews van dit bedrijf');
+    }
+    const where = canSeeAll
+      ? { businessId }
+      : { businessId, status: ReviewStatus.PUBLISHED };
 
     const reviews = await this.prisma.review.findMany({
       where,
@@ -108,5 +114,31 @@ export class ReviewsService {
         ratingDistribution,
       },
     };
+  }
+
+  /** Public read: published reviews only, no authentication required. */
+  async getPublicBusinessReviews(businessId: string) {
+    const reviews = await this.prisma.review.findMany({
+      where: { businessId, status: ReviewStatus.PUBLISHED, deletedAt: null },
+      include: {
+        consumerProfile: { select: { id: true, displayName: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const ratingCount = reviews.length;
+    const averageRating = ratingCount ? reviews.reduce((sum, r) => sum + r.rating, 0) / ratingCount : 0;
+    return {
+      reviews,
+      aggregation: { averageRating: Math.round(averageRating * 10) / 10, ratingCount },
+    };
+  }
+
+  /** The signed-in consumer's own reviews (any moderation status). */
+  async getConsumerReviews(consumerProfileId: string) {
+    return this.prisma.review.findMany({
+      where: { consumerProfileId, deletedAt: null },
+      include: { business: { select: { id: true, name: true, slug: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

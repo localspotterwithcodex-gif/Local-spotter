@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { CartProvider } from "@/features/cart/CartContext";
 import { LocaleProvider } from "@/i18n/LocaleContext";
+import { getInitialLocale } from "@/i18n/server-locale";
 import { FeedbackButton } from "@/components/widgets/FeedbackButton";
 import "./globals.css";
 
@@ -10,15 +11,16 @@ export const metadata: Metadata = {
   description: "Het platform voor lokale winkels, ambachtelijke producten, shoproutes en creatieve workshops in Nederland.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getInitialLocale();
   return (
-    <html lang="nl">
+    <html lang={locale}>
       <body>
-        <LocaleProvider>
+        <LocaleProvider initialLocale={locale}>
           <AuthProvider>
             <CartProvider>{children}</CartProvider>
           </AuthProvider>

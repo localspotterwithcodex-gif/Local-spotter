@@ -3,15 +3,16 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, CheckCircle2, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { Lock, CheckCircle2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { apiClient, ApiError } from "@/lib/api/client";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") || "demo-reset-token";
+  const token = searchParams.get("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,13 +25,16 @@ function ResetPasswordForm() {
   // Password validation rules
   const hasMinLength = password.length >= 8;
   const hasNumber = /\d/.exec(password) !== null;
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.exec(password) !== null;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    if (!token) {
+      setError("Deze herstellink is ongeldig. Vraag een nieuwe aan via 'Wachtwoord vergeten'.");
+      return;
+    }
     if (!hasMinLength) {
       setError("Wachtwoord moet minimaal 8 tekens lang zijn.");
       return;
@@ -41,10 +45,14 @@ function ResetPasswordForm() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await apiClient.post("/auth/reset-password", { token, newPassword: password });
       setIsSuccess(true);
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Wachtwoord wijzigen is mislukt.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

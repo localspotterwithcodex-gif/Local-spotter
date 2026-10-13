@@ -1,68 +1,93 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Star, Heart, Eye, ShoppingBag, ExternalLink, Store, Check, ArrowLeft } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Star, Heart, ShoppingBag, ExternalLink, Store, Check, ArrowLeft } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Product, ProductSize } from "@/types/product";
+import { ProductSize } from "@/types/product";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { getErrorMessage } from "@/lib/errors";
+import { useAuth } from "@/features/auth/AuthContext";
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/features/cart/CartContext";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = use(params);
   const { addItem } = useCart();
+  const { isAuthenticated, role } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const [product, setProduct] = useState<Product | null>(null);
+  const { data: product, error, loading: isLoading, reload } = useApiResource(`product:${productId}`, () =>
+    api.getProductById(productId)
+  );
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>("M");
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  // null = nothing chosen yet; the first variant is used as the default.
+  const [pickedSize, setPickedSize] = useState<ProductSize | null>(null);
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadProduct() {
-      setIsLoading(true);
-      const data = await api.getProductById(productId);
-      setProduct(data);
-      if (data?.variants && data.variants.length > 0) {
-        if (data.variants[0].colorName) setSelectedColor(data.variants[0].colorName);
-        if (data.variants[0].size) setSelectedSize(data.variants[0].size);
-      }
-      setIsLoading(false);
-    }
-    loadProduct();
-  }, [productId]);
+  const variants = product?.variants ?? [];
+  const selectedSize = pickedSize ?? variants[0]?.size ?? null;
+  const selectedColor = pickedColor ?? variants[0]?.colorName ?? null;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
-    // This is what actually drives the header cart badge count
-    // (PROMPT.md item 13/4) — previously this only flashed a fake
-    // "added" state without touching any cart state at all.
-    addItem({
-      id: `${product.id}-${selectedSize || ""}-${selectedColor || ""}`,
-      productId: product.id,
-      name: product.name,
-      image: product.images?.[0] || "",
-      businessName: product.businessName,
-      price: product.price,
-      quantity,
-      color: selectedColor || undefined,
-      size: selectedSize || undefined,
-    });
-    setIsAdded(true);
-    setTimeout(() => setIsAdded(false), 2500);
+    if (!isAuthenticated) {
+      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    if (role !== "CONSUMER") {
+      setAddError("Alleen consumenten kunnen producten in de winkelwagen plaatsen.");
+      return;
+    }
+
+    let variantId: string | undefined;
+    if (variants.length > 0) {
+      const match = variants.find(
+        (v) => (v.size ?? null) === selectedSize && (v.colorName ?? null) === selectedColor
+      );
+      if (!match) {
+        setAddError("Deze combinatie van maat en kleur is niet beschikbaar.");
+        return;
+      }
+      variantId = match.id;
+    }
+
+    setIsAdding(true);
+    setAddError(null);
+    try {
+      await addItem({ businessId: product.businessId, productId: product.id, variantId, quantity });
+      setIsAdded(true);
+      window.setTimeout(() => setIsAdded(false), 2500);
+    } catch (err) {
+      setAddError(getErrorMessage(err, "Toevoegen aan winkelwagen is mislukt."));
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   if (isLoading) {
     return (
       <ConsumerLayout>
         <LoadingState label="Product details laden..." />
+      </ConsumerLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <ConsumerLayout>
+        <ErrorState title="Product niet beschikbaar" message={error} onRetry={reload} />
       </ConsumerLayout>
     );
   }
@@ -78,7 +103,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     );
   }
 
-  const sizes: ProductSize[] = ["S", "M", "L", "XL", "XXL"];
+  const allSizes: ProductSize[] = ["S", "M", "L", "XL", "XXL"];
+  const sizes = allSizes.filter((sz) => variants.some((v) => v.size === sz));
+  const colorVariants = variants.filter(
+    (v, idx) => v.colorName && variants.findIndex((o) => o.colorName === v.colorName) === idx
+  );
 
   return (
     <ConsumerLayout>
@@ -167,13 +196,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               </p>
 
               {/* Size Selector */}
+              {sizes.length > 0 && (
               <div className="space-y-2 pt-2">
                 <span className="text-xs font-bold text-[#111111] block">Selecteer Maat:</span>
                 <div className="flex gap-2">
                   {sizes.map((sz) => (
                     <button
                       key={sz}
-                      onClick={() => setSelectedSize(sz)}
+                      onClick={() => setPickedSize(sz)}
                       className={`w-10 h-10 rounded-xl text-xs font-bold transition-all ${
                         selectedSize === sz
                           ? "bg-[#FA1EFF] text-white shadow-xs"
@@ -185,20 +215,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   ))}
                 </div>
               </div>
+              )}
 
               {/* Color Swatch Selector */}
-              {product.variants && product.variants.some((v) => v.colorName) && (
+              {colorVariants.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-[#111111] block">
                     Kleur: {selectedColor}
                   </span>
                   <div className="flex gap-2">
-                    {product.variants.map(
+                    {colorVariants.map(
                       (v) =>
                         v.colorName && (
                           <button
                             key={v.id}
-                            onClick={() => setSelectedColor(v.colorName || null)}
+                            onClick={() => setPickedColor(v.colorName || null)}
                             className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
                               selectedColor === v.colorName ? "border-[#FA1EFF] scale-110" : "border-transparent"
                             }`}
@@ -234,11 +265,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
 
             {/* CTA Buttons */}
             <div className="space-y-3 pt-4 border-t border-[#EAEAEA]">
+              {addError && (
+                <div role="alert" className="bg-[#F2D9DE]/50 border border-[#ED4C5C]/30 text-[#555555] text-xs rounded-2xl p-3">
+                  {addError}
+                </div>
+              )}
+
               <Button
                 variant="primary"
                 size="lg"
                 fullWidth
                 onClick={handleAddToCart}
+                isLoading={isAdding}
                 className="gap-2"
               >
                 {isAdded ? (

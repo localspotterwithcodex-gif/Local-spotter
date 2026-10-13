@@ -1,29 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Search, MapPin } from "lucide-react";
+import React, { useState } from "react";
+import { MapPin } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ShoprouteCard } from "@/components/cards/ShoprouteCard";
-import { Input } from "@/components/ui/Input";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Shoproute } from "@/types/shoproute";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function ShoproutesListingPage() {
-  const [routes, setRoutes] = useState<Shoproute[]>([]);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadRoutes() {
-      setIsLoading(true);
-      const data = await api.getShoproutes({ city: selectedCity || undefined });
-      setRoutes(data);
-      setIsLoading(false);
-    }
-    loadRoutes();
-  }, [selectedCity]);
+  const { data, error, loading: isLoading, reload } = useApiResource(`shoproutes:${selectedCity ?? ""}`, () =>
+    api.getShoproutes({ city: selectedCity || undefined })
+  );
+  const routes = data ?? [];
 
   const cities = ["Delft", "Rotterdam", "Utrecht", "Amsterdam"];
 
@@ -62,6 +54,8 @@ export default function ShoproutesListingPage() {
 
         {isLoading ? (
           <LoadingState label="Shoproutes laden..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : routes.length === 0 ? (
           <EmptyState
             title="Geen shoproutes gevonden"

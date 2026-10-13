@@ -1,33 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Search, MapPin } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { Input } from "@/components/ui/Input";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Business } from "@/types/business";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function BusinessListingPage() {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadBusinesses() {
-      setIsLoading(true);
-      const data = await api.getBusinesses({
-        query: searchQuery || undefined,
-        city: selectedCity || undefined,
-      });
-      setBusinesses(data);
-      setIsLoading(false);
-    }
-    loadBusinesses();
-  }, [searchQuery, selectedCity]);
+  const {
+    data,
+    error,
+    loading: isLoading,
+    reload,
+  } = useApiResource(`businesses:${selectedCity ?? ""}:${searchQuery}`, () =>
+    api.getBusinesses({ query: searchQuery || undefined, city: selectedCity || undefined })
+  );
+  const businesses = data ?? [];
 
   const cities = ["Delft", "Rotterdam", "Horn", "Utrecht"];
 
@@ -77,6 +72,8 @@ export default function BusinessListingPage() {
 
         {isLoading ? (
           <LoadingState label="Winkels laden..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : businesses.length === 0 ? (
           <EmptyState
             title="Geen winkels gevonden"

@@ -1,19 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
-import { Users, Search, ShieldCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { adminApi } from "@/lib/api/admin";
+import { formatDate } from "@/lib/utils";
+import { AdminPager } from "../_components/AdminPager";
+import { ActionError } from "../_components/ActionError";
+import { useAdminAction } from "../_components/useAdminAction";
+
+const PAGE_SIZE = 20;
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [offset, setOffset] = useState(0);
 
-  const users = [
-    { id: "u-1", name: "Sanne de Jong", email: "sanne@example.nl", role: "CONSUMER", date: "12 jan 2024" },
-    { id: "u-2", name: "Karel (Bag Shop)", email: "info@bagshop-horn.nl", role: "BUSINESS_OWNER", date: "15 jan 2024" },
-    { id: "u-3", name: "Admin LocalSpotter", email: "admin@localspotter.nl", role: "SUPER_ADMIN", date: "01 jan 2024" },
-  ];
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const { data, error, loading, reload } = useApiResource(`admin-users-${query}-${offset}`, () =>
+    adminApi.getUsers({ search: query, limit: PAGE_SIZE, offset })
+  );
+  const action = useAdminAction(reload);
+  const users = data?.items ?? [];
 
   return (
     <AdminLayout>
@@ -34,35 +56,78 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
-                <tr>
-                  <th className="p-4">Naam</th>
-                  <th className="p-4">E-mailadres</th>
-                  <th className="p-4">Rol</th>
-                  <th className="p-4">Geregistreerd</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F9F9F9]">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                    <td className="p-4 font-bold text-[#111111]">{u.name}</td>
-                    <td className="p-4 text-[#555555]">{u.email}</td>
-                    <td className="p-4">
-                      <Badge variant={u.role === "SUPER_ADMIN" ? "pink" : u.role === "BUSINESS_OWNER" ? "completed" : "default"}>
-                        {u.role}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-[#B7B7B7]">{u.date}</td>
+        <ActionError message={action.error} />
+
+        {error ? (
+          <ErrorState message={error} onRetry={reload} />
+        ) : loading ? (
+          <LoadingState />
+        ) : !data || users.length === 0 ? (
+          <EmptyState title="Geen gebruikers gevonden" description="Pas je zoekopdracht aan of probeer het later opnieuw." />
+        ) : (
+          <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
+                  <tr>
+                    <th className="p-4">Naam</th>
+                    <th className="p-4">E-mailadres</th>
+                    <th className="p-4">Rol</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Geregistreerd</th>
+                    <th className="p-4 text-right">Actie</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#F9F9F9]">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
+                      <td className="p-4 font-bold text-[#111111]">{u.displayName}</td>
+                      <td className="p-4 text-[#555555]">{u.email}</td>
+                      <td className="p-4">
+                        <Badge variant={u.role === "SUPER_ADMIN" ? "pink" : u.role === "BUSINESS_OWNER" ? "completed" : "default"}>
+                          {u.role}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={u.status === "ACTIVE" ? "completed" : u.status === "SUSPENDED" ? "cancelled" : "processing"}>
+                          {u.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-[#B7B7B7]">{formatDate(u.createdAt)}</td>
+                      <td className="p-4 text-right">
+                        {u.role !== "SUPER_ADMIN" &&
+                          (u.status === "SUSPENDED" ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              isLoading={action.busyId === u.id}
+                              disabled={action.busyId !== null}
+                              onClick={() => action.run(u.id, () => adminApi.setUserStatus(u.id, "ACTIVE"))}
+                              className="h-7 text-[11px]"
+                            >
+                              Activeren
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              isLoading={action.busyId === u.id}
+                              disabled={action.busyId !== null}
+                              onClick={() => action.run(u.id, () => adminApi.setUserStatus(u.id, "SUSPENDED"))}
+                              className="h-7 text-[11px] text-[#ED4C5C]"
+                            >
+                              Blokkeren
+                            </Button>
+                          ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <AdminPager meta={data.meta} onOffsetChange={setOffset} />
           </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
   );

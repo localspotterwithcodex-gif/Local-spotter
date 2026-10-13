@@ -1,25 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requiredRoleForPath, routeForRole } from "@/lib/auth/redirect";
+import type { UserRole } from "@/types/user";
 
 /**
- * Route guard (PROMPT.md item 6): protected routes (owner/admin dashboards,
- * account, cart, checkout, onboarding) require authentication — opening one
- * while signed out redirects to /login first. This only checks presence of
- * a token — it cannot verify the JWT's signature/role at the edge without
- * calling the backend, so it is a UX convenience, NOT the real authorization
- * boundary. The real boundary is backend/src/common/guards/jwt-auth.guard.ts
- * (and a role guard) on every protected NestJS endpoint.
+ * Route guard. Protected areas (owner/admin/account/cart/checkout/onboarding)
+ * need a session; /owner, /admin and /account additionally need the matching
+ * role. The session is the HttpOnly `ls_session` cookie issued by the backend.
  *
- * The public catalog — Products, Local Shops (businesses), Shop Routes,
- * and Workshops — is intentionally excluded here. Every role (guest,
- * consumer, business owner, admin) can browse these without being bounced
- * to /login: the backend controllers for these GET endpoints (see
- * backend/src/{products,businesses,shoproutes,workshops}/*.controller.ts)
- * carry no `@UseGuards(JwtAuthGuard)` — they're public reads by design — so
- * gating them behind a login wall here was stricter than the API itself and
- * is what caused an already-authenticated owner/admin/consumer to be sent
- * back to /login when clicking Products/Local Shops/Shop Routes/Workshops
- * from any portal.
+ * IMPORTANT: this runs at the edge and only *reads* the JWT claims (role, exp)
+ * to route the user without a flash of the wrong portal. It does NOT verify the
+ * signature — the backend (JwtAuthGuard + RolesGuard + ownership checks on every
+ * endpoint) is the real authorization boundary. A forged cookie gets a page
+ * shell at best and 401/403 from every API call.
  */
+const SESSION_COOKIE = "ls_session";
+
 const PUBLIC_PATHS = [
   "/login",
   "/signup",
@@ -31,23 +26,60 @@ const PUBLIC_PATHS = [
   "/workshops",
 ];
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+const AUTH_PAGES = ["/login", "/signup"];
 
-  const isPublic =
-    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+function matches(pathname: string, prefixes: string[]) {
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function readClaims(token: string | undefined): { role: UserRole; exp?: number } | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const json = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+    const claims = JSON.parse(json) as { role?: UserRole; exp?: number };
+    if (!claims.role) return null;
+    if (claims.exp && claims.exp * 1000 < Date.now()) return null;
+    return { role: claims.role, exp: claims.exp };
+  } catch {
+    return null;
+  }
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname === "/favicon.ico" ||
-    /\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|map)$/.test(pathname);
+    /\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|map)$/.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
 
-  if (isPublic) return NextResponse.next();
+  const claims = readClaims(request.cookies.get(SESSION_COOKIE)?.value);
 
-  const token = request.cookies.get("localspotter_token")?.value;
-  if (!token) {
+  // Signed-in users have no business on the login/signup pages.
+  if (claims && matches(pathname, AUTH_PAGES)) {
+    return NextResponse.redirect(new URL(routeForRole(claims.role), request.url));
+  }
+
+  if (pathname === "/" || matches(pathname, PUBLIC_PATHS)) return NextResponse.next();
+
+  if (!claims) {
     const loginUrl = new URL("/login", request.url);
-    if (pathname !== "/") loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
+    loginUrl.searchParams.set("redirectTo", `${pathname}${search}`);
+    const res = NextResponse.redirect(loginUrl);
+    // Drop an expired/garbage cookie so the browser stops sending it.
+    if (request.cookies.get(SESSION_COOKIE)) res.cookies.delete(SESSION_COOKIE);
+    return res;
+  }
+
+  const required = requiredRoleForPath(pathname);
+  if (required && claims.role !== required) {
+    return NextResponse.redirect(new URL(routeForRole(claims.role), request.url));
   }
 
   return NextResponse.next();

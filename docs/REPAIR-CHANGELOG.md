@@ -1,0 +1,127 @@
+# LocalSpotter — Repair Changelog (Phase 1–7 repair round)
+
+Date: 2026-10-13. Each entry: root cause · files · test command · **actual result** · remaining limitation.
+"Sandbox" = the Linux VM used for this work (cannot download Prisma engines/npm audit data, cannot run the Windows-built `next build`). Backend specs were run there with `ts-jest` `isolatedModules` (type checking skipped, because your `node_modules` holds a Prisma client generated from the old schema) — run `npm test` locally after `npx prisma generate` for the full type-checked run.
+
+## A. Frontend lint / types (Phase 1)
+
+| # | Root cause | Files | Result | Remaining |
+|---|---|---|---|---|
+| A1 | Unescaped quotes in JSX | `(consumer)/account/reviews/page.tsx` | `eslint` 0 errors | — |
+| A2 | `Math.random` + `MOCK_PRODUCTS` rendered in checkout success (impure render, fake data) | `(consumer)/checkout/success/page.tsx` | now fetches the real order by `?orderId=`; lint clean | Payment still shown as "not yet processed" (D-004) |
+| A3 | `catch (err: any)` / `any` props | owner orders, owner products/new, workshop detail, home page, `ShopRegistrationModal`; new `lib/errors.ts` | lint clean | — |
+| A4 | `FeedbackButton` set state in effect / unstable callbacks | `components/widgets/FeedbackButton.tsx` (`useSyncExternalStore`, local handlers) | lint clean | Behaviour not browser-tested |
+| A5 | `AuthContext` set state synchronously in an effect | `features/auth/AuthContext.tsx` (async fetch, cancel flag) | lint clean | — |
+| A6 | `LocaleProvider` initialised to `"en"` in an effect (hydration mismatch, `<html lang="nl">`) | `i18n/LocaleContext.tsx`, new `i18n/server-locale.ts`, `app/layout.tsx` | lint clean | Default language still pending your decision (D-008) |
+| A7 | Unused imports/vars (9) | reset-password, WorkshopCard, AppHeader, TopNav, ShopRegistrationModal | lint clean | `showBack` prop left (public prop of `AppHeader`) |
+
+Commands (frontend): `npm run typecheck` → **exit 0** · `npx eslint src` → **0 errors, 5 warnings** (baseline 13 errors / 90 warnings; the 5: three `<img>` for the logo, one unused public prop, one deliberate `window.location.assign("/login")` for a full-state reset on logout) · `npm test` (new, Node built-in runner) → **8 pass / 0 fail**.
+**`npm run build` was NOT run** – the Next/SWC native binary in your `node_modules` is the Windows build and cannot execute in the sandbox. Please run it locally (see "Commands for you").
+**npm vulnerabilities (9: 8 high, 1 critical): NOT investigated** – `npm audit` returns 403 from the sandbox. Run `npm audit` locally and review each advisory; do **not** run `npm audit fix --force` blindly (it can jump major versions of Next/ESLint). Prefer `npm audit fix` (non-forced), then upgrade direct dependencies one by one.
+
+## B. Payments (31 failing tests → 46 passing)
+
+Root causes (from the failing specs): user id vs profile id confusion; `CreatePaymentIntentDto` had no validators (with `whitelist` the endpoint always 400'd); client-supplied amount / `unitPrice` used instead of server-derived `totalAmount`; no refund validation; refund never contacted a provider; controller roles blocked owners from paying subscriptions; inconsistent fixtures.
+Files: `payments/payments.service.ts`, `payments.controller.ts`, `payments.module.ts`, `payment-gateway.ts` (provider abstraction), `dto/create-payment-intent.dto.ts`, `dto/refund-payment.dto.ts`, `payments.service.spec.ts`, `common/types/auth-user.ts`.
+Behaviour now: purpose/entity-id validation; ownership + role checks (consumer/owner/Super Admin); amount derived server-side from the order/booking/plan; refund validation (status, currency, positive amount, over-refund guard incl. partial refunds); refunds reserve inside a transaction with `SELECT … FOR UPDATE`, require an idempotency key, are written to the ledger + audit log, and only become *completed* after the provider confirms; provider failures leave the refund `FAILED`/reservation released; duplicate requests are idempotent. No security check was removed or weakened.
+Test: `npx jest --preset ts-jest src/payments` → **46 passed** (sandbox).
+Remaining: **no real PSP is integrated** (D-004) – `payment-gateway.ts` is the seam; a signed webhook endpoint (FR-PAY-03/07) must be added with the chosen provider. Orders therefore stay `paymentStatus=PENDING` and the UI says so.
+
+## C. Authentication & session security (Phase 4)
+
+| Fix | Detail | Files |
+|---|---|---|
+| No JWT secret fallback | `JWT_SECRET` required (≥32 chars), app refuses to boot otherwise (`env.validation.ts`) | `config/env.validation.ts`, `auth.module.ts`, `jwt.strategy.ts` |
+| HttpOnly cookie session | `ls_session` HttpOnly, SameSite=Lax, Secure in production; access token never in a response body; frontend holds no token | `auth/utils/session-cookie.ts`, `auth.controller.ts`, `lib/api/client.ts`, `AuthContext.tsx` |
+| CSRF | `OriginCheckGuard`: cookie-authenticated state-changing requests need an allowed Origin/Referer (global `APP_GUARD`) | `common/guards/origin-check.guard.ts`, `app.module.ts` |
+| Secure OTP | CSPRNG 6-digit code, stored as HMAC, expiry, max 5 attempts then locked (`verification_attempts`), timing-safe compare, never logged | `auth.service.ts`, migration `20261013120000_auth_verification_attempts` |
+| Delivery | `MailProvider` abstraction; `dev-file` transport writes to `.dev-outbox/` (git-ignored) for local development; production without a configured provider returns 503 instead of pretending to send | `mail/*`, `.gitignore` |
+| Reset password | hashed single-use token, newest link only, expiry; frontend pages now call the API (they were `setTimeout` fakes with a `demo-reset-token` default) | `auth.service.ts`, `forgot-password/page.tsx`, `reset-password/page.tsx` |
+| Rate limiting | per-IP/identifier limits on register/login/verify/resend/forgot/reset/shop-registration (in-memory) | `common/guards/rate-limit.guard.ts` |
+| Roles | enforced by `JwtAuthGuard`+`RolesGuard` on the backend (unchanged mechanism); edge middleware now also routes by role | `middleware.ts` |
+| Redirects | `redirectTo` honoured only for same-origin relative paths; signed-in users are bounced off /login and /signup; role landing pages | `lib/auth/redirect.ts`, `login/page.tsx` |
+| Same-origin API | browser calls `/api/v1/*`, Next rewrites to `BACKEND_URL` so the cookie is first-party on Vercel+Render | `next.config.ts`, `frontend/.env.example` |
+
+Tests: `src/auth` + `src/common` → **26 passed** (login, wrong password, verification success/expiry/attempt-lock/replay, resend, reset expiry & reuse, secret handling, rate-limit and origin guards, DTO password rules). Frontend `redirect.test.ts` → pass. The cross-portal suite (E) additionally asserts cookie flags, no token in body, 401/403 behaviour, CSRF block.
+Remaining: rate limiting is per process (use Redis/edge limiter when running >1 instance); no refresh-token/revocation (7-day cookie JWT) – acceptable for MVP, revisit before scale; SMS delivery has no provider (email only) – **your existing `backend/.env` must get a strong `JWT_SECRET` (I did not edit it)**.
+
+## D. Database, routes (Phase 5)
+
+* **Route prefixes** (LS-003): `ShopRoutesController` and `WorkshopsController` repeated their prefix (`/shop-routes/shop-routes`, `/workshops/workshops`). Now `GET /shop-routes`, `GET /workshops`, … `GET /workshops/bookings` is declared before `GET /workshops/:workshopId` (it was shadowed). Reviews controller (`GET /businesses` with a missing `:businessId`, reading a non-existent `user.consumerProfileId`, and returning reviews of *all* businesses) → `POST/GET /businesses/:id/reviews`, `GET …/reviews/manage`, `GET /reviews/mine`, scoped to the business. Followers controller used the same non-existent `consumerProfileId` → `profileId`. Test: `src/routes.spec.ts` (no doubled prefixes, no duplicates, no param-route shadowing a later static route) → **4 passed**.
+* **New endpoint** `GET /businesses` (public list, ACTIVE + running subscription) – the Local Shops page had no backend source.
+* **Privacy fixes**: public `GET /workshops/:id` returned all attendees' names and the business's KvK/contact/subscription → stripped for non-owners. Reviews list previously leaked other businesses' reviews.
+* **Subscription integrity**: `selectPlan` activated any plan for free (`MANUAL`). Outside production unchanged (dev convenience); in production the subscription stays `INCOMPLETE` (no entitlements/not listed) unless `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true` or a verified payment activates it.
+* **Migration drift** (LS-011): `schema.prisma` had objects missing from migrations (`users.username`, `verification_code`, `verification_code_expires_at`, `businesses.address`, table `shop_registrations`). New forward-only, idempotent `20261013130000_schema_drift_catchup` (all `IF NOT EXISTS`, nothing dropped). Found by comparing table/column names between the schema and the SQL; **`prisma migrate diff/deploy` could not be run in the sandbox** – run `npx prisma migrate status` and `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url …` locally to confirm there is no remaining drift (types/indexes were not compared by my script).
+* **Shop registrations** (LS-010): widget now posts to `POST /api/v1/shop-registrations` (PostgreSQL, validated, rate limited). The MongoDB Next route, `lib/mongodb.ts` and the zod schema were removed. Existing Mongo leads are **not** migrated (export them from Mongo if you need them). `mongodb` and `zod` are still listed in `frontend/package.json` – remove with `npm uninstall mongodb zod` locally (I did not touch the lockfile).
+* Workshop DTOs: `@Min(3)` on the string `title` made every create/update fail validation → `@MinLength(3)`.
+* Commands: `npx prisma validate` / `generate` / `migrate` → **NOT RUN** (blocked); backend `tsc` → only errors are `verificationAttempts` missing from your stale generated client (disappear after `npx prisma generate`); backend jest (isolatedModules harness) → **13 suites, 250 tests passed**.
+
+## E. Real data in all portals (Phase 3) and cross-portal verification (Phase 6)
+
+* `frontend/src/lib/api/index.ts` rewritten: every method is a real HTTP call; `mappers.ts` converts Prisma shapes (decimal strings, nested images/category, enums); `useApiResource` gives loading/error/retry; `useMyBusiness` replaces `bus-1`; `adminApi` (`lib/api/admin.ts`) for the admin portal. `data/mock/*` deleted. Plan marketing copy moved to `content/plan-features.ts` (prices/availability come from the API).
+* Consumer: server-backed cart, checkout creates a real order, success page shows it, order history, reviews, following, profile. Public catalogue (home, products, shops, workshops, shop routes) from the API. Owner: dashboard stats, orders (backend transition rules, rejected transitions show the backend message), products incl. variants, workshops, bookings, settings/hours, shop-route location, subscription, onboarding. Admin: dashboard, users, businesses (approve/suspend), orders, products/reviews moderation, subscriptions, payments, payouts. All writes go through Prisma-backed endpoints.
+* `test/cross-portal.e2e-spec.ts` (real PostgreSQL, no mocks; skipped unless `TEST_DATABASE_URL` is set): auth cookie flags, CSRF, roles; owner publishes product → public catalogue → consumer orders → owner/admin see it → status propagates; other consumer/owner cannot read it; deactivated product disappears; pending business hidden until admin approves; workshop publish → booking → capacity → privacy of attendees/bookings. **Written and type-checked, but NOT executed** (no database in the sandbox). Run: see "Commands for you".
+* Verification performed on the frontend was static only (typecheck, lint, grep for mocks/ids). **No page has been clicked through against a running backend.**
+
+## F. Language (Phase 7)
+Locale resolved on the server (cookie → Accept-Language → `en`), one provider for all portals, persisted in the `localspotter_locale` cookie, `<html lang>` follows it. New test `i18n/dictionaries.test.ts` fails when an `en` key lacks an `nl` translation (or vice-versa) → pass. Coverage: only 10 of 44 pages use `useLocale`; the rest is hard-coded Dutch. **Default language not chosen – needs your answer (D-008).**
+
+## Commands for you (run locally)
+> **Warning:** `schema.prisma` has `directUrl = env("DIRECT_URL")`. Prisma migrate uses it, so never run migrate with only `DATABASE_URL` overridden. Use the `db:test:*` scripts (they override both and refuse a URL on the production server). Earlier instructions that overrode only `DATABASE_URL` were unsafe.
+```
+cd backend
+npx prisma validate && npx prisma generate
+npx prisma migrate status            # then: npx prisma migrate deploy
+npm test && npm run build
+npm run db:test:status && npm run db:test:migrate   # test DB only: overrides BOTH DATABASE_URL and DIRECT_URL
+npm run test:e2e                                      # same wrapper; refuses to run against the production server
+cd ../frontend
+npm run typecheck && npm run lint && npm test && npm run build
+npm audit        # review, do not run `audit fix --force`
+```
+New/changed environment (see `backend/.env.example`, `frontend/.env.example`): backend `JWT_SECRET` (≥32 chars, required), `MAIL_TRANSPORT=dev-file` for local, `FRONTEND_URL`, `CORS_ORIGIN`, `COOKIE_SECURE`, `TRUST_PROXY`, optional `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION`; frontend `BACKEND_URL` (server-side; replaces `NEXT_PUBLIC_API_URL`).
+
+## G. Follow-up round (after your local verification)
+
+* **Evidence from files on disk** (I cannot read your terminal): Prisma client regenerated and contains `verificationAttempts`; `backend/dist` produced by `nest build`; `frontend/.next/BUILD_ID` written (only after a completed `next build`). Exit codes and test output of your runs were not visible to me – paste them to confirm.
+* Backend `tsc --noEmit` (including `test/`) against the regenerated client: **exit 0** (re-run by me). Frontend `tsc` exit 0, `eslint` 0 errors / 5 warnings, `npm test` 8 pass (re-run by me).
+* **Safety fix – test database:** `prisma migrate` uses `directUrl` (`DIRECT_URL`), so overriding only `DATABASE_URL` could migrate production. New `backend/scripts/with-test-db.mjs` overrides both, derives the non-pooled host, refuses to run when the test URL is on the same server as `DATABASE_URL`/`DIRECT_URL`, and never prints credentials. Use `npm run db:test:status | db:test:migrate | test:e2e`. Note: your `TEST_DATABASE_URL` database is named `neondb` (not `localspotter-test`); it is on a different Neon server than production.
+* `OptionalJwtAuthGuard` on `GET /products/:id`, `/workshops/:id`, `/shop-routes/:id`: services already had owner/admin preview branches, but `req.user` was never populated on these public routes, so owners could not preview inactive/draft items. Unit tested.
+* `FLAT_SHIPPING_FEE` (already in your `.env`) was ignored; cart preview and order total now share one helper (`common/config/shipping.ts`, default 0). **If your `.env` sets a non-zero value, order totals will now include it.** Unit tested.
+* Backend specs touched: 38 pass (common, cart, orders, routes).
+
+## H. Database verification round
+
+* Wrapper check (static + dry run, no DB contact): `with-test-db.mjs` overrides **both** `DATABASE_URL` and `DIRECT_URL`; the test host is a different Neon server (region us-east-2, non-pooled) from the application database (eu-central-1); it refuses to run if hosts match. Project/branch names are not visible in a Neon URL, so the project name `localspotter-test` rests on your console confirmation.
+* I could **not** execute `db:test:status`, `db:test:migrate`, `npm test` (type-checked) or `test:e2e`: my shell cannot reach Neon and cannot download Prisma's Linux engines (HTTP 403 from binaries.prisma.sh). Run them locally; results are intentionally not claimed.
+* New read-only production inspection: `npm run db:prod:status` (`prisma migrate status`) and `npm run db:prod:diff` (prints SQL needed to make the database match `schema.prisma`; never executes it). The script accepts no other arguments. Do not run `prisma migrate dev` / `npm run prisma:migrate` against the application database (it can propose a reset on drift).
+* Offline schema↔migration comparison: tables, enum values, columns, unique indexes and indexes all line up after the catch-up migration. NOT NULL/default/FK-action details were not compared; `db:prod:diff` and `migrate diff` will show them.
+* Bug fixed: an owner could lift an admin `SUSPENDED`/`DISABLED` block by setting their own business to `DRAFT`/`PENDING_APPROVAL` (`businesses.service.spec.ts`, 5 tests pass).
+
+## I. First E2E run against the isolated Neon test database (your output)
+
+* `npm test`: **15 suites, 259 tests passed** (as reported by you). Migrations applied to the test database (as reported by you).
+* `test:e2e`: 9 of 14 passed; the 5 failures share **one root cause**: `PrismaClientKnownRequestError … Transaction already closed … timeout 5000 ms, 5326 ms passed` in `orders.service.ts` (create order) and `workshops.service.ts` (create booking). Interactive transactions make several sequential queries; with a database in another region each round trip costs 100–300 ms, so they exceeded Prisma's default 5 s limit and returned HTTP 500. The other three failures (order not listed, 404 on status change) are consequences of the order never being created.
+* Fix: `PrismaService` now sets `transactionOptions` (`maxWait` 10 s, `timeout` 20 s, overridable with `PRISMA_TX_MAX_WAIT_MS` / `PRISMA_TX_TIMEOUT_MS`), covering every transaction in orders, workshops, payments, shop routes, businesses and auth. Not yet re-run — **pending your `npm run test:e2e`**.
+* Passing in that run (real database): anonymous 401s, foreign-origin CSRF block, wrong-password 401, role enforcement, product publish → catalogue, cross-owner product creation blocked, invalid status transitions, deactivation hides product, admin approval makes a shop public.
+* Not a failure: Jest's "worker failed to exit gracefully" notice; no timers exist in `src/` (not yet traced; run `npx jest --detectOpenHandles` if you want to chase it).
+
+## J. E2E re-run after the transaction-timeout fix (your output)
+
+`npm run test:e2e` against the isolated Neon test database: **1 suite, 14 of 14 tests passed** (198 s; slow because of cross-region latency). This now verifies against a real PostgreSQL: cookie auth (HttpOnly, no token in body), CSRF origin block, role enforcement, owner publishes product → public catalogue, consumer cart → order with server-computed totals, order visible to consumer/owning owner/admin but not to other consumers/owners, status propagation, invalid transitions rejected, deactivation hides product, admin approval controls public listing, workshop publish → booking → capacity limit → attendee/booking privacy.
+Still not verified by any command: `db:prod:status` (read-only check of the application database), and manual click-through of the three portals against a running stack.
+
+## K. Production migration status (read-only, your output)
+
+`db:prod:status` on the application database (eu-central-1): 3 migrations found; **only** `20261013120000_auth_verification_attempts` and `20261013130000_schema_drift_catchup` are unapplied. The earlier `DATABASE_URL`-only instruction therefore did **not** migrate production, and nothing was applied there by this work. Production is on the original `init` migration.
+Apply order when you decide to: (1) create a Neon branch/backup of production, (2) `npm run db:prod:diff` to preview any remaining drift as SQL (read-only), (3) `npx prisma migrate deploy` from `backend/` with the production `.env`, (4) only then deploy the new backend code (it expects `verification_attempts` and the other catch-up columns).
+
+## L. Production schema diff (read-only, your output)
+
+`db:prod:diff` (application database → `schema.prisma`) returned exactly one statement: `ALTER TABLE "users" ADD COLUMN "verification_attempts" INTEGER NOT NULL DEFAULT 0;`. So production already contains `users.username`, `verification_code*`, `businesses.address` and `shop_registrations` (it was synchronised outside migrations), and has **no other drift** in tables, columns, types, defaults, indexes or constraints. The catch-up migration is a no-op there (all `IF NOT EXISTS`); `20261013120000_auth_verification_attempts` adds the single missing column. Not applied — awaiting owner approval. Also fixed: `prod-readonly.mjs` now runs Prisma without a shell so Windows `cmd.exe` no longer splits the connection string at `&`.
+
+## M. Production migration applied; Resend email provider
+
+Production migration (your output): `prisma migrate deploy` applied both pending migrations after the Neon backup branch `pre-migration-2026-10-13` was created; `db:prod:status` = "Database schema is up to date" (3 migrations), `db:prod:diff` = empty migration.
+
+Email (decision: Resend): `ResendMailProvider` in `backend/src/mail/mail.provider.ts` calls `POST https://api.resend.com/emails` with `fetch` (no new dependency), 8 s timeout, one retry on network/429/5xx using the same `Idempotency-Key`, logs only the status code (never key, recipient or body). SMS is refused with 503 (no SMS provider). Env: `MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM`. `validateEnv` now requires these in production and whenever `resend` is selected. Verified by me: 5 new provider unit tests + env validation tests pass (18 tests across `src/mail` and `src/common/guards`), backend `tsc` exit 0. Not verified: a real email delivery (needs your key and verified domain).

@@ -15,6 +15,11 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest --preset ts-jest",
+    "test:e2e": "node scripts/with-test-db.mjs jest --config ./test/jest-e2e.json --runInBand",
+    "db:test:status": "node scripts/with-test-db.mjs prisma migrate status",
+    "db:prod:status": "node scripts/prod-readonly.mjs status",
+    "db:prod:diff": "node scripts/prod-readonly.mjs diff",
+    "db:test:migrate": "node scripts/with-test-db.mjs prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts"

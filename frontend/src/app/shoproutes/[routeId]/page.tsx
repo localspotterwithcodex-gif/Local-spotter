@@ -1,40 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, use } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { MapPin, Navigation, Store, ArrowLeft, CheckCircle, Compass } from "lucide-react";
+import { MapPin, Navigation, Store, ArrowLeft, Compass } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Shoproute, RouteStop } from "@/types/shoproute";
+import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function ShoprouteDetailPage({ params }: { params: Promise<{ routeId: string }> }) {
   const { routeId } = use(params);
 
-  const [route, setRoute] = useState<Shoproute | null>(null);
-  const [selectedStop, setSelectedStop] = useState<RouteStop | null>(null);
+  const { data: route, error, loading: isLoading, reload } = useApiResource(`shoproute:${routeId}`, () =>
+    api.getShoprouteById(routeId)
+  );
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadRoute() {
-      setIsLoading(true);
-      const data = await api.getShoprouteById(routeId);
-      setRoute(data);
-      if (data && data.stops.length > 0) {
-        setSelectedStop(data.stops[0]);
-      }
-      setIsLoading(false);
-    }
-    loadRoute();
-  }, [routeId]);
+  const selectedStop = route ? route.stops.find((st) => st.id === selectedStopId) ?? route.stops[0] ?? null : null;
 
   const handleStartRoute = () => {
     setIsNavigating(true);
+    setLocationError(null);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -43,13 +34,10 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             lng: position.coords.longitude,
           });
         },
-        () => {
-          // Fallback location if permission denied
-          setUserLocation({ lat: 52.0116, lng: 4.3571 });
-        }
+        () => setLocationError("Je locatie is niet beschikbaar. Geef toestemming om jezelf op de route te zien.")
       );
     } else {
-      setUserLocation({ lat: 52.0116, lng: 4.3571 });
+      setLocationError("Je browser ondersteunt geen locatiebepaling.");
     }
   };
 
@@ -57,6 +45,14 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
     return (
       <ConsumerLayout>
         <LoadingState label="Shoproute laden..." />
+      </ConsumerLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <ConsumerLayout>
+        <ErrorState title="Shoproute niet beschikbaar" message={error} onRetry={reload} />
       </ConsumerLayout>
     );
   }
@@ -99,6 +95,8 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
           </Button>
         </div>
 
+        {locationError && <p className="text-xs text-[#ED4C5C]">{locationError}</p>}
+
         {/* MAP & STOPS CONTAINER */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* MAP CANVAS PANEL (2 cols on desktop) */}
@@ -106,7 +104,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             {/* Interactive Map Visual Placeholder */}
             <div className="w-full h-full bg-[#54D1CA]/10 rounded-2xl relative flex items-center justify-center p-6 border border-[#54D1CA]/20">
               {/* User Location Indicator from Figma ("You are here") */}
-              {isNavigating && (
+              {isNavigating && userLocation && (
                 <div className="absolute top-8 left-12 bg-[#121F3E] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5 animate-pulse z-20">
                   <Compass className="w-4 h-4 text-[#54D1CA]" />
                   You are here
@@ -120,7 +118,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                   return (
                     <button
                       key={stop.id}
-                      onClick={() => setSelectedStop(stop)}
+                      onClick={() => setSelectedStopId(stop.id)}
                       className={`flex flex-col items-center gap-1 transition-all ${
                         isSelected ? "scale-125 z-30" : "opacity-85 hover:opacity-100"
                       }`}
@@ -179,7 +177,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                 return (
                   <div
                     key={stop.id}
-                    onClick={() => setSelectedStop(stop)}
+                    onClick={() => setSelectedStopId(stop.id)}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
                       isSelected
                         ? "bg-[#FAE2F0]/40 border-[#FA1EFF] shadow-xs"

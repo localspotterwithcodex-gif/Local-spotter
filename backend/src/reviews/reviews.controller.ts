@@ -20,12 +20,12 @@ import { UserRole } from '@prisma/client';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReviewsService } from './reviews.service';
 
-@Controller('businesses')
+@Controller()
 @ApiTags('reviews')
 export class ReviewsController {
   constructor(private reviewsService: ReviewsService) {}
 
-  @Post(':businessId')
+  @Post('businesses/:businessId/reviews')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CONSUMER)
   @ApiBearerAuth()
@@ -41,25 +41,36 @@ export class ReviewsController {
   ) {
     return this.reviewsService.createReview(
       param.businessId,
-      user.consumerProfileId,
+      user.profileId,
       dto,
     );
   }
 
-  @Get()
+  @Get('businesses/:businessId/reviews')
+  @ApiOperation({ summary: 'Gepubliceerde reviews van een bedrijf (publiek)' })
+  @ApiResponse({ status: 200, description: 'Gepubliceerde reviews + samenvatting' })
+  async getPublicBusinessReviews(@Param('businessId') businessId: string) {
+    return this.reviewsService.getPublicBusinessReviews(businessId);
+  }
+
+  @Get('businesses/:businessId/reviews/manage')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reviews ophalen voor bedrijf' })
-  @ApiResponse({
-    description: 'Lijst van reviews voor bedrijf',
-  })
+  @ApiOperation({ summary: 'Alle reviews van een eigen bedrijf (eigenaar/admin)' })
   async getBusinessReviews(
-    @Param() param: { businessId: string },
+    @Param('businessId') businessId: string,
     @CurrentUser() user: any,
   ) {
-    return this.reviewsService.getBusinessReviews(
-      param.businessId,
-      user,
-    );
+    return this.reviewsService.getBusinessReviews(businessId, user);
+  }
+
+  @Get('reviews/mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eigen reviews van de ingelogde consument' })
+  async getMyReviews(@CurrentUser() user: any) {
+    return this.reviewsService.getConsumerReviews(user.profileId);
   }
 }

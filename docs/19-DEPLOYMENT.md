@@ -29,7 +29,7 @@ This document defines the deployment architecture, environments, secrets, infras
 - Storage: Supabase Storage.
 - Payment provider: unresolved.
 - Map provider: unresolved.
-- Email: unresolved transactional email provider.
+- Email: Resend (HTTP API, implemented in `backend/src/mail`). SMS: not implemented.
 
 Rationale:
 - Vercel is natural for Next.js App Router.
@@ -66,7 +66,7 @@ Required categories:
 - `STORAGE_URL`.
 - `STORAGE_SERVICE_ROLE_KEY`.
 - `STORAGE_PUBLIC_BUCKET`.
-- `EMAIL_PROVIDER_API_KEY`.
+- `MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM` (sender on a domain verified in Resend). The backend refuses to start in production without them.
 - `APP_BASE_URL`.
 - `API_BASE_URL`.
 

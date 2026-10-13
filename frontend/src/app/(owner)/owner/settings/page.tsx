@@ -4,55 +4,109 @@ import React, { useState } from "react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { MOCK_BUSINESSES } from "@/data/mock/businesses";
-import { Store, Clock, MapPin, Bell, Save, CheckCircle2, ShieldCheck } from "lucide-react";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { api, type BusinessCategory } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { getErrorMessage } from "@/lib/errors";
+import type { Business, BusinessHours } from "@/types/business";
+import { Store, Clock, MapPin, Bell, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
-export default function OwnerSettingsPage() {
-  const initialBusiness = MOCK_BUSINESSES[0];
+const DAY_ORDER: BusinessHours["day"][] = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
 
+interface DayRow {
+  day: BusinessHours["day"];
+  open: string;
+  close: string;
+  isClosed: boolean;
+}
+
+function initialHours(business: Business): DayRow[] {
+  return DAY_ORDER.map((day) => {
+    const saved = business.hours?.find((h) => h.day === day);
+    return {
+      day,
+      open: saved?.openTime ?? "",
+      close: saved?.closeTime ?? "",
+      isClosed: saved?.isClosed ?? false,
+    };
+  });
+}
+
+function SettingsForm({ business, categories }: { business: Business; categories: BusinessCategory[] }) {
   const [activeTab, setActiveTab] = useState<"profile" | "hours" | "notifications">("profile");
-  const [storeName, setStoreName] = useState(initialBusiness.name);
-  const [category, setCategory] = useState(initialBusiness.category);
-  const [description, setDescription] = useState(initialBusiness.description);
-  const [phone, setPhone] = useState(initialBusiness.phone || "020-1234567");
-  const [kvk, setKvk] = useState(initialBusiness.kvkNumber || "87654321");
-  const [street, setStreet] = useState(initialBusiness.location?.street || "Keizersgracht 142");
-  const [city, setCity] = useState(initialBusiness.location?.city || "Amsterdam");
-  const [province, setProvince] = useState(initialBusiness.location?.province || "Noord-Holland");
-  const [lat, setLat] = useState(initialBusiness.location?.lat?.toString() || "52.3702");
-  const [lng, setLng] = useState(initialBusiness.location?.lng?.toString() || "4.8951");
+  const [storeName, setStoreName] = useState(business.name);
+  const [categoryId, setCategoryId] = useState(categories.find((c) => c.name === business.category)?.id ?? "");
+  const [description, setDescription] = useState(business.description);
+  const [phone, setPhone] = useState(business.phone);
+  const [kvk, setKvk] = useState(business.kvkNumber);
+  const [street, setStreet] = useState(business.location.street);
+  const [city, setCity] = useState(business.location.city);
+  const [province, setProvince] = useState(business.location.province);
+  const hasGps = business.location.lat !== 0 || business.location.lng !== 0;
+  const [lat, setLat] = useState(hasGps ? String(business.location.lat) : "");
+  const [lng, setLng] = useState(hasGps ? String(business.location.lng) : "");
 
   // Opening hours state
-  const [hours, setHours] = useState([
-    { day: "Maandag", open: "09:00", close: "18:00", isClosed: false },
-    { day: "Dinsdag", open: "09:00", close: "18:00", isClosed: false },
-    { day: "Woensdag", open: "09:00", close: "18:00", isClosed: false },
-    { day: "Donderdag", open: "09:00", close: "20:00", isClosed: false },
-    { day: "Vrijdag", open: "09:00", close: "18:00", isClosed: false },
-    { day: "Zaterdag", open: "10:00", close: "17:00", isClosed: false },
-    { day: "Zondag", open: "12:00", close: "17:00", isClosed: true },
-  ]);
-
-  // Notifications
-  const [emailOrders, setEmailOrders] = useState(true);
-  const [emailReviews, setEmailReviews] = useState(true);
-  const [emailMarketing, setEmailMarketing] = useState(false);
+  const [hours, setHours] = useState<DayRow[]>(() => initialHours(business));
+  const [hoursDirty, setHoursDirty] = useState(false);
+  const updateHour = (idx: number, patch: Partial<DayRow>) => {
+    setHours((prev) => prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+    setHoursDirty(true);
+  };
 
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setIsSaved(false);
+
+    const latNum = lat.trim() === "" ? undefined : Number(lat.replace(",", "."));
+    const lngNum = lng.trim() === "" ? undefined : Number(lng.replace(",", "."));
+    if ((latNum !== undefined && Number.isNaN(latNum)) || (lngNum !== undefined && Number.isNaN(lngNum))) {
+      setError("Breedte- en lengtegraad moeten getallen zijn.");
+      return;
+    }
+    if (hoursDirty && hours.some((h) => !h.isClosed && (!h.open || !h.close))) {
+      setError("Vul voor elke geopende dag een openings- en sluitingstijd in, of markeer de dag als gesloten.");
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await api.updateBusiness(business.id, {
+        name: storeName.trim(),
+        description,
+        phone,
+        kvkNumber: kvk,
+        categoryId: categoryId || undefined,
+        address: street,
+        city,
+        state: province,
+        latitude: latNum,
+        longitude: lngNum,
+      });
+      if (hoursDirty) {
+        await api.updateBusinessHours(
+          business.id,
+          hours.map((h) => ({ day: h.day, openTime: h.open, closeTime: h.close, isClosed: h.isClosed }))
+        );
+        setHoursDirty(false);
+      }
       setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 3000);
-    }, 600);
+    } catch (err) {
+      setError(getErrorMessage(err, "Instellingen opslaan mislukt"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <OwnerLayout>
       <div className="space-y-6">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAEAEA]">
@@ -72,6 +126,13 @@ export default function OwnerSettingsPage() {
             </div>
           )}
         </div>
+
+        {error && (
+          <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex bg-[#F4F5FA] p-1.5 rounded-2xl max-w-md border border-[#EAEAEA]">
@@ -125,14 +186,16 @@ export default function OwnerSettingsPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-[#111111] block">Categorie</label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full h-11 bg-[#EAEAEA] rounded-xl text-xs font-bold px-3 border-none focus:outline-none focus:ring-2 focus:ring-[#FA1EFF]"
                   >
-                    <option value="Fashion">Fashion & Kleding</option>
-                    <option value="Home & Living">Home & Living</option>
-                    <option value="Local Products">Ambachtelijk & Lokaal</option>
-                    <option value="Beauty">Beauty & Verzorging</option>
+                    <option value="">Geen categorie</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -222,11 +285,7 @@ export default function OwnerSettingsPage() {
                         <input
                           type="checkbox"
                           checked={item.isClosed}
-                          onChange={(e) => {
-                            const newHours = [...hours];
-                            newHours[idx].isClosed = e.target.checked;
-                            setHours(newHours);
-                          }}
+                          onChange={(e) => updateHour(idx, { isClosed: e.target.checked })}
                           className="rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
                         />
                         Gesloten
@@ -238,22 +297,14 @@ export default function OwnerSettingsPage() {
                         <input
                           type="time"
                           value={item.open}
-                          onChange={(e) => {
-                            const newHours = [...hours];
-                            newHours[idx].open = e.target.value;
-                            setHours(newHours);
-                          }}
+                          onChange={(e) => updateHour(idx, { open: e.target.value })}
                           className="px-2 py-1 bg-white border border-[#EAEAEA] rounded-xl text-xs font-bold"
                         />
                         <span className="text-xs text-[#B7B7B7]">tot</span>
                         <input
                           type="time"
                           value={item.close}
-                          onChange={(e) => {
-                            const newHours = [...hours];
-                            newHours[idx].close = e.target.value;
-                            setHours(newHours);
-                          }}
+                          onChange={(e) => updateHour(idx, { close: e.target.value })}
                           className="px-2 py-1 bg-white border border-[#EAEAEA] rounded-xl text-xs font-bold"
                         />
                       </div>
@@ -271,51 +322,23 @@ export default function OwnerSettingsPage() {
               </h2>
 
               <div className="space-y-4">
-                <label className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={emailOrders}
-                    onChange={(e) => setEmailOrders(e.target.checked)}
-                    className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
-                  />
-                  <div>
-                    <span className="block text-xs font-bold text-[#111111]">Nieuwe Bestellingen</span>
-                    <span className="block text-[11px] text-[#B7B7B7]">
-                      Ontvang direct een e-mailbericht wanneer een klant een bestelling plaatst.
-                    </span>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={emailReviews}
-                    onChange={(e) => setEmailReviews(e.target.checked)}
-                    className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
-                  />
-                  <div>
-                    <span className="block text-xs font-bold text-[#111111]">Nieuwe Beoordelingen</span>
-                    <span className="block text-[11px] text-[#B7B7B7]">
-                      Melding wanneer een klant een review of sterrenscore achterlaat.
-                    </span>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={emailMarketing}
-                    onChange={(e) => setEmailMarketing(e.target.checked)}
-                    className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
-                  />
-                  <div>
-                    <span className="block text-xs font-bold text-[#111111]">LocalSpotter Tips & Updates</span>
-                    <span className="block text-[11px] text-[#B7B7B7]">
-                      Maandelijkse tips om je lokale zichtbaarheid en verkopen te verhogen.
-                    </span>
-                  </div>
-                </label>
+                {[
+                  { title: "Nieuwe Bestellingen", text: "Ontvang direct een e-mailbericht wanneer een klant een bestelling plaatst." },
+                  { title: "Nieuwe Beoordelingen", text: "Melding wanneer een klant een review of sterrenscore achterlaat." },
+                  { title: "LocalSpotter Tips & Updates", text: "Maandelijkse tips om je lokale zichtbaarheid en verkopen te verhogen." },
+                ].map((item) => (
+                  <label key={item.title} className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] opacity-60">
+                    <input type="checkbox" disabled className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]" />
+                    <div>
+                      <span className="block text-xs font-bold text-[#111111]">{item.title}</span>
+                      <span className="block text-[11px] text-[#B7B7B7]">{item.text}</span>
+                    </div>
+                  </label>
+                ))}
               </div>
+              <p className="text-xs text-[#B7B7B7]">
+                Meldingsvoorkeuren kunnen nog niet worden opgeslagen omdat de server dit nog niet ondersteunt.
+              </p>
             </div>
           )}
 
@@ -331,6 +354,23 @@ export default function OwnerSettingsPage() {
           </div>
         </form>
       </div>
-    </OwnerLayout>
   );
+}
+
+export default function OwnerSettingsPage() {
+  const { business, loading, error, reload } = useMyBusiness();
+  const categories = useApiResource("business-categories", () => api.getBusinessCategories());
+
+  let content: React.ReactNode;
+  if (loading || categories.loading) {
+    content = <LoadingState label="Instellingen laden..." />;
+  } else if (error ?? categories.error) {
+    content = <ErrorState message={error ?? categories.error} onRetry={error ? reload : categories.reload} />;
+  } else if (!business) {
+    content = <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om instellingen te beheren." />;
+  } else {
+    content = <SettingsForm key={business.id} business={business} categories={categories.data ?? []} />;
+  }
+
+  return <OwnerLayout>{content}</OwnerLayout>;
 }

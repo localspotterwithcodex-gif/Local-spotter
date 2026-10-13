@@ -7,7 +7,10 @@ import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/ui/ImageUploader";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { getErrorMessage } from "@/lib/errors";
 
 // Uses OpenStreetMap's free Nominatim reverse-geocoding endpoint. Swap this
 // for Google/Mapbox by changing only this function if the project already
@@ -23,6 +26,8 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 
 export default function BusinessOnboardingPage() {
   const router = useRouter();
+  const { business: existingBusiness, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
+  const categories = useApiResource("business-categories", () => api.getBusinessCategories());
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [storeName, setStoreName] = useState("");
@@ -33,7 +38,7 @@ export default function BusinessOnboardingPage() {
   const [phone, setPhone] = useState("");
   const [kvkNumber, setKvkNumber] = useState("");
   const [shopDescription, setShopDescription] = useState("");
-  const [shopType, setShopType] = useState("");
+  const [categoryId, setCategoryId] = useState("");
 
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,18 +75,19 @@ export default function BusinessOnboardingPage() {
     e.preventDefault();
     setError("");
 
-    if (!storeName || !state || !city || !location || !phone || !kvkNumber || !shopDescription || !shopType) {
+    if (!storeName || !state || !city || !location || !phone || !kvkNumber || !shopDescription || !categoryId) {
       setError("Vul a.u.b. alle verplichte velden in.");
+      return;
+    }
+
+    if (businessError) {
+      setError("Je winkelgegevens konden niet worden gecontroleerd. Probeer het opnieuw.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // NOTE: the logo file (if selected) still needs to be uploaded to the
-      // `products`/business-logo Supabase Storage bucket (PROMPT.md item 15)
-      // and its resulting public URL attached below as `logoUrl` — that
-      // upload call goes here once the bucket exists.
-      await apiClient.post("/businesses", {
+      const input = {
         name: storeName,
         state,
         city,
@@ -91,17 +97,18 @@ export default function BusinessOnboardingPage() {
         phone,
         kvkNumber,
         description: shopDescription,
-        // `shopType` (free text) isn't yet mapped to the backend's
-        // UUID-based `categoryId` — wire this to a real category picker
-        // once BusinessCategory options are exposed to the frontend.
-      });
+        categoryId,
+      };
+      // Returning owners (back button / refresh) update their existing shop
+      // instead of registering a duplicate.
+      if (existingBusiness) {
+        await api.updateBusiness(existingBusiness.id, input);
+      } else {
+        await api.createBusiness(input);
+      }
       router.push("/onboarding/subscription");
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Opslaan is mislukt. Controleer je gegevens en probeer het opnieuw."
-      );
+      setError(getErrorMessage(err, "Opslaan is mislukt. Controleer je gegevens en probeer het opnieuw."));
     } finally {
       setIsSubmitting(false);
     }
@@ -125,11 +132,24 @@ export default function BusinessOnboardingPage() {
         {error && (
           <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">{error}</div>
         )}
+        {businessError && (
+          <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">
+            {businessError}{" "}
+            <button type="button" onClick={reloadBusiness} className="underline">
+              Opnieuw proberen
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex justify-center">
             <ImageUploader variant="logo" label="Store Logo" onChange={(files) => setLogoFile(files[0] ?? null)} />
           </div>
+          {logoFile && (
+            <p className="text-xs text-[#B7B7B7] text-center">
+              Logo uploaden wordt nog niet ondersteund; je kunt je logo later toevoegen.
+            </p>
+          )}
 
           <Input
             label="Store Name"
@@ -210,15 +230,33 @@ export default function BusinessOnboardingPage() {
             />
           </div>
 
-          <Input
-            label="Shop Type / Category"
-            placeholder="Bag Shop, Fashion Boutique, Craft Store..."
-            value={shopType}
-            onChange={(e) => setShopType(e.target.value)}
-            required
-          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-bold text-[#111111]">Shop Type / Category</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              disabled={categories.loading || !!categories.error}
+              required
+              className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent disabled:opacity-60"
+            >
+              <option value="">{categories.loading ? "Categorieën laden..." : "Kies een categorie"}</option>
+              {(categories.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {categories.error && (
+              <span className="text-xs text-[#ED4C5C] font-medium block">
+                Categorieën konden niet worden geladen.{" "}
+                <button type="button" onClick={categories.reload} className="underline font-bold">
+                  Opnieuw proberen
+                </button>
+              </span>
+            )}
+          </div>
 
-          <Button type="submit" variant="primary" size="lg" fullWidth className="gap-2 mt-4" isLoading={isSubmitting}>
+          <Button type="submit" variant="primary" size="lg" fullWidth className="gap-2 mt-4" isLoading={isSubmitting} disabled={businessLoading}>
             NEXT <ArrowRight className="w-5 h-5" />
           </Button>
         </form>

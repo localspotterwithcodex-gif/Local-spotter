@@ -13,6 +13,8 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 import { BusinessStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
 
+import { getFlatShippingFee } from '../common/config/shipping';
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -147,7 +149,7 @@ export class OrdersService {
 
       // 5. Calculate totals
       const subtotalAmount = orderItemsData.reduce((acc, i) => acc + i.subtotalPrice, 0);
-      const deliveryFee = 0; // Default delivery fee for MVP (can be configured via environment)
+      const deliveryFee = getFlatShippingFee(); // FLAT_SHIPPING_FEE (default 0)
       const totalAmount = subtotalAmount + deliveryFee;
 
       // 6. Generate order number (e.g. LS-MMDD-XXXX)

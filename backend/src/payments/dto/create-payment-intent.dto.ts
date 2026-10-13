@@ -1,47 +1,27 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { PaymentPurpose, PaymentProvider, PaymentMethod } from '@prisma/client';
 
+/**
+ * Deliberately has NO amount, currency or provider-transaction fields: the
+ * payable amount is always derived from server-side data, and the global
+ * ValidationPipe (forbidNonWhitelisted) rejects any client attempt to send one.
+ */
 export class CreatePaymentIntentDto {
-  @ApiProperty({ enum: PaymentPurpose, description: 'Payment purpose: BUSINESS_SUBSCRIPTION, PRODUCT_ORDER, or WORKSHOP_BOOKING' })
-  purpose: PaymentPurpose;
+  @ApiProperty({ enum: PaymentPurpose })
+  @IsEnum(PaymentPurpose)
+  purpose!: PaymentPurpose;
 
-  @ApiProperty({ description: 'ID of the related entity (businessSubscriptionId, orderId, or workshopBookingId)' })
-  relatedEntityId: string;
+  @ApiProperty({ description: 'ID of the business subscription, order or workshop booking being paid' })
+  @IsUUID()
+  relatedEntityId!: string;
 
-  @ApiProperty({ enum: PaymentProvider, description: 'Payment provider: STRIPE, MOLLIE, PAYPAL' })
-  provider: PaymentProvider;
+  @ApiProperty({ enum: PaymentProvider })
+  @IsEnum(PaymentProvider)
+  provider!: PaymentProvider;
 
-  @ApiProperty({ description: 'Payment amount in EUR (decimal)' })
-  amount: number;
-
-  @ApiProperty({ 
-    enum: PaymentMethod, 
-    description: 'Payment method: CARD, IDEAL, BANK_TRANSFER' 
-  })
+  @ApiPropertyOptional({ enum: PaymentMethod })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
   method?: PaymentMethod;
-
-  @ApiProperty({ 
-    description: 'Stripe/MOLLIE provider transaction ID' 
-  })
-  providerTransactionId?: string;
-
-  @ApiProperty({ 
-    description: 'Business subscription ID (for BUSINESS_SUBSCRIPTION purpose)' 
-  })
-  businessSubscriptionId?: string;
-
-  @ApiProperty({ 
-    description: 'Order ID (for PRODUCT_ORDER purpose)' 
-  })
-  orderId?: string;
-
-  @ApiProperty({ 
-    description: 'Workshop booking ID (for WORKSHOP_BOOKING purpose)' 
-  })
-  workshopBookingId?: string;
-
-  @ApiProperty({ 
-    description: 'Currency code, default EUR' 
-  })
-  currency?: string;
 }

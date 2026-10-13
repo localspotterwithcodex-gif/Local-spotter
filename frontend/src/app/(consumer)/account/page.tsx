@@ -53,7 +53,7 @@ export default function AccountPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold font-rubik text-[#111111]">{user?.name || "Consument"}</h1>
-            <p className="text-xs text-[#B7B7B7]">{user?.email || "consument@example.nl"}</p>
+            <p className="text-xs text-[#B7B7B7]">{user?.email ?? ""}</p>
           </div>
         </div>
 

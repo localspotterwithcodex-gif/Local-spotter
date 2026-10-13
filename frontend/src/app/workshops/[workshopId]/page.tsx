@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, use } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Clock, MapPin, Users, Calendar as CalendarIcon, Store, Check, ArrowLeft } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
@@ -9,36 +10,41 @@ import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { Workshop } from "@/types/workshop";
+import { getErrorMessage } from "@/lib/errors";
+import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useAuth } from "@/features/auth/AuthContext";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function WorkshopDetailPage({ params }: { params: Promise<{ workshopId: string }> }) {
   const { workshopId } = use(params);
 
-  const [workshop, setWorkshop] = useState<Workshop | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
+
+  const { data: workshop, error, loading: isLoading, reload } = useApiResource(`workshop:${workshopId}`, () =>
+    api.getWorkshopById(workshopId)
+  );
   const [ticketQuantity, setTicketQuantity] = useState(1);
   const [isBooking, setIsBooking] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadWorkshop() {
-      setIsLoading(true);
-      const data = await api.getWorkshopById(workshopId);
-      setWorkshop(data);
-      setIsLoading(false);
-    }
-    loadWorkshop();
-  }, [workshopId]);
+  const [bookedTickets, setBookedTickets] = useState(0);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   const handleBooking = async () => {
     if (!workshop) return;
+    if (!isAuthenticated) {
+      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
     setIsBooking(true);
+    setBookingError(null);
     try {
       await api.bookWorkshop(workshop.id, ticketQuantity);
+      setBookedTickets((n) => n + ticketQuantity);
       setIsBooked(true);
-    } catch (err: any) {
-      alert(err.message || "Boeking mislukt");
+    } catch (err) {
+      setBookingError(getErrorMessage(err, "Boeking mislukt"));
     } finally {
       setIsBooking(false);
     }
@@ -52,6 +58,14 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
     );
   }
 
+  if (error) {
+    return (
+      <ConsumerLayout>
+        <ErrorState title="Workshop niet beschikbaar" message={error} onRetry={reload} />
+      </ConsumerLayout>
+    );
+  }
+
   if (!workshop) {
     return (
       <ConsumerLayout>
@@ -60,7 +74,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
     );
   }
 
-  const spotsLeft = workshop.capacity - workshop.bookedCount;
+  const spotsLeft = workshop.capacity - workshop.bookedCount - bookedTickets;
   const isSoldOut = spotsLeft <= 0;
 
   return (
@@ -155,6 +169,12 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
                   </div>
                 )}
               </div>
+
+              {bookingError && (
+                <div role="alert" className="bg-[#F2D9DE]/50 border border-[#ED4C5C]/30 text-[#555555] text-xs rounded-2xl p-3">
+                  {bookingError}
+                </div>
+              )}
 
               <Button
                 variant={isBooked ? "secondary" : "primary"}
