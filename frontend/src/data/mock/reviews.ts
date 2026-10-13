@@ -1,0 +1,52 @@
+import { Review } from "@/types/review";
+
+export const MOCK_REVIEWS: Review[] = [
+  {
+    id: "rev-1",
+    businessId: "bus-1",
+    productId: "prod-1",
+    consumerId: "cons-1",
+    consumerName: "Sanne de Jong",
+    consumerAvatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
+    rating: 5,
+    title: "Prachtige tas en fantastische kwaliteit!",
+    comment: "Ik heb de leren shopper nu twee weken in gebruik. Het leer is soepel en ruikt heerlijk ambachtelijk. Absoluut een aanrader voor wie van duurzame kwaliteit houdt!",
+    images: [
+      "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=600&q=80",
+    ],
+    createdAt: "2026-02-25T14:20:00Z",
+  },
+  {
+    id: "rev-2",
+    businessId: "bus-3",
+    productId: "prod-2",
+    consumerId: "user-consumer",
+    consumerName: "Sophie Vis",
+    consumerAvatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+    rating: 5,
+    title: "Mijn favoriete jurk van deze zomer",
+    comment: "Past precies volgens de maattabel. De stof ademt heel goed op warme dagen in de stad.",
+    createdAt: "2026-02-28T16:45:00Z",
+  },
+  {
+    id: "rev-3",
+    businessId: "bus-2",
+    consumerId: "user-consumer",
+    consumerName: "Sophie Vis",
+    rating: 4,
+    title: "Geweldige workshop & mooie winkel",
+    comment: "De keramiek workshop bij Atelier Amsterdam was ontzettend leuk georganiseerd. Vriendelijke eigenaresse met veel passie voor haar vak.",
+    createdAt: "2026-03-01T11:10:00Z",
+  },
+  {
+    id: "rev-4",
+    businessId: "bus-1",
+    productId: "prod-3",
+    consumerId: "user-consumer",
+    consumerName: "Sophie Vis",
+    rating: 5,
+    title: "Prachtige handgemaakte vaas!",
+    comment: "Staat geweldig in onze woonkamer. Snelle levering en heel netjes ingepakt.",
+    createdAt: "2026-03-02T09:30:00Z",
+  },
+];

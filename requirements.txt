@@ -1,0 +1,15 @@
+#
+# Local Spotter repository helper dependencies.
+# The production application stack is Node.js/TypeScript
+# (Next.js + NestJS + Prisma) and will be defined in package.json files
+# after documentation approval. These Python packages support local docs,
+# security checks, and repository automation only.
+#
+mkdocs-material
+python-dotenv
+pre-commit
+detect-secrets
+pip-audit
+ruff
+pytest
+httpx

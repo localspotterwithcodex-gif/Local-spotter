@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Rubik:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* LocalSpotter Palette derived directly from official logo */
+  --ls-brand-primary: #FCE1F0;
+  --ls-brand-secondary: #EA89B1;
+  --ls-accent-yellow: #FBBC3E;
+  --ls-input-bg: #EAEAEA;
+  --ls-app-bg: #FAF0F5;
+  --ls-text-primary: #0A182E;
+  --ls-text-navy: #0A182E;
+  --ls-surface: #FFFFFF;
+  --ls-like: #ED4C5C;
+  --ls-rating: #FBBC3E;
+  --ls-pink-deep: #D46995;
+  --ls-map-teal: #54D1CA;
+  --ls-purple-dark: #0A182E;
+  --ls-gray-300: #B7B7B7;
+  --ls-gray-400: #C4C4C4;
+  --ls-gray-200: #DADADA;
+
+  /* Typography */
+  --font-rubik: 'Rubik', sans-serif;
+  --font-manrope: 'Manrope', sans-serif;
+}
+
+@theme {
+  --color-ls-primary: var(--ls-brand-primary);
+  --color-ls-secondary: var(--ls-brand-secondary);
+  --color-ls-input: var(--ls-input-bg);
+  --color-ls-bg: var(--ls-app-bg);
+  --color-ls-text: var(--ls-text-primary);
+  --color-ls-navy: var(--ls-text-navy);
+  --color-ls-surface: var(--ls-surface);
+  --color-ls-like: var(--ls-like);
+  --color-ls-rating: var(--ls-rating);
+  --color-ls-pink-deep: var(--ls-pink-deep);
+  --color-ls-teal: var(--ls-map-teal);
+  --color-ls-purple: var(--ls-purple-dark);
+
+  --font-rubik: var(--font-rubik);
+  --font-manrope: var(--font-manrope);
+}
+
+body {
+  background-color: var(--ls-app-bg);
+  color: var(--ls-text-primary);
+  font-family: var(--font-manrope);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-rubik {
+  font-family: var(--font-rubik);
+}
+
+/* Custom Utilities for LocalSpotter Design Specs */
+.ls-banner-header {
+  background-color: var(--ls-brand-primary);
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+.ls-bottom-nav {
+  background-color: var(--ls-surface);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.06);
+}
+
+.ls-card {
+  background-color: var(--ls-surface);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.ls-btn-primary {
+  background-color: var(--ls-brand-secondary);
+  color: #FFFFFF;
+  font-family: var(--font-manrope);
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 8px;
+  transition: opacity 0.15s ease-in-out;
+}
+.ls-btn-primary:hover {
+  opacity: 0.92;
+}
+
+.ls-btn-secondary {
+  background-color: var(--ls-brand-primary);
+  color: var(--ls-brand-secondary);
+  font-family: var(--font-manrope);
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease-in-out;
+}
+.ls-btn-secondary:hover {
+  background-color: #F7D0E7;
+}
+
+/* Status colors */
+.ls-status-processing { background-color: #F2D9DE; color: #E54666; }
+.ls-status-completed { background-color: #CBF5D5; color: #3B9B52; }
+.ls-status-ontheway { background-color: #F0E9DF; color: #E8A74A; }
+.ls-status-cancelled { background-color: #D9DFF2; color: #344DB1; }
+.ls-status-new { background-color: #E8D1ED; color: #C04BDA; }
