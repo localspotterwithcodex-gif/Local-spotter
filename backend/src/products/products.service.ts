@@ -6,19 +6,21 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
+import { TranslationService } from '../translation/translation.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { CreateProductImageDto } from './dto/create-product-image.dto';
 import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
-import { BusinessStatus, SubscriptionStatus, UserRole, ReviewStatus } from '@prisma/client';
+import { BusinessStatus, Prisma, SubscriptionStatus, UserRole, ReviewStatus } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
+    private translation: TranslationService,
   ) {}
 
   // ==========================================
@@ -53,6 +55,10 @@ export class ProductsService {
       slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
+    this.assertCompareAtPrice(dto.compareAtPrice, dto.price);
+    // Auto-translate name/description to EN + NL (best effort; never blocks saving).
+    const i18n = await this.translation.translateFields({ name: dto.name, description: dto.description });
+
     return this.prisma.product.create({
       data: {
         businessId,
@@ -61,6 +67,9 @@ export class ProductsService {
         slug,
         description: dto.description || null,
         price: dto.price,
+        compareAtPrice: dto.compareAtPrice ?? null,
+        translations: i18n.translations ?? undefined,
+        sourceLocale: i18n.sourceLocale,
         stock: dto.stock,
         active: dto.active !== undefined ? dto.active : true,
         shopUrl: dto.shopUrl || null,
@@ -241,10 +250,28 @@ export class ProductsService {
       }
     }
 
+    const nextPrice = dto.price !== undefined ? dto.price : Number(product.price);
+    const nextCompare = dto.compareAtPrice !== undefined ? dto.compareAtPrice : product.compareAtPrice ? Number(product.compareAtPrice) : null;
+    this.assertCompareAtPrice(nextCompare, nextPrice);
+
+    // Re-translate only when the text actually changed. The text as typed is the
+    // source of truth, so we translate the *current original* values together.
+    const textChanged =
+      (dto.name !== undefined && dto.name !== product.name) ||
+      (dto.description !== undefined && dto.description !== product.description);
+    const i18n = textChanged
+      ? await this.translation.translateFields({
+          name: dto.name ?? product.name,
+          description: dto.description !== undefined ? dto.description : product.description,
+        })
+      : null;
+
     return this.prisma.product.update({
       where: { id: productId },
       data: {
         name: dto.name,
+        ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
+        compareAtPrice: dto.compareAtPrice !== undefined ? dto.compareAtPrice : undefined,
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
         price: dto.price !== undefined ? dto.price : undefined,
@@ -493,6 +520,12 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  private assertCompareAtPrice(compareAtPrice: number | null | undefined, price: number): void {
+    if (compareAtPrice !== null && compareAtPrice !== undefined && compareAtPrice <= price) {
+      throw new BadRequestException('De oude prijs moet hoger zijn dan de huidige prijs');
+    }
   }
 
   private slugify(text: string): string {

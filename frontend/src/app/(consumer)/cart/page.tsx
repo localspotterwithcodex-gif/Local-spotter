@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Trash2, ArrowRight, Store } from "lucide-react";
+import { ShoppingBag, Trash2, ArrowRight, Store, ImageOff } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -13,7 +13,6 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { useCart } from "@/features/cart/CartContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80";
 
 export default function CartPage() {
   const { items, subtotal, deliveryFee, isLoading, isUpdating, error, reload, updateQuantity: setQuantity, removeItem } = useCart();
@@ -77,7 +76,13 @@ export default function CartPage() {
               {items.map((item) => (
                 <div key={item.id} className="flex gap-3.5 pb-4 border-b border-[#F9F9F9] last:border-b-0 last:pb-0">
                   <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-[#F9F9F9] shrink-0 border border-[#EAEAEA]">
-                    <Image src={item.image || PLACEHOLDER_IMAGE} alt={item.name} fill className="object-cover" />
+                    {item.image ? (
+                      <Image src={item.image} alt={item.name} fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[#B7B7B7]">
+                        <ImageOff className="w-6 h-6" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0 flex flex-col justify-between">

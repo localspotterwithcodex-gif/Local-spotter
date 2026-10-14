@@ -11,7 +11,7 @@ function make(status: BusinessStatus) {
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'b1', ...data })),
     },
   };
-  return { service: new BusinessesService(prisma as never), prisma };
+  return { service: new BusinessesService(prisma as never, { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } as never), prisma };
 }
 const owner = { id: 'owner-1', role: UserRole.BUSINESS_OWNER };
 const admin = { id: 'admin-1', role: UserRole.SUPER_ADMIN };

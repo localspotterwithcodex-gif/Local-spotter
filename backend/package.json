@@ -24,7 +24,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
     "seed": "ts-node prisma/seed.ts",
-    "seed:demo:disable": "ts-node prisma/disable-demo-users.ts"
+    "seed:demo:disable": "ts-node prisma/disable-demo-users.ts",
+    "demo:products:remove": "ts-node prisma/remove-demo-products.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

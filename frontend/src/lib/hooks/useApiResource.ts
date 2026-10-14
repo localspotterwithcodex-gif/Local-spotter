@@ -25,10 +25,11 @@ interface Settled<T> {
  * Never falls back to mock data: a failed request surfaces as `error`.
  */
 export function useApiResource<T>(key: string | null, fetcher: () => Promise<T>): ApiResource<T> {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [nonce, setNonce] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
-  const requestKey = key === null ? null : `${key}#${nonce}`;
+  // locale is part of the key: switching language refetches user-entered content in that language
+  const requestKey = key === null ? null : `${key}@${locale}#${nonce}`;
 
   useEffect(() => {
     if (requestKey === null) return;

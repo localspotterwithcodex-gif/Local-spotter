@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, Check, Edit3, AlertCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Check, Search, LocateFixed, AlertCircle } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -30,14 +30,66 @@ function LocationForm({ business }: { business: Business }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const hasGps = business.location.lat !== 0 || business.location.lng !== 0;
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    business.location.lat !== 0 || business.location.lng !== 0 ? { lat: business.location.lat, lng: business.location.lng } : null,
+  );
+  const [locating, setLocating] = useState<"" | "address" | "device">("");
+  const [mapError, setMapError] = useState("");
+  const hasGps = coords !== null;
+
+  const findOnMap = async () => {
+    setMapError("");
+    setLocating("address");
+    try {
+      const q = [street, city, state, "Nederland"].filter(Boolean).join(", ");
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) throw new Error("geocode");
+      const hits = (await res.json()) as Array<{ lat: string; lon: string }>;
+      if (!hits.length) {
+        setMapError(t("manage.location.notFound"));
+        return;
+      }
+      setCoords({ lat: Number(hits[0].lat), lng: Number(hits[0].lon) });
+    } catch {
+      setMapError(t("manage.location.lookupFailed"));
+    } finally {
+      setLocating("");
+    }
+  };
+
+  const useMyLocation = () => {
+    setMapError("");
+    if (!navigator.geolocation) {
+      setMapError(t("manage.location.noGeolocation"));
+      return;
+    }
+    setLocating("device");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating("");
+      },
+      () => {
+        setMapError(t("manage.location.denied"));
+        setLocating("");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
     try {
-      await api.updateBusiness(business.id, { state, city, address: street });
+      await api.updateBusiness(business.id, {
+        state,
+        city,
+        address: street,
+        ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+      });
       setIsSaved(true);
       router.push("/owner");
     } catch (err) {
@@ -92,29 +144,39 @@ function LocationForm({ business }: { business: Business }) {
             {/* Interactive Map Location Pin Preview */}
             <div className="space-y-2 pt-2">
               <label className="text-sm font-bold text-[#111111]">{t("ownerx.location.mapPreview")}</label>
-              <div className="h-56 w-full bg-[#54D1CA]/10 rounded-2xl border border-[#54D1CA]/30 flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="w-12 h-12 rounded-full bg-[#54D1CA] text-white flex items-center justify-center shadow-lg mb-2 animate-bounce">
-                  <MapPin className="w-7 h-7" />
+              {coords ? (
+                <iframe
+                  title={t("ownerx.location.mapPreview")}
+                  className="h-56 w-full rounded-2xl border border-[#54D1CA]/30"
+                  loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.006}%2C${coords.lat - 0.004}%2C${coords.lng + 0.006}%2C${coords.lat + 0.004}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
+                />
+              ) : (
+                <div className="h-56 w-full bg-[#54D1CA]/10 rounded-2xl border border-[#54D1CA]/30 flex flex-col items-center justify-center text-center px-4">
+                  <MapPin className="w-8 h-8 text-[#54D1CA] mb-2" />
+                  <span className="text-xs text-[#555555]">{t("ownerx.location.gpsNotSet")}</span>
                 </div>
-                <span className="text-sm font-bold text-[#111111]">{t("ownerx.location.storeHere")}</span>
-                <span className="text-xs text-[#555555]">
-                  {street}, {city} ({state})
+              )}
+              {coords && (
+                <span className="text-[10px] text-[#B7B7B7]">
+                  {t("ownerx.location.gps", {
+                    lat: f.number(coords.lat, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
+                    lng: f.number(coords.lng, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
+                  })}
                 </span>
-                <span className="text-[10px] text-[#B7B7B7] mt-1">
-                  {hasGps
-                    ? t("ownerx.location.gps", {
-                        lat: f.number(business.location.lat, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
-                        lng: f.number(business.location.lng, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
-                      })
-                    : t("ownerx.location.gpsNotSet")}
-                </span>
+              )}
+              {mapError && <p className="text-xs font-bold text-[#E54666]">{mapError}</p>}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="button" variant="secondary" size="sm" className="flex-1 gap-1" onClick={findOnMap} isLoading={locating === "address"} disabled={!!locating}>
+                  <Search className="w-4 h-4" /> {t("manage.location.findAddress")}
+                </Button>
+                <Button type="button" variant="secondary" size="sm" className="flex-1 gap-1" onClick={useMyLocation} isLoading={locating === "device"} disabled={!!locating}>
+                  <LocateFixed className="w-4 h-4" /> {t("manage.location.useMine")}
+                </Button>
               </div>
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-[#EAEAEA]">
-              <Button type="button" variant="secondary" size="lg" className="flex-1 gap-1">
-                <Edit3 className="w-4 h-4" /> {t("ownerx.location.edit")}
-              </Button>
               <Button type="submit" variant="primary" size="lg" className="flex-1 gap-1" isLoading={isSubmitting}>
                 {isSaved ? (
                   <>

@@ -67,6 +67,7 @@ Required categories:
 - `STORAGE_SERVICE_ROLE_KEY`.
 - `STORAGE_PUBLIC_BUCKET`.
 - `MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM` (sender on a domain verified in Resend). The backend refuses to start in production without them.
+- Optional: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (product/workshop photo upload; without them uploads return 503) and `DEEPL_API_KEY` (automatic EN/NL content translation; without it text is saved untranslated). Server-side only.
 - `APP_BASE_URL`.
 - `API_BASE_URL`.
 

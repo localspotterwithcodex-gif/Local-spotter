@@ -219,53 +219,7 @@ async function main() {
     create: { name: 'Kleding', slug: 'kleding' },
   });
 
-  const product1 = await prisma.product.upsert({
-    where: {
-      businessId_slug: {
-        businessId: business1.id,
-        slug: 'handgemaakte-leren-shopper',
-      },
-    },
-    update: {},
-    create: {
-      businessId: business1.id,
-      categoryId: prodCategoryClothing.id,
-      name: 'Handgemaakte Leren Shopper',
-      slug: 'handgemaakte-leren-shopper',
-      description: 'Stijlvolle en duurzame tas gemaakt van 100% plantaardig looien leer.',
-      price: 149.95,
-      stock: 15,
-      active: true,
-      variants: {
-        createMany: {
-          data: [
-            { color: 'Zwart', sku: 'SHOPPER-BLK', price: 149.95, stock: 8 },
-            { color: 'Bruin', sku: 'SHOPPER-BRN', price: 149.95, stock: 7 },
-          ],
-        },
-      },
-    },
-  });
-
-  const productVariants = [
-    { color: 'Zwart', sku: 'SHOPPER-BLK', price: 149.95, stock: 8 },
-    { color: 'Bruin', sku: 'SHOPPER-BRN', price: 149.95, stock: 7 },
-  ];
-
-  for (const variant of productVariants) {
-    const existingVariant = await prisma.productVariant.findFirst({
-      where: { productId: product1.id, sku: variant.sku },
-    });
-
-    if (!existingVariant) {
-      await prisma.productVariant.create({
-        data: {
-          productId: product1.id,
-          ...variant,
-        },
-      });
-    }
-  }
+  // No demo products are seeded: owners add their own via the portal.
 
   // 7. Create Consumer User & Profile
   // Simple test login credentials (same pattern as Super Admin):
@@ -365,31 +319,6 @@ async function main() {
       longitude: 4.8851,
     },
   });
-
-  // 10. Create Review
-  console.log('⭐ Seeding Review...');
-  const existingReview = await prisma.review.findFirst({
-    where: {
-      businessId: business1.id,
-      consumerProfileId: consumerUser.consumerProfile!.id,
-      productId: product1.id,
-      title: 'Prachtige kwaliteit tas!',
-    },
-  });
-
-  if (!existingReview) {
-    await prisma.review.create({
-      data: {
-        businessId: business1.id,
-        consumerProfileId: consumerUser.consumerProfile!.id,
-        productId: product1.id,
-        rating: 5,
-        title: 'Prachtige kwaliteit tas!',
-        comment: 'Super snelle verzending en het leer is ontzettend mooi afgewerkt.',
-        status: ReviewStatus.PUBLISHED,
-      },
-    });
-  }
 
   console.log('✅ Seed completed successfully!');
   console.log('');

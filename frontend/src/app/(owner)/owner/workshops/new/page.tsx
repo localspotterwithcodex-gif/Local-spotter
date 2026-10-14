@@ -2,16 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, Clock, MapPin, Users, AlertCircle } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { api } from "@/lib/api";
+import { api, type UploadedImage } from "@/lib/api";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
@@ -30,7 +30,8 @@ export default function AddWorkshopPage() {
   const [startTime, setStartTime] = useState("");
   const [finishTime, setFinishTime] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +66,8 @@ export default function AddWorkshopPage() {
         date,
         startTime,
         finishTime,
-        imageUrl: imageUrl.trim() || undefined,
+        imageAssetId: images[0]?.id,
+        imageUrl: images[0]?.url,
       });
       router.push("/owner");
     } catch (err) {
@@ -117,21 +119,15 @@ export default function AddWorkshopPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Workshop Image Preview */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-[#111111]">{t("ownerx.workshopNew.imageLabel")}</label>
-              <div className="relative h-44 rounded-2xl overflow-hidden bg-[#790166]/10 border border-[#EAEAEA]">
-                {/^https?:\/\//.test(imageUrl.trim()) && (
-                  <Image src={imageUrl.trim()} alt={t("ownerx.workshopNew.imageAlt")} fill unoptimized className="object-cover" />
-                )}
-              </div>
-              <Input
-                placeholder={t("ownerx.workshopNew.imagePlaceholder")}
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                helperText={t("ownerx.workshopNew.imageHelp")}
-              />
-            </div>
+            <ServerImageUploader
+              label={t("ownerx.workshopNew.imageLabel")}
+              value={images}
+              onChange={setImages}
+              max={1}
+              onBusyChange={setUploading}
+            />
+
+            <p className="text-xs text-[#790166] bg-[#FAE2F0] rounded-xl px-3 py-2">{t("manage.product.translateHint")}</p>
 
             {/* Workshop Name */}
             <Input
@@ -221,7 +217,7 @@ export default function AddWorkshopPage() {
                   {t("ownerx.workshopNew.cancel")}
                 </Button>
               </Link>
-              <Button variant="primary" size="lg" className="flex-1" type="submit" isLoading={isSubmitting}>
+              <Button variant="primary" size="lg" className="flex-1" type="submit" isLoading={isSubmitting} disabled={uploading}>
                 {t("ownerx.workshopNew.create")}
               </Button>
             </div>

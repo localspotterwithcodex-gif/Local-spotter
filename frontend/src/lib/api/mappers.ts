@@ -28,9 +28,12 @@ export interface RawProduct {
   stock: number;
   active: boolean;
   shopUrl?: string | null;
+  compareAtPrice?: Dec | null;
+  translations?: Record<string, Record<string, string>> | null;
+  sourceLocale?: string | null;
   createdAt: string;
   category?: { id: string; name: string } | null;
-  images?: { mediaAsset?: { url: string } | null }[];
+  images?: { id?: string; mediaAssetId?: string; mediaAsset?: { url: string } | null }[];
   variants?: { id: string; productId: string; sku?: string | null; size?: string | null; color?: string | null; price?: Dec; stock: number }[];
   business?: { id: string; name: string } | null;
   averageRating?: number;
@@ -78,6 +81,7 @@ export function toProduct(r: RawProduct): Product {
         sku: v.sku ?? undefined,
         size: (v.size ?? undefined) as ProductVariant["size"],
         colorName: v.color ?? undefined,
+        colorHex: v.color && /^#[0-9a-f]{6}$/i.test(v.color) ? v.color : undefined,
         price: v.price === null || v.price === undefined ? undefined : num(v.price),
         stock: v.stock,
       }))
@@ -88,8 +92,15 @@ export function toProduct(r: RawProduct): Product {
     businessName: r.business?.name ?? "",
     name: r.name,
     price: num(r.price),
+    compareAtPrice: r.compareAtPrice === null || r.compareAtPrice === undefined ? undefined : num(r.compareAtPrice),
     description: r.description ?? "",
+    // The API localises name/description for display; the text as typed lives in translations[sourceLocale].
+    sourceName: (r.sourceLocale && r.translations?.[r.sourceLocale]?.name) || r.name,
+    sourceDescription: (r.sourceLocale && r.translations?.[r.sourceLocale]?.description) || r.description || "",
     images: (r.images ?? []).map((i) => i.mediaAsset?.url).filter((u): u is string => !!u),
+    imageRefs: (r.images ?? [])
+      .filter((i) => i.id && i.mediaAssetId && i.mediaAsset?.url)
+      .map((i) => ({ id: i.id as string, mediaAssetId: i.mediaAssetId as string, url: (i.mediaAsset as { url: string }).url })),
     category: r.category?.name ?? "",
     stock: r.stock,
     externalUrl: r.shopUrl ?? undefined,

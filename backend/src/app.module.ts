@@ -21,6 +21,9 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { ShopRegistrationsModule } from './shop-registrations/shop-registrations.module';
+import { MediaModule } from './media/media.module';
+import { FinanceModule } from './finance/finance.module';
+import { TranslationModule } from './translation/translation.module';
 
 @Module({
   imports: [
@@ -30,6 +33,9 @@ import { ShopRegistrationsModule } from './shop-registrations/shop-registrations
       validate: validateEnv,
     }),
     MailModule,
+    TranslationModule,
+    MediaModule,
+    FinanceModule,
     PrismaModule,
     HealthModule,
     AuthModule,

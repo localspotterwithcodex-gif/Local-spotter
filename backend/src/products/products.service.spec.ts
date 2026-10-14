@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
+import { TranslationService } from '../translation/translation.service';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -9,6 +10,7 @@ describe('ProductsService', () => {
   let service: ProductsService;
   let prisma: any;
   let entitlementService: any;
+  let translation: { translateFields: jest.Mock };
 
   const mockUser = {
     id: 'user-owner-1',
@@ -70,11 +72,14 @@ describe('ProductsService', () => {
       hasFeature: jest.fn(),
     };
 
+    translation = { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
         { provide: PrismaService, useValue: prisma },
         { provide: SubscriptionEntitlementService, useValue: entitlementService },
+        { provide: TranslationService, useValue: translation },
       ],
     }).compile();
 
@@ -237,6 +242,44 @@ describe('ProductsService', () => {
       prisma.review.groupBy.mockResolvedValue([{ productId: 'p1', _avg: { rating: 5 }, _count: { _all: 1 } }]);
       const res = await service.getPublicProductByIdOrSlug('p1');
       expect(res).toMatchObject({ id: 'p1', averageRating: 5, ratingCount: 1 });
+    });
+  });
+  describe('translation and old price', () => {
+    const ownerSetup = () => {
+      prisma.business.findUnique.mockResolvedValue(mockBusiness);
+      prisma.businessOwnerProfile.findUnique.mockResolvedValue(mockOwnerProfile);
+      entitlementService.hasFeature.mockResolvedValue(true);
+      prisma.product.findFirst.mockResolvedValue(null);
+      prisma.product.create.mockImplementation(async ({ data }: any) => ({ id: 'p1', ...data }));
+    };
+
+    it('stores the EN/NL translations and detected source language on create', async () => {
+      ownerSetup();
+      translation.translateFields.mockResolvedValue({
+        sourceLocale: 'nl',
+        translations: { en: { name: 'Leather tote' }, nl: { name: 'Leren shopper' } },
+      });
+      await service.createProduct('bus-1', mockUser, { name: 'Leren shopper', price: 10, stock: 1 });
+      const data = prisma.product.create.mock.calls[0][0].data;
+      expect(data.sourceLocale).toBe('nl');
+      expect(data.translations.en.name).toBe('Leather tote');
+      expect(data.name).toBe('Leren shopper');
+    });
+
+    it('still saves the product when translation is unavailable', async () => {
+      ownerSetup();
+      await service.createProduct('bus-1', mockUser, { name: 'Tas', price: 10, stock: 1 });
+      const data = prisma.product.create.mock.calls[0][0].data;
+      expect(data.translations).toBeUndefined();
+      expect(data.sourceLocale).toBeNull();
+    });
+
+    it('rejects an old price that is not higher than the price', async () => {
+      ownerSetup();
+      await expect(
+        service.createProduct('bus-1', mockUser, { name: 'Tas', price: 50, compareAtPrice: 50, stock: 1 }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.product.create).not.toHaveBeenCalled();
     });
   });
 });

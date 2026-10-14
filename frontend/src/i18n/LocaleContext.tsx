@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { dictionaries, Locale, TranslationKey } from "./dictionaries";
 import { interpolate } from "./define";
+import { setApiLocale } from "@/lib/api/client";
 
 export const LOCALE_COOKIE_KEY = "localspotter_locale";
 
@@ -29,6 +30,8 @@ export const LocaleProvider: React.FC<{ initialLocale: Locale; children: React.R
   children,
 }) => {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  // Must happen during render: child effects (data fetching) run before parent effects.
+  setApiLocale(locale);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);

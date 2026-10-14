@@ -19,6 +19,13 @@ export class CreateProductDto {
   @Min(0, { message: 'Prijs mag niet negatief zijn' })
   price: number;
 
+  @ApiPropertyOptional({ example: 179.95, description: 'Previous (struck-through) price; must be higher than price' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Oude prijs moet een geldig bedrag zijn' })
+  @Min(0)
+  compareAtPrice?: number;
+
   @ApiProperty({ example: 15, description: 'Inventory stock count (must be >= 0)' })
   @Type(() => Number)
   @IsNumber()

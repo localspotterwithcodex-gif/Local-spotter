@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkshopsService } from './workshops.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TranslationService } from '../translation/translation.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import {
   ForbiddenException,
@@ -104,6 +105,7 @@ describe('WorkshopsService', () => {
         WorkshopsService,
         { provide: PrismaService, useValue: prisma },
         { provide: SubscriptionEntitlementService, useValue: entitlementService },
+        { provide: TranslationService, useValue: { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } },
       ],
     }).compile();
 

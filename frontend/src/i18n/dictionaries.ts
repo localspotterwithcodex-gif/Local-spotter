@@ -11,12 +11,13 @@ import { publicSite } from "./dict/public.ts";
 import { account } from "./dict/account.ts";
 import { owner } from "./dict/owner.ts";
 import { admin } from "./dict/admin.ts";
+import { manage } from "./dict/manage.ts";
 
-export const dictionaryModules = { core, common, auth, publicSite, account, owner, admin } as const;
+export const dictionaryModules = { core, common, auth, publicSite, account, owner, admin, manage } as const;
 
 export const dictionaries = {
-  en: { ...core.en, ...common.en, ...auth.en, ...publicSite.en, ...account.en, ...owner.en, ...admin.en },
-  nl: { ...core.nl, ...common.nl, ...auth.nl, ...publicSite.nl, ...account.nl, ...owner.nl, ...admin.nl },
+  en: { ...core.en, ...common.en, ...auth.en, ...publicSite.en, ...account.en, ...owner.en, ...admin.en, ...manage.en },
+  nl: { ...core.nl, ...common.nl, ...auth.nl, ...publicSite.nl, ...account.nl, ...owner.nl, ...admin.nl, ...manage.nl },
 } as const;
 
 export type Locale = keyof typeof dictionaries;

@@ -118,16 +118,26 @@ export interface ConsumerAddressInput {
   isDefault?: boolean;
 }
 
+/** An image already uploaded to storage (see api.uploadImage). */
+export interface UploadedImage {
+  /** MediaAsset id */
+  id: string;
+  url: string;
+}
+
 export interface CreateProductInput {
   name: string;
   description?: string;
   price: number;
+  compareAtPrice?: number;
   stock: number;
   categoryId?: string;
   shopUrl?: string;
   active?: boolean;
-  imageUrls?: string[];
+  images?: UploadedImage[];
 }
+
+export type UpdateProductInput = Partial<Omit<CreateProductInput, "images">>;
 
 export interface BusinessCategory {
   id: string;
@@ -167,9 +177,37 @@ export interface CreateWorkshopInput {
   /** HH:MM (local) */
   finishTime: string;
   imageUrl?: string;
+  imageAssetId?: string;
+}
+
+export interface BusinessBalance {
+  currency: string;
+  grossSalesCents: number;
+  refundsCents: number;
+  netSalesCents: number;
+  paidOutCents: number;
+  pendingPayoutCents: number;
+  availableCents: number;
+  recentEntries: Array<{
+    id: string;
+    type: string;
+    amountCents: number;
+    createdAt: string;
+    orderNumber: string | null;
+    workshopTitle: string | null;
+  }>;
+  payouts: Array<{ id: string; amountCents: number; status: string; requestedAt: string; paidAt: string | null }>;
 }
 
 export const api = {
+  // ---------------- MEDIA ----------------
+  /** Uploads one image (JPEG/PNG/WebP, max 5 MB) to the backend, which stores it in Cloudinary. */
+  async uploadImage(file: File): Promise<UploadedImage> {
+    const body = new FormData();
+    body.append("file", file);
+    return apiClient.post<UploadedImage>("/media/images", body);
+  },
+
   // ---------------- PRODUCTS ----------------
   async getProductCategories(): Promise<ProductCategory[]> {
     return apiClient.get<ProductCategory[]>("/products/categories");
@@ -201,13 +239,35 @@ export const api = {
   },
 
   async createProduct(businessId: string, input: CreateProductInput): Promise<Product> {
-    const { imageUrls, ...body } = input;
+    const { images, ...body } = input;
     const created = await apiClient.post<RawProduct>(`/businesses/${businessId}/products`, body);
-    for (const url of (imageUrls ?? []).slice(0, 3)) {
-      await apiClient.post(`/products/${created.id}/images`, { url });
+    for (const [i, img] of (images ?? []).slice(0, 3).entries()) {
+      await apiClient.post(`/products/${created.id}/images`, { url: img.url, mediaAssetId: img.id, sortOrder: i });
     }
     const full = await apiClient.get<RawProduct>(`/products/${created.id}`);
     return toProduct(full);
+  },
+
+  /** Owner view of one product (also inactive ones), with the text as typed available via sourceName/sourceDescription. */
+  async getOwnerProduct(productId: string): Promise<Product | null> {
+    const raw = await notFoundToNull(apiClient.get<RawProduct>(`/products/${productId}`));
+    return raw ? toProduct(raw) : null;
+  },
+
+  async updateProduct(productId: string, input: UpdateProductInput): Promise<void> {
+    await apiClient.patch(`/products/${productId}`, input);
+  },
+
+  async addProductImage(productId: string, img: UploadedImage, sortOrder: number): Promise<void> {
+    await apiClient.post(`/products/${productId}/images`, { url: img.url, mediaAssetId: img.id, sortOrder });
+  },
+
+  async removeProductImage(productId: string, imageId: string): Promise<void> {
+    await apiClient.delete(`/products/${productId}/images/${imageId}`);
+  },
+
+  async deleteProductVariant(productId: string, variantId: string): Promise<void> {
+    await apiClient.delete(`/products/${productId}/variants/${variantId}`);
   },
 
   async setProductActive(productId: string, active: boolean): Promise<void> {
@@ -383,6 +443,14 @@ export const api = {
   // ---------------- OWNER ----------------
   async getBusinessCategories(): Promise<BusinessCategory[]> {
     return apiClient.get<BusinessCategory[]>("/businesses/categories");
+  },
+
+  async cancelWorkshop(workshopId: string): Promise<void> {
+    await apiClient.post(`/workshops/${workshopId}/cancel`, {});
+  },
+
+  async getBusinessBalance(businessId: string): Promise<BusinessBalance> {
+    return apiClient.get<BusinessBalance>(`/businesses/${businessId}/balance`);
   },
 
   async createBusiness(input: CreateBusinessInput): Promise<Business> {

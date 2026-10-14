@@ -4,7 +4,8 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Calendar, Plus } from "lucide-react";
+import { useState } from "react";
+import { ShoppingBag, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Button } from "@/components/ui/Button";
 import { SubscriptionBadge, SubscriptionTier } from "@/components/ui/SubscriptionBadge";
@@ -18,6 +19,7 @@ import type { TranslationKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import type { OrderStatus } from "@/types/order";
 
 const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; className: string }[] = [
@@ -31,12 +33,45 @@ const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; c
 export default function OwnerDashboardPage() {
   const router = useRouter();
   const { t } = useLocale();
+  const errMsg = useErrorMessage();
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const businessId = business?.id ?? null;
 
   const products = useApiResource(businessId && `owner-products:${businessId}`, () => api.getBusinessProducts(businessId!));
   const workshops = useApiResource(businessId && `owner-workshops:${businessId}`, () => api.getWorkshops({ businessId: businessId! }));
   const orders = useApiResource(businessId && `owner-orders:${businessId}`, () => api.getBusinessOrders(businessId!));
+
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [workshopError, setWorkshopError] = useState("");
+  const handleCancelWorkshop = async (id: string, title: string) => {
+    if (!window.confirm(t("manage.workshop.cancelConfirm", { name: title }))) return;
+    setCancellingId(id);
+    setWorkshopError("");
+    try {
+      await api.cancelWorkshop(id);
+      workshops.reload();
+    } catch (err) {
+      setWorkshopError(t("manage.workshop.cancelFailed", { message: errMsg(err) }));
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(t("manage.product.deleteConfirm", { name }))) return;
+    setDeleteError("");
+    setDeletingId(id);
+    try {
+      await api.deleteProduct(id);
+      products.reload();
+    } catch (err) {
+      setDeleteError(t("manage.product.deleteFailed", { message: errMsg(err) }));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (businessLoading) {
     return (
@@ -148,6 +183,12 @@ export default function OwnerDashboardPage() {
             </Link>
           </div>
 
+          {deleteError && (
+            <div role="alert" className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">
+              {deleteError}
+            </div>
+          )}
+
           {products.error ? (
             <ErrorState title={t("ownerx.dash.productsLoadFailed")} message={products.error} onRetry={products.reload} />
           ) : products.loading ? (
@@ -157,7 +198,29 @@ export default function OwnerDashboardPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {productList.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <div key={product.id} className="space-y-2">
+                  <div className={product.isActive ? "" : "opacity-60"}>
+                    <ProductCard product={product} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                    <span className="text-[#B7B7B7]">
+                      {product.isActive ? t("manage.product.stockLeft", { n: product.stock }) : t("manage.product.hidden")}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <Link href={`/owner/products/${product.id}/edit`} className="inline-flex items-center gap-1 text-[#790166] hover:underline">
+                        <Pencil className="w-3.5 h-3.5" /> {t("manage.product.edit")}
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={deletingId === product.id}
+                        onClick={() => void handleDelete(product.id, product.name)}
+                        className="inline-flex items-center gap-1 text-[#E54666] hover:underline disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> {t("manage.product.delete")}
+                      </button>
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -174,6 +237,7 @@ export default function OwnerDashboardPage() {
             </Link>
           </div>
 
+          {workshopError && <p className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">{workshopError}</p>}
           {workshops.error ? (
             <ErrorState title={t("ownerx.dash.workshopsLoadFailed")} message={workshops.error} onRetry={workshops.reload} />
           ) : workshops.loading ? (
@@ -183,7 +247,21 @@ export default function OwnerDashboardPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {workshopList.map((workshop) => (
-                <WorkshopCard key={workshop.id} workshop={workshop} />
+                <div key={workshop.id} className="space-y-2">
+                  <WorkshopCard workshop={workshop} />
+                  {workshop.status === "CANCELLED" ? (
+                    <p className="text-[11px] font-bold text-[#E54666]">{t("manage.workshop.cancelled")}</p>
+                  ) : workshop.status === "COMPLETED" ? null : (
+                    <button
+                      type="button"
+                      disabled={cancellingId === workshop.id}
+                      onClick={() => handleCancelWorkshop(workshop.id, workshop.title)}
+                      className="text-[11px] font-bold text-[#E54666] hover:underline disabled:opacity-50"
+                    >
+                      {t("manage.workshop.cancel")}
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}

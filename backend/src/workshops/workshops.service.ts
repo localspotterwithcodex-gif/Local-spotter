@@ -7,12 +7,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
+import { TranslationService } from '../translation/translation.service';
 import { CreateWorkshopDto } from './dto/create-workshop.dto';
 import { UpdateWorkshopDto } from './dto/update-workshop.dto';
 import { QueryWorkshopDto } from './dto/query-workshop.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { QueryBookingDto } from './dto/query-booking.dto';
 import {
+  Prisma,
   WorkshopStatus,
   BookingStatus,
   UserRole,
@@ -25,6 +27,7 @@ export class WorkshopsService {
   constructor(
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
+    private translation: TranslationService,
   ) {}
 
   // ==========================================
@@ -67,10 +70,15 @@ export class WorkshopsService {
       slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
+    // Auto-translate title/description to EN + NL (best effort; never blocks saving).
+    const i18n = await this.translation.translateFields({ title: dto.title, description: dto.description });
+
     return this.prisma.workshop.create({
       data: {
         businessId: dto.businessId,
         title: dto.title,
+        translations: i18n.translations ?? undefined,
+        sourceLocale: i18n.sourceLocale,
         slug,
         description: dto.description || null,
         price: dto.price,
@@ -287,10 +295,21 @@ export class WorkshopsService {
       }
     }
 
+    const textChanged =
+      (dto.title !== undefined && dto.title !== workshop.title) ||
+      (dto.description !== undefined && dto.description !== workshop.description);
+    const i18n = textChanged
+      ? await this.translation.translateFields({
+          title: dto.title ?? workshop.title,
+          description: dto.description !== undefined ? dto.description : workshop.description,
+        })
+      : null;
+
     const updated = await this.prisma.workshop.update({
       where: { id: workshopId },
       data: {
         title: dto.title,
+        ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         description: dto.description !== undefined ? dto.description : undefined,
         price: dto.price !== undefined ? dto.price : undefined,
         capacity: dto.capacity !== undefined ? dto.capacity : undefined,

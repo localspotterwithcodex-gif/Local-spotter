@@ -8,13 +8,15 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateShopRouteDto, CreateRouteStopDto, UpdateShopRouteDto, UpdateRouteStopDto, QueryShopRouteDto, ReorderStopsDto } from './dto';
-import { RouteStatus, UserRole, BusinessStatus, SubscriptionStatus } from '@prisma/client';
+import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus } from '@prisma/client';
+import { TranslationService } from '../translation/translation.service';
 
 @Injectable()
 export class ShopRoutesService {
   constructor(
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
+    private translation: TranslationService,
   ) {}
 
   // ==========================================
@@ -67,11 +69,15 @@ export class ShopRoutesService {
     const shouldPublish = dto.publish !== true;
     const status = shouldPublish ? RouteStatus.PUBLISHED : RouteStatus.DRAFT;
 
+    const i18n = await this.translation.translateFields({ title: dto.title, description: dto.description });
+
     const route = await this.prisma.shopRoute.create({
       data: {
         businessId,
         createdByBusinessId: businessId || null,
         createdByUserId: user.id,
+        translations: i18n.translations ?? undefined,
+        sourceLocale: i18n.sourceLocale,
         title: dto.title,
         slug,
         description: dto.description || null,
@@ -215,10 +221,21 @@ export class ShopRoutesService {
       }
     }
 
+    const textChanged =
+      (dto.title !== undefined && dto.title !== route.title) ||
+      (dto.description !== undefined && dto.description !== route.description);
+    const i18n = textChanged
+      ? await this.translation.translateFields({
+          title: dto.title ?? route.title,
+          description: dto.description !== undefined ? dto.description : route.description,
+        })
+      : null;
+
     return this.prisma.shopRoute.update({
       where: { id: routeId },
       data: {
         title: dto.title,
+        ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
         city: dto.city !== undefined ? dto.city : undefined,

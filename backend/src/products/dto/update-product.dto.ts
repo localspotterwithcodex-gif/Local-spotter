@@ -20,6 +20,13 @@ export class UpdateProductDto {
   @Min(0, { message: 'Prijs mag niet negatief zijn' })
   price?: number;
 
+  @ApiPropertyOptional({ example: 179.95, description: 'Previous price; must be higher than price' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Oude prijs moet een geldig bedrag zijn' })
+  @Min(0)
+  compareAtPrice?: number;
+
   @ApiPropertyOptional({ example: 12 })
   @IsOptional()
   @Type(() => Number)

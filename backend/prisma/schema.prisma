@@ -282,6 +282,8 @@ model Business {
   averageRating  Decimal        @default(0) @map("average_rating") @db.Decimal(3, 2)
   ratingCount    Int            @default(0) @map("rating_count")
   followerCount  Int            @default(0) @map("follower_count")
+  translations   Json?
+  sourceLocale   String?        @map("source_locale")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   deletedAt      DateTime?      @map("deleted_at")
@@ -421,6 +423,10 @@ model Product {
   stock       Int       @default(0)
   active      Boolean   @default(true)
   shopUrl     String?   @map("shop_url")
+  compareAtPrice Decimal? @map("compare_at_price") @db.Decimal(10, 2)
+  // Auto-translated copy of name/description: { en: {name, description}, nl: {...} }
+  translations Json?
+  sourceLocale String?  @map("source_locale")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -596,6 +602,8 @@ model Workshop {
   longitude   Decimal?       @db.Decimal(9, 6)
   imageUrl    String?        @map("image_url")
   imageAssetId String?       @map("image_asset_id") @db.Uuid
+  translations Json?
+  sourceLocale String?       @map("source_locale")
   status      WorkshopStatus @default(DRAFT)
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
@@ -639,6 +647,8 @@ model ShopRoute {
   description         String?
   city                String
   status              RouteStatus @default(DRAFT)
+  translations        Json?
+  sourceLocale        String?     @map("source_locale")
   createdAt           DateTime    @default(now()) @map("created_at")
   updatedAt           DateTime    @updatedAt @map("updated_at")
   deletedAt           DateTime?   @map("deleted_at")

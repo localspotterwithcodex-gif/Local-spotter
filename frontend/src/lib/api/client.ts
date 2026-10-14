@@ -24,15 +24,31 @@ export class ApiError extends Error {
 
 type RequestOptions = RequestInit;
 
+/**
+ * Language of the UI, sent as Accept-Language so the backend returns
+ * user-entered content (product names, descriptions, ...) in that language.
+ * Set by LocaleProvider before any child effect runs.
+ */
+let apiLocale: string | undefined;
+export function setApiLocale(locale: string): void {
+  apiLocale = locale;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { headers, ...rest } = options;
+  // multipart bodies must keep the browser-generated boundary: no JSON content type
+  const isForm = typeof FormData !== "undefined" && rest.body instanceof FormData;
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       credentials: "same-origin",
       ...rest,
-      headers: { "Content-Type": "application/json", ...(headers as Record<string, string>) },
+      headers: {
+        ...(isForm ? {} : { "Content-Type": "application/json" }),
+        ...(apiLocale ? { "Accept-Language": apiLocale } : {}),
+        ...(headers as Record<string, string>),
+      },
     });
   } catch (networkErr) {
     // fetch() only throws when no response arrived at all (backend down, no network).

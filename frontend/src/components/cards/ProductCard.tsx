@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, Eye, Star } from "lucide-react";
+import { Heart, Eye, Star, ImageOff } from "lucide-react";
 import { Product } from "@/types/product";
 import { useFormat } from "@/i18n/useFormat";
 
@@ -23,10 +23,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  const imageSrc =
-    product.images && product.images.length > 0
-      ? product.images[0]
-      : "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=400&q=80";
+  // No stock photo fallback: a product without photos shows a neutral placeholder.
+  const imageSrc = product.images && product.images.length > 0 ? product.images[0] : null;
 
   return (
     <Link
@@ -35,13 +33,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     >
       {/* Product Image Container (190x190 8px radius) */}
       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#F9F9F9]">
-        <Image
-          src={imageSrc}
-          alt={product.name}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 50vw, 25vw"
-        />
+        {imageSrc ? (
+          <Image
+            src={imageSrc}
+            alt={product.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 50vw, 25vw"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#FAE2F0]/40 text-[#B7B7B7]" aria-hidden="true">
+            <ImageOff className="w-8 h-8" />
+          </div>
+        )}
 
         {/* Translucent pale pink overlay from Figma spec */}
         <div className="absolute inset-x-0 bottom-0 bg-[#FAE2F0]/70 backdrop-blur-xs p-1.5 flex items-center justify-between">

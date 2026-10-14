@@ -6,10 +6,14 @@ import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
 import { Prisma, BusinessStatus, SubscriptionStatus, UserRole } from '@prisma/client';
 import { QueryBusinessDto } from './dto/query-business.dto';
+import { TranslationService } from '../translation/translation.service';
 
 @Injectable()
 export class BusinessesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private translation: TranslationService,
+  ) {}
 
   async create(user: any, dto: CreateBusinessDto) {
     if (user.role !== UserRole.BUSINESS_OWNER && user.role !== UserRole.SUPER_ADMIN) {
@@ -32,11 +36,16 @@ export class BusinessesService {
       slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
+    // Auto-translate the shop description to EN + NL (best effort; never blocks saving).
+    const i18n = await this.translation.translateFields({ description: dto.description });
+
     return this.prisma.business.create({
       data: {
         ownerProfileId: ownerProfile.id,
         name: dto.name,
         slug,
+        translations: i18n.translations ?? undefined,
+        sourceLocale: i18n.sourceLocale,
         description: dto.description || null,
         phone: dto.phone || null,
         email: dto.email || null,
@@ -160,10 +169,16 @@ export class BusinessesService {
       }
     }
 
+    const i18n =
+      dto.description !== undefined && dto.description !== business.description
+        ? await this.translation.translateFields({ description: dto.description })
+        : null;
+
     return this.prisma.business.update({
       where: { id },
       data: {
         name: dto.name,
+        ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
         phone: dto.phone !== undefined ? dto.phone : undefined,

@@ -25,6 +25,17 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
 
   const selectedStop = route ? route.stops.find((st) => st.id === selectedStopId) ?? route.stops[0] ?? null : null;
 
+  const geoStops = (route?.stops ?? []).filter((st) => st.lat !== 0 || st.lng !== 0);
+  let mapSrc: string | null = null;
+  if (geoStops.length > 0) {
+    const lats = geoStops.map((st) => st.lat);
+    const lngs = geoStops.map((st) => st.lng);
+    const pad = 0.004;
+    const bbox = [Math.min(...lngs) - pad, Math.min(...lats) - pad, Math.max(...lngs) + pad, Math.max(...lats) + pad].join("%2C");
+    const focus = selectedStop && (selectedStop.lat !== 0 || selectedStop.lng !== 0) ? selectedStop : geoStops[0];
+    mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${focus.lat}%2C${focus.lng}`;
+  }
+
   const handleStartRoute = () => {
     setIsNavigating(true);
     setLocationError(null);
@@ -103,8 +114,15 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* MAP CANVAS PANEL (2 cols on desktop) */}
           <div className="md:col-span-2 bg-white rounded-3xl p-4 border border-[#EAEAEA] flex flex-col justify-between min-h-[400px] relative overflow-hidden">
-            {/* Interactive Map Visual Placeholder */}
-            <div className="w-full h-full bg-[#54D1CA]/10 rounded-2xl relative flex items-center justify-center p-6 border border-[#54D1CA]/20">
+            {mapSrc && (
+              <iframe
+                title={route.title}
+                src={mapSrc}
+                loading="lazy"
+                className="w-full h-72 rounded-2xl border border-[#54D1CA]/30 mb-3"
+              />
+            )}
+            <div className={`w-full ${mapSrc ? "" : "h-full"} bg-[#54D1CA]/10 rounded-2xl relative flex items-center justify-center p-6 border border-[#54D1CA]/20`}>
               {/* User Location Indicator from Figma ("You are here") */}
               {isNavigating && userLocation && (
                 <div className="absolute top-8 left-12 bg-[#121F3E] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5 animate-pulse z-20">

@@ -1,4 +1,5 @@
-export type ProductSize = "S" | "M" | "L" | "XL" | "XXL";
+export const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+export type ProductSize = (typeof PRODUCT_SIZES)[number];
 
 export interface ProductVariant {
   id: string;
@@ -19,7 +20,12 @@ export interface Product {
   price: number;
   compareAtPrice?: number;
   description: string;
+  /** Name/description exactly as the owner typed them (not translated); used by edit forms. */
+  sourceName?: string;
+  sourceDescription?: string;
   images: string[]; // max 3
+  /** Image rows (id + media asset) so an edit form can remove single images. */
+  imageRefs?: { id: string; mediaAssetId: string; url: string }[];
   category: string;
   stock: number;
   externalUrl?: string;

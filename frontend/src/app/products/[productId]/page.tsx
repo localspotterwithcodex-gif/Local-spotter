@@ -4,13 +4,13 @@ import React, { useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Star, Heart, ShoppingBag, ExternalLink, Store, Check, ArrowLeft } from "lucide-react";
+import { Star, Heart, ShoppingBag, ExternalLink, Store, Check, ArrowLeft, ImageOff } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { ProductSize } from "@/types/product";
+import { PRODUCT_SIZES, ProductSize } from "@/types/product";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -107,7 +107,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     );
   }
 
-  const allSizes: ProductSize[] = ["S", "M", "L", "XL", "XXL"];
+  const allSizes: ProductSize[] = [...PRODUCT_SIZES];
   const sizes = allSizes.filter((sz) => variants.some((v) => v.size === sz));
   const colorVariants = variants.filter(
     (v, idx) => v.colorName && variants.findIndex((o) => o.colorName === v.colorName) === idx
@@ -126,12 +126,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
           {/* LEFT: Image Gallery */}
           <div className="space-y-3">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F9F9F9] border border-[#EAEAEA]">
-              <Image
-                src={product.images[selectedImageIndex] || "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80"}
-                alt={product.name}
-                fill
-                className="object-cover"
-              />
+              {product.images[selectedImageIndex] ? (
+                <Image src={product.images[selectedImageIndex]} alt={product.name} fill className="object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[#B7B7B7]">
+                  <ImageOff className="w-10 h-10" />
+                </div>
+              )}
             </div>
 
             {/* Thumbnail selector (max 3 images) */}
