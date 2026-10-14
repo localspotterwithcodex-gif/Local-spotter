@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
   <div className={`animate-pulse bg-[#EAEAEA] rounded-lg ${className}`} />
@@ -16,9 +19,12 @@ export const ProductCardSkeleton: React.FC = () => (
   </div>
 );
 
-export const LoadingState: React.FC<{ label?: string }> = ({ label = "Laden..." }) => (
+export const LoadingState: React.FC<{ label?: string }> = ({ label }) => {
+  const { t } = useLocale();
+  return (
   <div className="flex flex-col items-center justify-center p-12 text-center">
     <div className="w-10 h-10 border-4 border-[#FAE2F0] border-t-[#FA1EFF] rounded-full animate-spin mb-3"></div>
-    <span className="text-sm font-medium text-[#B7B7B7]">{label}</span>
+    <span className="text-sm font-medium text-[#B7B7B7]">{label ?? t("common.loading")}</span>
   </div>
-);
+  );
+};

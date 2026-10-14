@@ -10,9 +10,12 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 export default function ProfileEditPage() {
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const { data: profile, error, loading, reload } = useApiResource("consumer-profile", () => api.getConsumerProfile());
   // null = untouched, so the field shows the saved profile value.
   const [nameInput, setNameInput] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export default function ProfileEditPage() {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setSaveError(getErrorMessage(err, "Opslaan is mislukt."));
+      setSaveError(errMsg(err));
     } finally {
       setSaving(false);
     }
@@ -44,23 +47,23 @@ export default function ProfileEditPage() {
       <div className="max-w-md mx-auto space-y-6">
         <Link href="/account" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar account
+          {t("account.back")}
         </Link>
 
         <div className="bg-white p-6 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="text-center space-y-1">
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Account Information</h1>
-            <p className="text-xs text-[#B7B7B7]">Beheer je persoonlijke gegevens</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.info")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("account.profileSubtitle")}</p>
           </div>
 
           {loading ? (
-            <LoadingState label="Profiel laden..." />
+            <LoadingState label={t("account.profileLoading")} />
           ) : error || !profile ? (
-            <ErrorState title="Profiel niet beschikbaar" message={error} onRetry={reload} />
+            <ErrorState title={t("account.profileUnavailable")} message={error} onRetry={reload} />
           ) : (
           <form onSubmit={handleSave} className="space-y-4">
             <Input
-              label="Volledige Naam"
+              label={t("account.fullName")}
               icon={<User className="w-4 h-4" />}
               value={name}
               onChange={(e) => setNameInput(e.target.value)}
@@ -68,7 +71,7 @@ export default function ProfileEditPage() {
             />
 
             <Input
-              label="E-mailadres"
+              label={t("account.emailAddress")}
               type="email"
               icon={<Mail className="w-4 h-4" />}
               value={profile.email ?? ""}
@@ -77,7 +80,7 @@ export default function ProfileEditPage() {
             />
 
             <Input
-              label="Telefoonnummer"
+              label={t("checkout.phone")}
               icon={<Phone className="w-4 h-4" />}
               value={phone}
               onChange={(e) => setPhoneInput(e.target.value)}
@@ -92,10 +95,10 @@ export default function ProfileEditPage() {
             <Button type="submit" variant="primary" size="lg" fullWidth isLoading={saving} className="mt-4 gap-2">
               {saved ? (
                 <>
-                  <Check className="w-5 h-5" /> Opslaan Succesvol!
+                  <Check className="w-5 h-5" /> {t("account.saveSuccess")}
                 </>
               ) : (
-                "Opslaan"
+                t("common.save")
               )}
             </Button>
           </form>

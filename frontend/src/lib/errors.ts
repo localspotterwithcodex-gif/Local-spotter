@@ -1,5 +1,45 @@
-/** Extracts a user-displayable message from an unknown thrown value. */
-export function getErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  return fallback;
+import { ApiError } from "@/lib/api/client";
+import type { TranslationKey } from "@/i18n/dictionaries";
+
+export type ErrorKind = "network" | "unauthorized" | "forbidden" | "notFound" | "conflict" | "validation" | "rateLimited" | "unavailable" | "server" | "unknown";
+
+const KIND_KEY: Record<ErrorKind, TranslationKey> = {
+  network: "error.network",
+  unauthorized: "error.unauthorized",
+  forbidden: "error.forbidden",
+  notFound: "error.notFound",
+  conflict: "error.conflict",
+  validation: "error.validation",
+  rateLimited: "error.rateLimited",
+  unavailable: "error.unavailable",
+  server: "error.server",
+  unknown: "error.unknown",
+};
+
+/** Classifies a thrown value by HTTP status so the UI can show it in the active language. */
+export function errorKind(err: unknown): ErrorKind {
+  if (!(err instanceof ApiError)) return "unknown";
+  const s = err.status;
+  if (s === 0) return "network";
+  if (s === 401) return "unauthorized";
+  if (s === 403) return "forbidden";
+  if (s === 404) return "notFound";
+  if (s === 409) return "conflict";
+  if (s === 400 || s === 422) return "validation";
+  if (s === 429) return "rateLimited";
+  if (s === 503) return "unavailable";
+  if (s >= 500) return "server";
+  return "unknown";
+}
+
+type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
+/**
+ * Translated, user-safe message for any thrown value. Server-supplied message
+ * text is never shown (the API is not localised); pass `overrides` to give a
+ * specific kind a screen-specific key, e.g. `{ unauthorized: "auth.invalidCredentials" }`.
+ */
+export function describeError(err: unknown, t: Translate, overrides?: Partial<Record<ErrorKind, TranslationKey>>): string {
+  const kind = errorKind(err);
+  return t(overrides?.[kind] ?? KIND_KEY[kind]);
 }

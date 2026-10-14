@@ -13,10 +13,13 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 export default function AddWorkshopPage() {
   const router = useRouter();
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
 
   const [title, setTitle] = useState("");
@@ -36,17 +39,17 @@ export default function AddWorkshopPage() {
     e.preventDefault();
     setError("");
     if (!business) {
-      setError("Je hebt nog geen winkel. Maak eerst een winkel aan.");
+      setError(t("ownerx.error.noShop"));
       return;
     }
     const priceNum = parseFloat(price);
     const capacityNum = parseInt(capacity, 10);
     if (Number.isNaN(priceNum) || Number.isNaN(capacityNum)) {
-      setError("Vul a.u.b. alle verplichte velden in.");
+      setError(t("ownerx.error.requiredFields"));
       return;
     }
     if (finishTime <= startTime) {
-      setError("De eindtijd moet na de starttijd liggen.");
+      setError(t("ownerx.workshopNew.errorEndTime"));
       return;
     }
 
@@ -66,7 +69,7 @@ export default function AddWorkshopPage() {
       });
       router.push("/owner");
     } catch (err) {
-      setError(getErrorMessage(err, "Workshop aanmaken mislukt"));
+      setError(errMsg(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -78,14 +81,14 @@ export default function AddWorkshopPage() {
         <div className="max-w-2xl mx-auto space-y-6">
           <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
             <ArrowLeft className="w-4 h-4" />
-            Terug naar dashboard
+            {t("ownerx.backToDashboard")}
           </Link>
           {businessLoading ? (
-            <LoadingState label="Winkel laden..." />
+            <LoadingState label={t("ownerx.loadingShop")} />
           ) : businessError ? (
             <ErrorState message={businessError} onRetry={reloadBusiness} />
           ) : (
-            <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om workshops toe te voegen." />
+            <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forWorkshops")} />
           )}
         </div>
       </OwnerLayout>
@@ -97,13 +100,13 @@ export default function AddWorkshopPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar dashboard
+          {t("ownerx.backToDashboard")}
         </Link>
 
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="border-b border-[#EAEAEA] pb-4">
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Workshop Toevoegen</h1>
-            <p className="text-xs text-[#B7B7B7]">Organiseer een creatieve workshop of masterclass voor je klanten</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.workshopNew.title")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("ownerx.workshopNew.subtitle")}</p>
           </div>
 
           {error && (
@@ -116,24 +119,24 @@ export default function AddWorkshopPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Workshop Image Preview */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-[#111111]">Workshop Afbeelding</label>
+              <label className="text-sm font-bold text-[#111111]">{t("ownerx.workshopNew.imageLabel")}</label>
               <div className="relative h-44 rounded-2xl overflow-hidden bg-[#790166]/10 border border-[#EAEAEA]">
                 {/^https?:\/\//.test(imageUrl.trim()) && (
-                  <Image src={imageUrl.trim()} alt="Workshop preview" fill unoptimized className="object-cover" />
+                  <Image src={imageUrl.trim()} alt={t("ownerx.workshopNew.imageAlt")} fill unoptimized className="object-cover" />
                 )}
               </div>
               <Input
-                placeholder="https://voorbeeld.nl/workshop.jpg"
+                placeholder={t("ownerx.workshopNew.imagePlaceholder")}
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-                helperText="Plak de URL van een afbeelding (optioneel). Bestanden uploaden wordt nog niet ondersteund."
+                helperText={t("ownerx.workshopNew.imageHelp")}
               />
             </div>
 
             {/* Workshop Name */}
             <Input
-              label="Workshop Name *"
-              placeholder="Bijv. Workshop: Maak je eigen Leren Pasjeshouder"
+              label={t("ownerx.workshopNew.nameLabel")}
+              placeholder={t("ownerx.workshopNew.namePlaceholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -142,7 +145,7 @@ export default function AddWorkshopPage() {
             {/* Price & Capacity */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Prijs per Ticket (€) *"
+                label={t("ownerx.workshopNew.priceLabel")}
                 type="number"
                 step="0.01"
                 placeholder="49.00"
@@ -151,7 +154,7 @@ export default function AddWorkshopPage() {
                 required
               />
               <Input
-                label="Workshop Capacity (Max Deelnemers) *"
+                label={t("ownerx.workshopNew.capacityLabel")}
                 type="number"
                 placeholder="8"
                 icon={<Users className="w-4 h-4 text-[#790166]" />}
@@ -163,8 +166,8 @@ export default function AddWorkshopPage() {
 
             {/* Location */}
             <Input
-              label="Workshop Location *"
-              placeholder="Straat en stad"
+              label={t("ownerx.workshopNew.locationLabel")}
+              placeholder={t("ownerx.workshopNew.locationPlaceholder")}
               icon={<MapPin className="w-4 h-4 text-[#54D1CA]" />}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -174,7 +177,7 @@ export default function AddWorkshopPage() {
             {/* Date & Time */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Input
-                label="Datum *"
+                label={t("ownerx.workshopNew.dateLabel")}
                 type="date"
                 icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
                 value={date}
@@ -182,7 +185,7 @@ export default function AddWorkshopPage() {
                 required
               />
               <Input
-                label="Time Start *"
+                label={t("ownerx.workshopNew.startLabel")}
                 type="time"
                 icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
                 value={startTime}
@@ -190,7 +193,7 @@ export default function AddWorkshopPage() {
                 required
               />
               <Input
-                label="Time Finish *"
+                label={t("ownerx.workshopNew.finishLabel")}
                 type="time"
                 icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
                 value={finishTime}
@@ -201,11 +204,11 @@ export default function AddWorkshopPage() {
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label className="text-sm font-bold text-[#111111]">Workshop Description</label>
+              <label className="text-sm font-bold text-[#111111]">{t("ownerx.workshopNew.descLabel")}</label>
               <textarea
                 rows={4}
                 className="w-full bg-[#EAEAEA] text-[#111111] text-base p-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
-                placeholder="Leg uit wat deelnemers gaan maken en wat inclusief is (materiaal, hapje/drankje)..."
+                placeholder={t("ownerx.workshopNew.descPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -215,11 +218,11 @@ export default function AddWorkshopPage() {
             <div className="flex items-center gap-3 pt-4 border-t border-[#EAEAEA]">
               <Link href="/owner" className="flex-1">
                 <Button variant="ghost" size="lg" fullWidth type="button">
-                  ANNULEREN
+                  {t("ownerx.workshopNew.cancel")}
                 </Button>
               </Link>
               <Button variant="primary" size="lg" className="flex-1" type="submit" isLoading={isSubmitting}>
-                CREATE
+                {t("ownerx.workshopNew.create")}
               </Button>
             </div>
           </form>

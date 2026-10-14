@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/Button";
+import { useLocale } from "@/i18n/LocaleContext";
 import type { PageMeta } from "@/lib/api/admin";
 
 interface AdminPagerProps {
@@ -10,6 +11,7 @@ interface AdminPagerProps {
 }
 
 export const AdminPager: React.FC<AdminPagerProps> = ({ meta, onOffsetChange }) => {
+  const { t } = useLocale();
   const lastPage = Math.max(1, Math.ceil(meta.total / meta.limit));
   if (lastPage <= 1) return null;
   return (
@@ -25,7 +27,7 @@ export const AdminPager: React.FC<AdminPagerProps> = ({ meta, onOffsetChange }) 
           onClick={() => onOffsetChange((meta.page - 2) * meta.limit)}
           className="h-7 text-[11px]"
         >
-          Vorige
+          {t("adminx.pager.previous")}
         </Button>
         <Button
           variant="ghost"
@@ -34,7 +36,7 @@ export const AdminPager: React.FC<AdminPagerProps> = ({ meta, onOffsetChange }) 
           onClick={() => onOffsetChange(meta.page * meta.limit)}
           className="h-7 text-[11px]"
         >
-          Volgende
+          {t("adminx.pager.next")}
         </Button>
       </div>
     </div>

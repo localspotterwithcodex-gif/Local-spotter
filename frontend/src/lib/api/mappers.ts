@@ -33,6 +33,8 @@ export interface RawProduct {
   images?: { mediaAsset?: { url: string } | null }[];
   variants?: { id: string; productId: string; sku?: string | null; size?: string | null; color?: string | null; price?: Dec; stock: number }[];
   business?: { id: string; name: string } | null;
+  averageRating?: number;
+  ratingCount?: number;
 }
 
 export interface RawBusiness {
@@ -91,9 +93,9 @@ export function toProduct(r: RawProduct): Product {
     category: r.category?.name ?? "",
     stock: r.stock,
     externalUrl: r.shopUrl ?? undefined,
-    // The backend does not track per-product ratings, likes or views yet.
-    rating: 0,
-    reviewCount: 0,
+    // Ratings come from published reviews; the backend does not track likes or views yet.
+    rating: r.averageRating ?? 0,
+    reviewCount: r.ratingCount ?? 0,
     likeCount: 0,
     viewCount: 0,
     variants,

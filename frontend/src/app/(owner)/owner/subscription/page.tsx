@@ -11,11 +11,16 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { PLAN_FEATURE_KEYS } from "@/content/plan-features";
 import type { PlanSlug } from "@/types/subscription";
 
 export default function OwnerSubscriptionPage() {
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const businessId = business?.id ?? null;
 
@@ -39,14 +44,12 @@ export default function OwnerSubscriptionPage() {
     try {
       const updated = await api.selectPlan(businessId, slug);
       if (updated.status !== "ACTIVE") {
-        setNotice(
-          "Je pakket is geselecteerd, maar nog niet actief: online betalen is nog niet beschikbaar. Zodra de betaling is afgerond wordt het abonnement geactiveerd."
-        );
+        setNotice(t("ownerx.sub.notice"));
       }
       subRes.reload();
       reloadBusiness();
     } catch (err) {
-      setActionError(getErrorMessage(err, "Pakket wijzigen mislukt"));
+      setActionError(errMsg(err));
     } finally {
       setBusy(false);
     }
@@ -62,7 +65,7 @@ export default function OwnerSubscriptionPage() {
       subRes.reload();
       reloadBusiness();
     } catch (err) {
-      setActionError(getErrorMessage(err, "Abonnement opzeggen mislukt"));
+      setActionError(errMsg(err));
     } finally {
       setBusy(false);
     }
@@ -72,12 +75,12 @@ export default function OwnerSubscriptionPage() {
     <>
       <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
         <ArrowLeft className="w-4 h-4" />
-        Terug naar dashboard
+        {t("ownerx.backToDashboard")}
       </Link>
 
       <div>
-        <h1 className="text-xl font-bold font-rubik text-[#111111]">Abonnement Beheren</h1>
-        <p className="text-xs text-[#B7B7B7]">Bekijk je huidige pakket of wijzig je abonnement</p>
+        <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.sub.title")}</h1>
+        <p className="text-xs text-[#B7B7B7]">{t("ownerx.sub.subtitle")}</p>
       </div>
     </>
   );
@@ -87,7 +90,7 @@ export default function OwnerSubscriptionPage() {
       <OwnerLayout>
         <div className="space-y-6 max-w-4xl mx-auto">
           {header}
-          <LoadingState label="Abonnement laden..." />
+          <LoadingState label={t("ownerx.sub.loading")} />
         </div>
       </OwnerLayout>
     );
@@ -111,7 +114,7 @@ export default function OwnerSubscriptionPage() {
       <OwnerLayout>
         <div className="space-y-6 max-w-4xl mx-auto">
           {header}
-          <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om een abonnement te kiezen." />
+          <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forSubscription")} />
         </div>
       </OwnerLayout>
     );
@@ -148,28 +151,28 @@ export default function OwnerSubscriptionPage() {
                     }`}
                   >
                     {isActive
-                      ? "Actief Abonnement"
+                      ? t("ownerx.sub.statusActive")
                       : sub.status === "CANCELLED"
-                        ? "Opgezegd"
+                        ? t("ownerx.sub.statusCancelled")
                         : sub.status === "PAST_DUE"
-                          ? "Betaling achterstallig"
-                          : "Nog niet actief"}
+                          ? t("ownerx.sub.statusPastDue")
+                          : t("ownerx.sub.statusInactive")}
                   </span>
                   <h2 className="text-lg font-bold font-rubik text-[#111111]">
                     {currentPlan
-                      ? `${currentPlan.name} (${formatCurrency(currentPlan.monthlyPrice)}/maand)`
+                      ? t("ownerx.sub.planWithPrice", { name: currentPlan.name, price: f.currency(currentPlan.monthlyPrice) })
                       : sub.planSlug}
                   </h2>
                   <p className="text-xs text-[#B7B7B7]">
                     {isActive
-                      ? `${sub.autoRenew ? "Automatisch verlengd" : "Loopt af"} op ${formatDate(sub.currentPeriodEnd)}`
-                      : "Dit abonnement geeft nog geen toegang tot de betaalde functies."}
+                      ? t(sub.autoRenew ? "ownerx.sub.renewsOn" : "ownerx.sub.expiresOn", { date: f.date(sub.currentPeriodEnd) })
+                      : t("ownerx.sub.noAccess")}
                   </p>
                 </>
               ) : (
                 <>
-                  <h2 className="text-lg font-bold font-rubik text-[#111111]">Geen abonnement</h2>
-                  <p className="text-xs text-[#B7B7B7]">Kies hieronder een pakket om je winkel zichtbaar te maken.</p>
+                  <h2 className="text-lg font-bold font-rubik text-[#111111]">{t("ownerx.sub.none")}</h2>
+                  <p className="text-xs text-[#B7B7B7]">{t("ownerx.sub.noneDesc")}</p>
                 </>
               )}
             </div>
@@ -177,14 +180,14 @@ export default function OwnerSubscriptionPage() {
 
           {sub && sub.status !== "CANCELLED" && (
             <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={handleCancel} disabled={busy}>
-              Abonnement Opzeggen
+              {t("ownerx.sub.cancel")}
             </Button>
           )}
         </div>
 
         {/* Plans Comparison */}
         {plans.length === 0 ? (
-          <EmptyState title="Geen pakketten beschikbaar" description="Er zijn momenteel geen abonnementen om uit te kiezen." />
+          <EmptyState title={t("ownerx.sub.noPlans")} description={t("ownerx.sub.noPlansDesc")} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
             {plans.map((plan) => {
@@ -201,18 +204,18 @@ export default function OwnerSubscriptionPage() {
                       <h3 className="text-base font-bold font-rubik text-[#111111]">{plan.name}</h3>
                       {isCurrent && (
                         <span className="text-[10px] font-bold bg-[#FA1EFF] text-white px-2 py-0.5 rounded-full">
-                          Huidig
+                          {t("ownerx.sub.current")}
                         </span>
                       )}
                     </div>
                     <div className="text-2xl font-extrabold text-[#111111]">
-                      {formatCurrency(plan.monthlyPrice)} <span className="text-xs text-[#B7B7B7] font-normal">/mnd</span>
+                      {f.currency(plan.monthlyPrice)} <span className="text-xs text-[#B7B7B7] font-normal">{t("ownerx.sub.perMonthShort")}</span>
                     </div>
                     <ul className="space-y-1.5 pt-2 border-t border-[#F9F9F9]">
-                      {plan.features.map((f, i) => (
+                      {(PLAN_FEATURE_KEYS[plan.slug]?.map((k) => t(k)) ?? plan.features).map((feature, i) => (
                         <li key={i} className="text-xs text-[#555555] flex items-center gap-1.5">
                           <Check className="w-3.5 h-3.5 text-[#FA1EFF] shrink-0" />
-                          <span>{f}</span>
+                          <span>{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -226,7 +229,7 @@ export default function OwnerSubscriptionPage() {
                       disabled={isCurrent || busy}
                       onClick={() => handleSelect(plan.slug)}
                     >
-                      {isCurrent ? (isActive ? "Actief Pakket" : "Gekozen Pakket") : "Wissel naar dit pakket"}
+                      {isCurrent ? (isActive ? t("ownerx.sub.activePlan") : t("ownerx.sub.chosenPlan")) : t("ownerx.sub.switch")}
                     </Button>
                   </div>
                 </div>

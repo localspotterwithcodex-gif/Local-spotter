@@ -10,8 +10,10 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export default function WorkshopListingPage() {
+  const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const { data, error, loading: isLoading, reload } = useApiResource("workshops", () => api.getWorkshops());
   const needle = searchQuery.toLowerCase();
@@ -24,13 +26,13 @@ export default function WorkshopListingPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Lokale Workshops</h1>
-            <p className="text-xs text-[#B7B7B7]">Ontwikkel je creativiteit en volg workshops bij lokale ondernemers</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("workshops.title")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("workshops.subtitle")}</p>
           </div>
 
           <div className="w-full sm:w-72">
             <Input
-              placeholder="Zoek workshop..."
+              placeholder={t("workshops.search")}
               icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -39,14 +41,14 @@ export default function WorkshopListingPage() {
         </div>
 
         {isLoading ? (
-          <LoadingState label="Workshops laden..." />
+          <LoadingState label={t("workshops.loading")} />
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : workshops.length === 0 ? (
           <EmptyState
-            title="Geen workshops gevonden"
-            description="Probeer een andere zoekopdracht."
-            actionLabel="Reset zoekopdracht"
+            title={t("workshops.noneTitle")}
+            description={t("workshops.noneDesc")}
+            actionLabel={t("workshops.resetSearch")}
             onAction={() => setSearchQuery("")}
           />
         ) : (

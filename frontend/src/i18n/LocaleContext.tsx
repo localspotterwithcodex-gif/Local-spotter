@@ -2,13 +2,17 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { dictionaries, Locale, TranslationKey } from "./dictionaries";
+import { interpolate } from "./define";
 
 export const LOCALE_COOKIE_KEY = "localspotter_locale";
 
 interface LocaleContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: TranslationKey) => string;
+  /** Translates a key; `{name}` placeholders are filled from `params`. */
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  /** Translates a dynamic enum-like value (`status.PAID`, `role.CONSUMER`); falls back to a readable form of the raw value. */
+  label: (prefix: "status" | "role" | "method" | "purpose", value: string | null | undefined) => string;
 }
 
 const LocaleContext = createContext<LocaleContextType | undefined>(undefined);
@@ -33,11 +37,22 @@ export const LocaleProvider: React.FC<{ initialLocale: Locale; children: React.R
   }, []);
 
   const t = useCallback(
-    (key: TranslationKey) => dictionaries[locale][key] ?? dictionaries.en[key] ?? key,
+    (key: TranslationKey, params?: Record<string, string | number>) =>
+      interpolate(dictionaries[locale][key] ?? dictionaries.en[key] ?? key, params),
     [locale]
   );
 
-  return <LocaleContext.Provider value={{ locale, setLocale, t }}>{children}</LocaleContext.Provider>;
+  const label = useCallback(
+    (prefix: "status" | "role" | "method" | "purpose", value: string | null | undefined) => {
+      if (!value) return "";
+      const key = `${prefix}.${value}` as TranslationKey;
+      const found = (dictionaries[locale] as Record<string, string>)[key] ?? (dictionaries.en as Record<string, string>)[key];
+      return found ?? value.toLowerCase().replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+    },
+    [locale]
+  );
+
+  return <LocaleContext.Provider value={{ locale, setLocale, t, label }}>{children}</LocaleContext.Provider>;
 };
 
 export const useLocale = () => {

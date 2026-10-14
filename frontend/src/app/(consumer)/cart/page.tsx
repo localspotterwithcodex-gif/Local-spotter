@@ -6,16 +6,20 @@ import Image from "next/image";
 import { ShoppingBag, Trash2, ArrowRight, Store } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
-import { formatCurrency } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { useCart } from "@/features/cart/CartContext";
-import { getErrorMessage } from "@/lib/errors";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80";
 
 export default function CartPage() {
   const { items, subtotal, deliveryFee, isLoading, isUpdating, error, reload, updateQuantity: setQuantity, removeItem } = useCart();
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
   const [actionError, setActionError] = useState<string | null>(null);
 
   const run = async (action: () => Promise<void>) => {
@@ -23,7 +27,7 @@ export default function CartPage() {
     try {
       await action();
     } catch (err) {
-      setActionError(getErrorMessage(err, "De winkelwagen kon niet worden bijgewerkt."));
+      setActionError(errMsg(err));
     }
   };
 
@@ -40,9 +44,9 @@ export default function CartPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111] flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-[#FA1EFF]" /> Winkelwagen
+            <ShoppingBag className="w-5 h-5 text-[#FA1EFF]" /> {t("cart.title")}
           </h1>
-          <p className="text-xs text-[#B7B7B7]">Bekijk je geselecteerde artikelen</p>
+          <p className="text-xs text-[#B7B7B7]">{t("cart.subtitle")}</p>
         </div>
 
         {actionError && (
@@ -52,17 +56,17 @@ export default function CartPage() {
         )}
 
         {isLoading ? (
-          <LoadingState label="Winkelwagen laden..." />
+          <LoadingState label={t("cart.loading")} />
         ) : error ? (
-          <ErrorState title="Winkelwagen niet beschikbaar" message={error} onRetry={reload} />
+          <ErrorState title={t("cart.unavailable")} message={error} onRetry={reload} />
         ) : items.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-[#EAEAEA] text-center space-y-4">
             <ShoppingBag className="w-12 h-12 text-[#B7B7B7] mx-auto" />
-            <h3 className="text-base font-bold font-rubik text-[#111111]">Je winkelwagen is leeg</h3>
-            <p className="text-xs text-[#B7B7B7]">Ontdek unieke producten van Nederlandse winkels!</p>
+            <h3 className="text-base font-bold font-rubik text-[#111111]">{t("cart.emptyTitle")}</h3>
+            <p className="text-xs text-[#B7B7B7]">{t("cart.emptyDesc")}</p>
             <Link href="/products" className="inline-block">
               <Button variant="primary" size="md">
-                Bekijk Producten
+                {t("cart.browseProducts")}
               </Button>
             </Link>
           </div>
@@ -87,13 +91,14 @@ export default function CartPage() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-sm font-extrabold text-[#111111]">
-                        {formatCurrency(item.price * item.quantity)}
+                        {f.currency(item.price * item.quantity)}
                       </span>
 
                       <div className="flex items-center gap-3">
                         <div className="flex items-center border border-[#EAEAEA] rounded-lg bg-[#F9F9F9]">
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
+                            aria-label={t("cart.decrease")}
                             disabled={isUpdating}
                             className="w-7 h-7 flex items-center justify-center font-bold text-xs"
                           >
@@ -102,6 +107,7 @@ export default function CartPage() {
                           <span className="w-7 text-center text-xs font-bold">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.id, 1)}
+                            aria-label={t("cart.increase")}
                             disabled={isUpdating}
                             className="w-7 h-7 flex items-center justify-center font-bold text-xs"
                           >
@@ -112,6 +118,7 @@ export default function CartPage() {
                         <button
                           onClick={() => void run(() => removeItem(item.id))}
                           disabled={isUpdating}
+                          aria-label={t("cart.removeItem")}
                           className="p-1 text-[#ED4C5C] hover:bg-[#F2D9DE] rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -126,21 +133,21 @@ export default function CartPage() {
             {/* Summary Box */}
             <div className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-3">
               <div className="flex justify-between text-xs text-[#555555]">
-                <span>Subtotaal</span>
-                <span className="font-bold text-[#111111]">{formatCurrency(subtotal)}</span>
+                <span>{t("cart.subtotal")}</span>
+                <span className="font-bold text-[#111111]">{f.currency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-xs text-[#555555]">
-                <span>Bezorgkosten</span>
-                <span className="font-bold text-[#111111]">{formatCurrency(deliveryFee)}</span>
+                <span>{t("cart.delivery")}</span>
+                <span className="font-bold text-[#111111]">{f.currency(deliveryFee)}</span>
               </div>
               <div className="flex justify-between text-base font-extrabold text-[#111111] pt-2 border-t border-[#F9F9F9]">
-                <span>Totaal (incl. btw)</span>
-                <span className="text-[#FA1EFF]">{formatCurrency(total)}</span>
+                <span>{t("cart.totalInclVat")}</span>
+                <span className="text-[#FA1EFF]">{f.currency(total)}</span>
               </div>
 
               <Link href="/checkout" className="block pt-2">
                 <Button variant="primary" size="lg" fullWidth className="gap-2">
-                  Doorgaan naar afrekenen <ArrowRight className="w-5 h-5" />
+                  {t("cart.toCheckout")} <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>
             </div>

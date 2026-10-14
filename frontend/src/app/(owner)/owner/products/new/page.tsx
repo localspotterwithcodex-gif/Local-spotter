@@ -15,10 +15,13 @@ import { ProductSize } from "@/types/product";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 export default function AddProductPage() {
   const router = useRouter();
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const categories = useApiResource("product-categories", () => api.getProductCategories());
 
@@ -52,13 +55,13 @@ export default function AddProductPage() {
     setError("");
 
     if (!business) {
-      setError("Je hebt nog geen winkel. Maak eerst een winkel aan.");
+      setError(t("ownerx.error.noShop"));
       return;
     }
     const priceNum = parseFloat(price);
     const stockNum = parseInt(stock, 10);
     if (!name.trim() || Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
-      setError("Vul a.u.b. alle verplichte velden in.");
+      setError(t("ownerx.error.requiredFields"));
       return;
     }
 
@@ -67,7 +70,7 @@ export default function AddProductPage() {
       .map((u) => u.trim())
       .filter(Boolean);
     if (imageUrls.length > 3) {
-      setError("Maximaal 3 afbeeldingen toegestaan.");
+      setError(t("ownerx.product.errorMaxImages"));
       return;
     }
 
@@ -89,10 +92,10 @@ export default function AddProductPage() {
       }
       router.push("/owner");
     } catch (err) {
-      const message = getErrorMessage(err, "Product aanmaken mislukt");
+      const message = errMsg(err);
       setError(
         createdId
-          ? `Het product is aangemaakt, maar het opslaan van de maten is mislukt: ${message}`
+          ? t("ownerx.product.errorSizesFailed", { message })
           : message
       );
     } finally {
@@ -105,18 +108,18 @@ export default function AddProductPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar dashboard
+          {t("ownerx.backToDashboard")}
         </Link>
         {content}
       </div>
     </OwnerLayout>
   );
 
-  if (businessLoading) return pageShell(<LoadingState label="Winkel laden..." />);
+  if (businessLoading) return pageShell(<LoadingState label={t("ownerx.loadingShop")} />);
   if (businessError) return pageShell(<ErrorState message={businessError} onRetry={reloadBusiness} />);
   if (!business) {
     return pageShell(
-      <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om producten toe te voegen." />
+      <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forProducts")} />
     );
   }
 
@@ -125,13 +128,13 @@ export default function AddProductPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar dashboard
+          {t("ownerx.backToDashboard")}
         </Link>
 
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="border-b border-[#EAEAEA] pb-4">
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Product Toevoegen</h1>
-            <p className="text-xs text-[#B7B7B7]">Voeg een nieuw product toe aan je winkelcatalogus op LocalSpotter</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.product.title")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("ownerx.product.subtitle")}</p>
           </div>
 
           {error && (
@@ -143,29 +146,29 @@ export default function AddProductPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Product Images (Max 3 enforced) — manual upload only, PROMPT.md items 7 & 8 */}
-            <ImageUploader label="Product Images" maxImages={3} onChange={setImageFiles} />
+            <ImageUploader label={t("ownerx.product.imagesLabel")} maxImages={3} onChange={setImageFiles} />
             {imageFiles.length > 0 && (
               <p className="text-xs font-bold text-[#E54666] flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                Bestanden uploaden wordt nog niet ondersteund: deze foto&apos;s worden niet opgeslagen. Gebruik hieronder afbeeldings-URL&apos;s.
+                {t("ownerx.product.uploadUnsupported")}
               </p>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-bold text-[#111111]">Afbeeldings-URL&apos;s (max. 3)</label>
+              <label className="text-sm font-bold text-[#111111]">{t("ownerx.product.imageUrlsLabel")}</label>
               <textarea
                 rows={3}
                 className="w-full bg-[#EAEAEA] text-[#111111] text-base p-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
-                placeholder={"https://voorbeeld.nl/foto-1.jpg\nhttps://voorbeeld.nl/foto-2.jpg"}
+                placeholder={t("ownerx.product.imageUrlsPlaceholder")}
                 value={imageUrlsText}
                 onChange={(e) => setImageUrlsText(e.target.value)}
               />
-              <span className="text-xs text-[#B7B7B7]">Een URL per regel. Alleen links naar bestaande afbeeldingen worden opgeslagen.</span>
+              <span className="text-xs text-[#B7B7B7]">{t("ownerx.product.imageUrlsHelp")}</span>
             </div>
 
             {/* Product Name */}
             <Input
-              label="Product Name *"
-              placeholder="Bijv. Handgemaakte Leren Shopper"
+              label={t("ownerx.product.nameLabel")}
+              placeholder={t("ownerx.product.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -174,7 +177,7 @@ export default function AddProductPage() {
             {/* Price & Compare Price */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Prijs (€) *"
+                label={t("ownerx.product.priceLabel")}
                 type="number"
                 step="0.01"
                 placeholder="149.00"
@@ -183,29 +186,29 @@ export default function AddProductPage() {
                 required
               />
               <Input
-                label="Oude Prijs (€) (Optioneel)"
+                label={t("ownerx.product.comparePriceLabel")}
                 type="number"
                 step="0.01"
                 placeholder="179.00"
                 value={compareAtPrice}
                 onChange={(e) => setCompareAtPrice(e.target.value)}
-                helperText="Wordt nog niet opgeslagen: de server ondersteunt nog geen oude prijs."
+                helperText={t("ownerx.product.comparePriceHelp")}
               />
             </div>
 
             {/* Stock & Category */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Voorraad (Stock) *"
+                label={t("ownerx.product.stockLabel")}
                 type="number"
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
-                helperText={selectedSizes.length > 0 ? "Wordt toegepast op elke geselecteerde maat." : undefined}
+                helperText={selectedSizes.length > 0 ? t("ownerx.product.stockHelp") : undefined}
                 min={0}
                 required
               />
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-[#111111]">Categorie *</label>
+                <label className="text-sm font-bold text-[#111111]">{t("ownerx.product.categoryLabel")}</label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
@@ -213,7 +216,7 @@ export default function AddProductPage() {
                   required
                   className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent disabled:opacity-60"
                 >
-                  <option value="">{categories.loading ? "Categorieën laden..." : "Kies een categorie"}</option>
+                  <option value="">{categories.loading ? t("ownerx.product.categoriesLoading") : t("ownerx.product.categoryChoose")}</option>
                   {(categories.data ?? []).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -222,9 +225,9 @@ export default function AddProductPage() {
                 </select>
                 {categories.error && (
                   <span className="text-xs text-[#ED4C5C] font-medium block">
-                    Categorieën konden niet worden geladen.{" "}
+                    {t("ownerx.product.categoriesFailed")}{" "}
                     <button type="button" onClick={categories.reload} className="underline font-bold">
-                      Opnieuw proberen
+                      {t("common.retry")}
                     </button>
                   </span>
                 )}
@@ -233,7 +236,7 @@ export default function AddProductPage() {
 
             {/* Sizes Selection */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-[#111111] block">Beschikbare Maten:</label>
+              <label className="text-sm font-bold text-[#111111] block">{t("ownerx.product.sizesLabel")}</label>
               <div className="flex gap-2">
                 {availableSizes.map((sz) => {
                   const isSelected = selectedSizes.includes(sz);
@@ -257,20 +260,20 @@ export default function AddProductPage() {
 
             {/* Optional Shop Product Link */}
             <Input
-              label="Optionele Webshop Link (Shop-system product link)"
-              placeholder="https://jouwwinkel.nl/product/123"
+              label={t("ownerx.product.shopLinkLabel")}
+              placeholder={t("ownerx.product.shopLinkPlaceholder")}
               value={externalUrl}
               onChange={(e) => setExternalUrl(e.target.value)}
-              helperText="Link naar het product in je eigen webshop (indien van toepassing)"
+              helperText={t("ownerx.product.shopLinkHelp")}
             />
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label className="text-sm font-bold text-[#111111]">Product Beschrijving</label>
+              <label className="text-sm font-bold text-[#111111]">{t("ownerx.product.descLabel")}</label>
               <textarea
                 rows={4}
                 className="w-full bg-[#EAEAEA] text-[#111111] text-base p-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
-                placeholder="Beschrijf het materiaal, pasvorm en details van het product..."
+                placeholder={t("ownerx.product.descPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -280,11 +283,11 @@ export default function AddProductPage() {
             <div className="flex items-center gap-3 pt-4 border-t border-[#EAEAEA]">
               <Link href="/owner" className="flex-1">
                 <Button variant="ghost" size="lg" fullWidth type="button">
-                  ANNULEREN
+                  {t("ownerx.product.cancel")}
                 </Button>
               </Link>
               <Button variant="primary" size="lg" className="flex-1" type="submit" isLoading={isSubmitting}>
-                CREATE
+                {t("ownerx.product.create")}
               </Button>
             </div>
           </form>

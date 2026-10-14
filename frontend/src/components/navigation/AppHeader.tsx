@@ -31,7 +31,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <button
             onClick={onMenuClick}
             className="p-2 rounded-full hover:bg-black/5 transition-colors focus:outline-none"
-            aria-label="Open menu"
+            aria-label={t("nav2.openMenu")}
           >
             <Menu className="w-6 h-6 text-[#0A182E]" />
           </button>
@@ -52,7 +52,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <Link
             href="/cart"
             className="p-2 rounded-full hover:bg-black/5 transition-colors relative"
-            aria-label="Shopping Cart"
+            aria-label={t("nav2.cart")}
           >
             <ShoppingBag className="w-5 h-5 text-[#0A182E]" />
             {itemCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#EA89B1] rounded-full" />}

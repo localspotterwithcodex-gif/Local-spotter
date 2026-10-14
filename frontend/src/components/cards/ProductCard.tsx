@@ -5,13 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Heart, Eye, Star } from "lucide-react";
 import { Product } from "@/types/product";
-import { formatCurrency } from "@/lib/utils";
+import { useFormat } from "@/i18n/useFormat";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const f = useFormat();
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(product.likeCount);
 
@@ -85,11 +86,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Price Row */}
         <div className="flex items-baseline gap-2 pt-0.5">
           <span className="text-sm font-extrabold text-[#111111]">
-            {formatCurrency(product.price)}
+            {f.currency(product.price)}
           </span>
           {product.compareAtPrice && product.compareAtPrice > product.price && (
             <span className="text-xs text-[#B7B7B7] line-through font-medium">
-              {formatCurrency(product.compareAtPrice)}
+              {f.currency(product.compareAtPrice)}
             </span>
           )}
         </div>

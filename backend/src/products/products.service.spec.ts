@@ -61,6 +61,9 @@ describe('ProductsService', () => {
       mediaAsset: {
         create: jest.fn(),
       },
+      review: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
     };
 
     entitlementService = {
@@ -208,6 +211,32 @@ describe('ProductsService', () => {
       await expect(
         service.updateProduct('prod-other', mockUser, { name: 'Hacked Name' }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+  describe('public product ratings', () => {
+    it('adds the average and count of PUBLISHED reviews to the product list', async () => {
+      prisma.product.findMany.mockResolvedValue([{ id: 'p1' }, { id: 'p2' }]);
+      prisma.review.groupBy.mockResolvedValue([{ productId: 'p1', _avg: { rating: 4.333 }, _count: { _all: 3 } }]);
+      const res = await service.getPublicProducts({} as any);
+      expect(res).toEqual([
+        { id: 'p1', averageRating: 4.3, ratingCount: 3 },
+        { id: 'p2', averageRating: 0, ratingCount: 0 },
+      ]);
+      const where = prisma.review.groupBy.mock.calls[0][0].where;
+      expect(where).toMatchObject({ status: 'PUBLISHED', deletedAt: null, productId: { in: ['p1', 'p2'] } });
+    });
+
+    it('does not query reviews for an empty list', async () => {
+      prisma.product.findMany.mockResolvedValue([]);
+      expect(await service.getPublicProducts({} as any)).toEqual([]);
+      expect(prisma.review.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('adds ratings to a single product', async () => {
+      prisma.product.findFirst.mockResolvedValue({ id: 'p1', active: true, businessId: 'bus-1' });
+      prisma.review.groupBy.mockResolvedValue([{ productId: 'p1', _avg: { rating: 5 }, _count: { _all: 1 } }]);
+      const res = await service.getPublicProductByIdOrSlug('p1');
+      expect(res).toMatchObject({ id: 'p1', averageRating: 5, ratingCount: 1 });
     });
   });
 });

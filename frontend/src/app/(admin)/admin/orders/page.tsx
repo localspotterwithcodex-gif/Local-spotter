@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import { AdminLayout } from "@/layouts/AdminLayout";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { adminApi } from "@/lib/api/admin";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import type { OrderStatus } from "@/types/order";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
@@ -28,6 +29,8 @@ const ORDER_STATUSES: OrderStatus[] = [
 const ADMIN_REASON = "Beheerderscorrectie via platformbeheer";
 
 export default function AdminOrdersPage() {
+  const { t, label } = useLocale();
+  const f = useFormat();
   const [offset, setOffset] = useState(0);
   const { data, error, loading, reload } = useApiResource(`admin-orders-${offset}`, () =>
     adminApi.getOrders({ limit: PAGE_SIZE, offset })
@@ -39,8 +42,8 @@ export default function AdminOrdersPage() {
     <AdminLayout>
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Bestellingen Overzicht</h1>
-          <p className="text-xs text-[#B7B7B7]">Centraal overzicht van alle transacties op het platform</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.ordersOverview")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("adminx.orders.subtitle")}</p>
         </div>
 
         <ActionError message={action.error} />
@@ -50,19 +53,19 @@ export default function AdminOrdersPage() {
         ) : loading ? (
           <LoadingState />
         ) : !data || orders.length === 0 ? (
-          <EmptyState title="Geen bestellingen gevonden" description="Er zijn nog geen bestellingen geplaatst." />
+          <EmptyState title={t("adminx.orders.emptyTitle")} description={t("adminx.orders.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">Order Nr.</th>
-                    <th className="p-4">Klant</th>
-                    <th className="p-4">Winkel</th>
-                    <th className="p-4">Totaal</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Datum</th>
+                    <th className="p-4">{t("adminx.orders.colNumber")}</th>
+                    <th className="p-4">{t("adminx.orders.colCustomer")}</th>
+                    <th className="p-4">{t("adminx.orders.colShop")}</th>
+                    <th className="p-4">{t("common.total")}</th>
+                    <th className="p-4">{t("common.status")}</th>
+                    <th className="p-4">{t("common.date")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
@@ -71,12 +74,12 @@ export default function AdminOrdersPage() {
                       <td className="p-4 font-bold text-[#111111]">{o.orderNumber}</td>
                       <td className="p-4 text-[#555555]">{o.consumerName}</td>
                       <td className="p-4 font-bold text-[#111111]">{o.businessName}</td>
-                      <td className="p-4 font-bold">{formatCurrency(o.total)}</td>
+                      <td className="p-4 font-bold">{f.currency(o.total)}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <Badge status={o.status} />
+                          <Badge status={o.status}>{label("status", o.status)}</Badge>
                           <select
-                            aria-label={`Status wijzigen voor ${o.orderNumber}`}
+                            aria-label={t("adminx.orders.changeStatusFor", { number: o.orderNumber })}
                             value={o.status}
                             disabled={action.busyId !== null}
                             onChange={(e) => {
@@ -89,13 +92,13 @@ export default function AdminOrdersPage() {
                           >
                             {ORDER_STATUSES.map((s) => (
                               <option key={s} value={s}>
-                                {s}
+                                {label("status", s)}
                               </option>
                             ))}
                           </select>
                         </div>
                       </td>
-                      <td className="p-4 text-[#B7B7B7]">{formatDate(o.createdAt)}</td>
+                      <td className="p-4 text-[#B7B7B7]">{f.date(o.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

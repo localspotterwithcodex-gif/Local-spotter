@@ -9,8 +9,10 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export default function ShoproutesListingPage() {
+  const { t } = useLocale();
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const { data, error, loading: isLoading, reload } = useApiResource(`shoproutes:${selectedCity ?? ""}`, () =>
     api.getShoproutes({ city: selectedCity || undefined })
@@ -23,20 +25,20 @@ export default function ShoproutesListingPage() {
     <ConsumerLayout>
       <div className="space-y-6">
         <div className="pb-2 border-b border-[#EAEAEA]">
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Interactieve Shoproutes</h1>
-          <p className="text-xs text-[#B7B7B7]">Wandel langs de leukste speciaalzaken en ontdek lokale parels in Nederlandse steden</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("routes.title")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("routes.subtitle")}</p>
         </div>
 
         {/* City Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#B7B7B7]">Stad:</span>
+          <span className="text-xs font-bold text-[#B7B7B7]">{t("routes.city")}</span>
           <button
             onClick={() => setSelectedCity(null)}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
               selectedCity === null ? "bg-[#54D1CA] text-white" : "bg-[#EAEAEA] text-[#111111]"
             }`}
           >
-            Alle Steden
+            {t("routes.allCities")}
           </button>
           {cities.map((city) => (
             <button
@@ -53,14 +55,14 @@ export default function ShoproutesListingPage() {
         </div>
 
         {isLoading ? (
-          <LoadingState label="Shoproutes laden..." />
+          <LoadingState label={t("routes.loading")} />
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : routes.length === 0 ? (
           <EmptyState
-            title="Geen shoproutes gevonden"
-            description="Er zijn nog geen shoproutes voor deze stad."
-            actionLabel="Bekijk alle steden"
+            title={t("routes.noneTitle")}
+            description={t("routes.noneDesc")}
+            actionLabel={t("routes.viewAllCities")}
             onAction={() => setSelectedCity(null)}
           />
         ) : (

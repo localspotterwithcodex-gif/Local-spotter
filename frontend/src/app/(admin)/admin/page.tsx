@@ -18,10 +18,11 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { adminApi } from "@/lib/api/admin";
-import { formatCurrency } from "@/lib/utils";
+import { useFormat } from "@/i18n/useFormat";
 
 export default function AdminDashboardPage() {
   const { t } = useLocale();
+  const f = useFormat();
   const { data, error, loading, reload } = useApiResource("admin-dashboard", async () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -49,7 +50,7 @@ export default function AdminDashboardPage() {
         { label: t("admin.totalUsers"), val: String(data.overview.users.total), icon: Users, color: "bg-blue-50 text-blue-600" },
         { label: t("admin.activeShops"), val: String(data.overview.businesses.active), icon: Store, color: "bg-emerald-50 text-emerald-600" },
         { label: t("admin.totalOrders"), val: String(data.overview.orders.total), icon: ShoppingBag, color: "bg-purple-50 text-purple-600" },
-        { label: t("admin.monthlyRevenue"), val: formatCurrency(data.monthlyRevenue), icon: TrendingUp, color: "bg-pink-50 text-[#FA1EFF]" },
+        { label: t("admin.monthlyRevenue"), val: f.currency(data.monthlyRevenue), icon: TrendingUp, color: "bg-pink-50 text-[#FA1EFF]" },
       ]
     : [];
   const firstShop = data?.pendingShops.items[0];
@@ -135,7 +136,7 @@ export default function AdminDashboardPage() {
               {firstPayout ? (
                 <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs space-y-1">
                   <span className="font-bold text-[#111111] block">{firstPayout.businessName}</span>
-                  <span className="text-[#B7B7B7] block">{t("admin.amount")}: {formatCurrency(firstPayout.amount)}</span>
+                  <span className="text-[#B7B7B7] block">{t("admin.amount")}: {f.currency(firstPayout.amount)}</span>
                   <Link href="/admin/payouts" className="text-xs font-bold text-[#54D1CA] hover:underline pt-1 inline-block">
                     {t("admin.review")} →
                   </Link>
@@ -155,7 +156,7 @@ export default function AdminDashboardPage() {
                 {data?.breakdown.map((p) => (
                   <div key={p.id} className="flex justify-between items-center">
                     <span className="text-[#555555]">
-                      {p.name} ({formatCurrency(p.price)}/mnd)
+                      {p.name} ({f.currency(p.price)}{t("adminx.dash.perMonthShort")})
                     </span>
                     <span className="font-bold text-[#111111]">
                       {p.shops} {t("admin.shops")}

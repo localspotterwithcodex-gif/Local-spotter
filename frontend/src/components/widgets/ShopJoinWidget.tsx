@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { ShopRegistrationModal } from "@/components/modals/ShopRegistrationModal";
+import { useLocale } from "@/i18n/LocaleContext";
 
 /**
  * Floating "Join as a shop" bubble.
@@ -18,6 +19,7 @@ import { ShopRegistrationModal } from "@/components/modals/ShopRegistrationModal
  * blocked from browsing the site if they'd rather not fill it in.
  */
 export const ShopJoinWidget: React.FC = () => {
+  const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
@@ -49,20 +51,20 @@ export const ShopJoinWidget: React.FC = () => {
             }}
             className="max-w-[220px] rounded-2xl rounded-br-sm bg-white px-4 py-3 text-left text-sm font-medium text-[#111111] shadow-lg ring-1 ring-black/5 duration-300 animate-in fade-in slide-in-from-bottom-2"
           >
-            Heb je een lokale winkel?{" "}
-            <span className="font-bold text-[#FA1EFF]">Meld je hier aan!</span>
+            {t("joinw.hint")}{" "}
+            <span className="font-bold text-[#FA1EFF]">{t("joinw.hintCta")}</span>
           </button>
         )}
 
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          aria-label="Meld je winkel aan bij Local Spotter"
+          aria-label={t("joinw.aria")}
           className="shop-join-bubble group relative grid h-16 w-16 place-items-center rounded-full shadow-xl ring-4 ring-white transition-transform hover:scale-105 active:scale-95 sm:h-[72px] sm:w-[72px]"
         >
           <Image
             src="/images/join-shop-bubble.jpg"
-            alt="Meld je winkel aan"
+            alt={t("joinw.alt")}
             fill
             sizes="72px"
             className="rounded-full object-cover"

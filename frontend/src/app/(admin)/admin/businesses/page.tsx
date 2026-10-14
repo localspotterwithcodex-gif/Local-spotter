@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { AdminLayout } from "@/layouts/AdminLayout";
+import { useLocale } from "@/i18n/LocaleContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -16,6 +17,7 @@ import { useAdminAction } from "../_components/useAdminAction";
 const PAGE_SIZE = 20;
 
 export default function AdminBusinessesPage() {
+  const { t, label } = useLocale();
   const [offset, setOffset] = useState(0);
   const { data, error, loading, reload } = useApiResource(`admin-businesses-${offset}`, () =>
     adminApi.getBusinesses({ limit: PAGE_SIZE, offset })
@@ -28,8 +30,8 @@ export default function AdminBusinessesPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Winkels & Goedkeuring</h1>
-            <p className="text-xs text-[#B7B7B7]">Beheer alle geregistreerde winkels en KVK-controles</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.businessesApproval")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("adminx.biz.subtitle")}</p>
           </div>
         </div>
 
@@ -40,20 +42,20 @@ export default function AdminBusinessesPage() {
         ) : loading ? (
           <LoadingState />
         ) : !data || businesses.length === 0 ? (
-          <EmptyState title="Geen winkels gevonden" description="Er zijn nog geen geregistreerde winkels." />
+          <EmptyState title={t("adminx.biz.emptyTitle")} description={t("adminx.biz.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">Winkelnaam</th>
-                    <th className="p-4">Categorie</th>
-                    <th className="p-4">KVK Nummer</th>
-                    <th className="p-4">Stad</th>
-                    <th className="p-4">Pakket</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4 text-right">Actie</th>
+                    <th className="p-4">{t("adminx.biz.colName")}</th>
+                    <th className="p-4">{t("common.category")}</th>
+                    <th className="p-4">{t("adminx.biz.colKvk")}</th>
+                    <th className="p-4">{t("adminx.biz.colCity")}</th>
+                    <th className="p-4">{t("adminx.biz.colPlan")}</th>
+                    <th className="p-4">{t("common.status")}</th>
+                    <th className="p-4 text-right">{t("adminx.biz.colAction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
@@ -69,7 +71,7 @@ export default function AdminBusinessesPage() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <Badge variant={b.status === "ACTIVE" ? "completed" : "processing"}>{b.status}</Badge>
+                        <Badge variant={b.status === "ACTIVE" ? "completed" : "processing"}>{label("status", b.status)}</Badge>
                       </td>
                       <td className="p-4 text-right">
                         {b.status !== "ACTIVE" ? (
@@ -81,11 +83,11 @@ export default function AdminBusinessesPage() {
                             onClick={() => action.run(b.id, () => adminApi.setBusinessStatus(b.id, "ACTIVE"))}
                             className="h-7 text-[11px]"
                           >
-                            Goedkeuren
+                            {t("adminx.biz.approve")}
                           </Button>
                         ) : (
                           <div className="flex items-center justify-end gap-2">
-                            <span className="text-xs text-[#3B9B52] font-bold">Goedgekeurd</span>
+                            <span className="text-xs text-[#3B9B52] font-bold">{t("adminx.biz.approved")}</span>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -94,7 +96,7 @@ export default function AdminBusinessesPage() {
                               onClick={() => action.run(b.id, () => adminApi.setBusinessStatus(b.id, "SUSPENDED"))}
                               className="h-7 text-[11px] text-[#ED4C5C]"
                             >
-                              Opschorten
+                              {t("adminx.biz.suspend")}
                             </Button>
                           </div>
                         )}

@@ -12,7 +12,7 @@ import { QueryProductDto } from './dto/query-product.dto';
 import { CreateProductImageDto } from './dto/create-product-image.dto';
 import { CreateProductVariantDto } from './dto/create-product-variant.dto';
 import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
-import { BusinessStatus, SubscriptionStatus, UserRole } from '@prisma/client';
+import { BusinessStatus, SubscriptionStatus, UserRole, ReviewStatus } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
@@ -131,7 +131,7 @@ export class ProductsService {
       ];
     }
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where,
       include: {
         category: true,
@@ -150,6 +150,30 @@ export class ProductsService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+    return this.withRatings(products);
+  }
+
+  /**
+   * Adds `averageRating` (1 decimal) and `ratingCount` to each product from
+   * PUBLISHED, non-deleted reviews, using one grouped query for the whole page.
+   */
+  private async withRatings<T extends { id: string }>(products: T[]): Promise<(T & { averageRating: number; ratingCount: number })[]> {
+    if (products.length === 0) return [];
+    const groups = await this.prisma.review.groupBy({
+      by: ['productId'],
+      where: { productId: { in: products.map((p) => p.id) }, status: ReviewStatus.PUBLISHED, deletedAt: null },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    const byProduct = new Map(groups.map((g) => [g.productId, g]));
+    return products.map((p) => {
+      const g = byProduct.get(p.id);
+      return {
+        ...p,
+        averageRating: g?._avg.rating != null ? Math.round(g._avg.rating * 10) / 10 : 0,
+        ratingCount: g?._count._all ?? 0,
+      };
     });
   }
 
@@ -190,7 +214,8 @@ export class ProductsService {
       await this.verifyBusinessOwnership(product.businessId, user);
     }
 
-    return product;
+    const [withRating] = await this.withRatings([product]);
+    return withRating;
   }
 
   async updateProduct(productId: string, user: any, dto: UpdateProductDto) {

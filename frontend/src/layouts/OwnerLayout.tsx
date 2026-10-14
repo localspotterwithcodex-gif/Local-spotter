@@ -4,13 +4,15 @@ import React from "react";
 import { TopNav } from "@/components/navigation/TopNav";
 import { AppHeader } from "@/components/navigation/AppHeader";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { useLocale } from "@/i18n/LocaleContext";
 import { OwnerSidebar, OwnerMobileSubNav } from "@/components/navigation/OwnerSidebar";
 
 export const OwnerLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useLocale();
   return (
     <div className="min-h-screen flex flex-col bg-[#F9F9F9]">
       <div className="md:hidden">
-        <AppHeader title="Ondernemer Portal" />
+        <AppHeader title={t("ownerx.portalTitle")} />
       </div>
       <TopNav />
       <OwnerMobileSubNav />

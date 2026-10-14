@@ -16,29 +16,31 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { useLocale } from "@/i18n/LocaleContext";
 import { useAuth } from "@/features/auth/AuthContext";
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
+  const { t } = useLocale();
 
   const menuSections = [
     {
-      title: "Mijn Account",
+      title: t("account.sectionMyAccount"),
       items: [
-        { label: "Account Information", href: "/account/profile", icon: User },
-        { label: "Delivery Address", href: "/account/addresses", icon: MapPin },
-        { label: "Mijn Bestellingen", href: "/account/orders", icon: ShoppingBag },
-        { label: "Gevolgde Winkels", href: "/account/following", icon: Heart },
-        { label: "Mijn Beoordelingen", href: "/account/reviews", icon: Star },
+        { label: t("account.info"), href: "/account/profile", icon: User },
+        { label: t("account.deliveryAddress"), href: "/account/addresses", icon: MapPin },
+        { label: t("account.myOrders"), href: "/account/orders", icon: ShoppingBag },
+        { label: t("account.followedStores"), href: "/account/following", icon: Heart },
+        { label: t("account.myReviews"), href: "/account/reviews", icon: Star },
       ],
     },
     {
-      title: "Voorkeuren & Support",
+      title: t("account.sectionPreferences"),
       items: [
-        { label: "Notifications", href: "#", icon: Bell },
-        { label: "Language (Nederlands)", href: "#", icon: Globe },
-        { label: "Terms & Policy", href: "#", icon: FileText },
-        { label: "Help & Support", href: "#", icon: HelpCircle },
+        { label: t("account.notifications"), href: "#", icon: Bell },
+        { label: t("account.language"), href: "#", icon: Globe },
+        { label: t("account.termsPolicy"), href: "#", icon: FileText },
+        { label: t("account.helpSupport"), href: "#", icon: HelpCircle },
       ],
     },
   ];
@@ -52,7 +54,7 @@ export default function AccountPage() {
             {user?.name?.charAt(0) || "U"}
           </div>
           <div>
-            <h1 className="text-lg font-bold font-rubik text-[#111111]">{user?.name || "Consument"}</h1>
+            <h1 className="text-lg font-bold font-rubik text-[#111111]">{user?.name || t("account.consumerFallback")}</h1>
             <p className="text-xs text-[#B7B7B7]">{user?.email ?? ""}</p>
           </div>
         </div>
@@ -97,7 +99,7 @@ export default function AccountPage() {
               <div className="w-9 h-9 rounded-xl bg-[#F2D9DE] text-[#ED4C5C] flex items-center justify-center">
                 <LogOut className="w-4 h-4" />
               </div>
-              <span className="text-xs font-bold">Uitloggen</span>
+              <span className="text-xs font-bold">{t("account.logout")}</span>
             </div>
             <ChevronRight className="w-4 h-4 text-[#ED4C5C]" />
           </button>

@@ -10,9 +10,12 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 
 export default function ConsumerOrdersPage() {
+  const { t } = useLocale();
+  const f = useFormat();
   const { data, error, loading: isLoading, reload } = useApiResource("my-orders", () => api.getMyOrders());
   const orders = data ?? [];
 
@@ -21,22 +24,22 @@ export default function ConsumerOrdersPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/account" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar account
+          {t("account.back")}
         </Link>
 
         <div>
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Mijn Bestellingen</h1>
-          <p className="text-xs text-[#B7B7B7]">Overzicht van je geplaatste bestellingen op LocalSpotter.nl</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.myOrders")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("account.ordersSubtitle")}</p>
         </div>
 
         {isLoading ? (
-          <LoadingState label="Bestellingen laden..." />
+          <LoadingState label={t("account.ordersLoading")} />
         ) : error ? (
-          <ErrorState title="Bestellingen niet beschikbaar" message={error} onRetry={reload} />
+          <ErrorState title={t("account.ordersUnavailable")} message={error} onRetry={reload} />
         ) : orders.length === 0 ? (
           <EmptyState
-            title="Nog geen bestellingen"
-            description="Je hebt nog geen bestellingen geplaatst. Ontdek lokale producten!"
+            title={t("account.ordersEmptyTitle")}
+            description={t("account.ordersEmptyDesc")}
           />
         ) : (
           <div className="space-y-4">
@@ -48,7 +51,7 @@ export default function ConsumerOrdersPage() {
                 <div className="flex items-center justify-between pb-2 border-b border-[#F9F9F9]">
                   <div>
                     <span className="text-xs font-bold text-[#111111]">{order.orderNumber}</span>
-                    <span className="text-[11px] text-[#B7B7B7] block">{formatDate(order.createdAt)}</span>
+                    <span className="text-[11px] text-[#B7B7B7] block">{f.date(order.createdAt)}</span>
                   </div>
                   <Badge status={order.status} />
                 </div>
@@ -66,15 +69,15 @@ export default function ConsumerOrdersPage() {
                       <span className="text-[#555555]">
                         {item.quantity}x {item.productName} {item.variantSize ? `(${item.variantSize})` : ""}
                       </span>
-                      <span className="font-bold text-[#111111]">{formatCurrency(item.totalPrice)}</span>
+                      <span className="font-bold text-[#111111]">{f.currency(item.totalPrice)}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Total */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#F9F9F9] text-xs">
-                  <span className="text-[#B7B7B7]">Totaalbedrag (incl. bezorging):</span>
-                  <span className="text-sm font-extrabold text-[#111111]">{formatCurrency(order.total)}</span>
+                  <span className="text-[#B7B7B7]">{t("account.orderTotal")}</span>
+                  <span className="text-sm font-extrabold text-[#111111]">{f.currency(order.total)}</span>
                 </div>
               </div>
             ))}

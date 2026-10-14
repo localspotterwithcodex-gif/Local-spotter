@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
-import { ApiError } from "@/lib/api/client";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { routeForRole, safeRedirect } from "@/lib/auth/redirect";
 
 function LoginForm() {
@@ -17,6 +17,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { login } = useAuth();
   const { t } = useLocale();
+  const errMsg = useErrorMessage();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +28,7 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     if (!identifier || !password) {
-      setError("Vul a.u.b. alle velden in.");
+      setError(t("authx.fillAll"));
       return;
     }
 
@@ -37,7 +38,7 @@ function LoginForm() {
       // Honour ?redirectTo= only when it is a safe same-origin path.
       router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Inloggen is mislukt.");
+      setError(errMsg(err, { unauthorized: "authx.invalidCredentials" }));
     } finally {
       setIsLoading(false);
     }
@@ -50,7 +51,7 @@ function LoginForm() {
           <div className="text-center space-y-1">
             <img
               src="/logo.png"
-              alt="LocalSpotter Logo"
+              alt="LocalSpotter"
               className="h-14 sm:h-16 w-auto object-contain mx-auto mb-3"
             />
             <h1 className="text-2xl font-bold font-rubik text-[#111111]">{t("auth.hello")}</h1>
@@ -67,7 +68,7 @@ function LoginForm() {
             <Input
               label={t("auth.emailMobileUsername")}
               type="text"
-              placeholder="naam@voorbeeld.nl, 06-12345678 of Admin"
+              placeholder={t("authx.loginPlaceholder")}
               icon={<Mail className="w-4 h-4" />}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}

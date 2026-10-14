@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { getErrorMessage } from "@/lib/errors";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 /**
  * Runs an admin mutation against the backend, then refreshes the list.
  * Failures are surfaced in `error` (never swallowed) and the list is left untouched.
  */
 export function useAdminAction(reload: () => void) {
+  const errMsg = useErrorMessage();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
 
@@ -19,12 +20,12 @@ export function useAdminAction(reload: () => void) {
         await action();
         reload();
       } catch (err) {
-        setError(getErrorMessage(err, "De actie kon niet worden uitgevoerd."));
+        setError(errMsg(err));
       } finally {
         setBusyId(null);
       }
     },
-    [reload]
+    [reload, errMsg]
   );
 
   return { run, busyId, error };

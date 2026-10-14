@@ -13,21 +13,24 @@ import { WorkshopCard } from "@/components/cards/WorkshopCard";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { TranslationKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import type { OrderStatus } from "@/types/order";
 
-const ORDER_STATUS_TILES: { statuses: OrderStatus[]; label: string; className: string }[] = [
-  { statuses: ["CONFIRMED", "PREPARING", "READY"], label: "Processing", className: "ls-status-processing" },
-  { statuses: ["DELIVERED"], label: "Completed", className: "ls-status-completed" },
-  { statuses: ["OUT_FOR_DELIVERY"], label: "On the way", className: "ls-status-ontheway" },
-  { statuses: ["CANCELLED", "REJECTED"], label: "Cancelled", className: "ls-status-cancelled" },
-  { statuses: ["PENDING"], label: "New Orders", className: "ls-status-new col-span-2 sm:col-span-1" },
+const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; className: string }[] = [
+  { statuses: ["CONFIRMED", "PREPARING", "READY"], labelKey: "ownerx.dash.tileProcessing", className: "ls-status-processing" },
+  { statuses: ["DELIVERED"], labelKey: "ownerx.dash.tileCompleted", className: "ls-status-completed" },
+  { statuses: ["OUT_FOR_DELIVERY"], labelKey: "ownerx.dash.tileOnTheWay", className: "ls-status-ontheway" },
+  { statuses: ["CANCELLED", "REJECTED"], labelKey: "ownerx.dash.tileCancelled", className: "ls-status-cancelled" },
+  { statuses: ["PENDING"], labelKey: "ownerx.dash.tileNew", className: "ls-status-new col-span-2 sm:col-span-1" },
 ];
 
 export default function OwnerDashboardPage() {
   const router = useRouter();
+  const { t } = useLocale();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const businessId = business?.id ?? null;
 
@@ -38,7 +41,7 @@ export default function OwnerDashboardPage() {
   if (businessLoading) {
     return (
       <OwnerLayout>
-        <LoadingState label="Ondernemer dashboard laden..." />
+        <LoadingState label={t("ownerx.dash.loading")} />
       </OwnerLayout>
     );
   }
@@ -55,9 +58,9 @@ export default function OwnerDashboardPage() {
     return (
       <OwnerLayout>
         <EmptyState
-          title="Nog geen winkel"
-          description="Je hebt nog geen winkel aangemaakt. Registreer je winkel om producten en workshops toe te voegen."
-          actionLabel="Winkel aanmaken"
+          title={t("ownerx.noShop.title")}
+          description={t("ownerx.noShop.dashboardDesc")}
+          actionLabel={t("ownerx.noShop.createAction")}
           onAction={() => router.push("/onboarding/business")}
         />
       </OwnerLayout>
@@ -100,12 +103,12 @@ export default function OwnerDashboardPage() {
               <div className="flex items-center gap-2">
                 <Link href="/owner/products/new">
                   <Button variant="primary" size="sm" className="gap-1.5 text-xs">
-                    <Plus className="w-4 h-4" /> Product Toevoegen
+                    <Plus className="w-4 h-4" /> {t("owner.addProduct")}
                   </Button>
                 </Link>
                 <Link href="/owner/workshops/new">
                   <Button variant="secondary" size="sm" className="gap-1.5 text-xs">
-                    <Plus className="w-4 h-4" /> Workshop
+                    <Plus className="w-4 h-4" /> {t("ownerx.dash.workshopBtn")}
                   </Button>
                 </Link>
               </div>
@@ -115,18 +118,18 @@ export default function OwnerDashboardPage() {
 
         {/* Status Metrics Cards — real counts derived from this business's orders */}
         {orders.error ? (
-          <ErrorState title="Bestellingen konden niet worden geladen" message={orders.error} onRetry={orders.reload} />
+          <ErrorState title={t("ownerx.dash.ordersLoadFailed")} message={orders.error} onRetry={orders.reload} />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {ORDER_STATUS_TILES.map((tile) => {
               const count = orderList.filter((o) => tile.statuses.includes(o.status)).length;
               return (
                 <Link
-                  key={tile.label}
+                  key={tile.labelKey}
                   href="/owner/orders"
                   className={`p-3.5 rounded-2xl ${tile.className} flex flex-col justify-between h-24 hover:scale-[1.02] transition-transform`}
                 >
-                  <span className="text-[11px] font-bold">{tile.label}</span>
+                  <span className="text-[11px] font-bold">{t(tile.labelKey)}</span>
                   <span className="text-2xl font-extrabold font-rubik">{orders.loading ? "–" : count}</span>
                 </Link>
               );
@@ -138,19 +141,19 @@ export default function OwnerDashboardPage() {
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-[#FA1EFF]" /> Mijn Producten ({productList.length})
+              <ShoppingBag className="w-4 h-4 text-[#FA1EFF]" /> {t("ownerx.dash.myProducts", { n: productList.length })}
             </h2>
             <Link href="/owner/products/new" className="text-xs font-bold text-[#FA1EFF] hover:underline">
-              + Nieuw Product
+              {t("ownerx.dash.newProduct")}
             </Link>
           </div>
 
           {products.error ? (
-            <ErrorState title="Producten konden niet worden geladen" message={products.error} onRetry={products.reload} />
+            <ErrorState title={t("ownerx.dash.productsLoadFailed")} message={products.error} onRetry={products.reload} />
           ) : products.loading ? (
-            <LoadingState label="Producten laden..." />
+            <LoadingState label={t("ownerx.dash.productsLoading")} />
           ) : productList.length === 0 ? (
-            <EmptyState title="Nog geen producten" description="Voeg je eerste product toe aan je winkelcatalogus." />
+            <EmptyState title={t("ownerx.dash.noProducts")} description={t("ownerx.dash.noProductsDesc")} />
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {productList.map((product) => (
@@ -164,19 +167,19 @@ export default function OwnerDashboardPage() {
         <div className="space-y-4 pt-4 border-t border-[#EAEAEA]">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#790166]" /> Mijn Workshops ({workshopList.length})
+              <Calendar className="w-4 h-4 text-[#790166]" /> {t("ownerx.dash.myWorkshops", { n: workshopList.length })}
             </h2>
             <Link href="/owner/workshops/new" className="text-xs font-bold text-[#790166] hover:underline">
-              + Nieuwe Workshop
+              {t("ownerx.dash.newWorkshop")}
             </Link>
           </div>
 
           {workshops.error ? (
-            <ErrorState title="Workshops konden niet worden geladen" message={workshops.error} onRetry={workshops.reload} />
+            <ErrorState title={t("ownerx.dash.workshopsLoadFailed")} message={workshops.error} onRetry={workshops.reload} />
           ) : workshops.loading ? (
-            <LoadingState label="Workshops laden..." />
+            <LoadingState label={t("ownerx.dash.workshopsLoading")} />
           ) : workshopList.length === 0 ? (
-            <EmptyState title="Nog geen workshops" description="Plan je eerste workshop voor je klanten." />
+            <EmptyState title={t("ownerx.dash.noWorkshops")} description={t("ownerx.dash.noWorkshopsDesc")} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {workshopList.map((workshop) => (

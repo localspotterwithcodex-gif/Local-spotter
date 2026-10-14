@@ -11,8 +11,10 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export default function ProductListingPage() {
+  const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -31,14 +33,14 @@ export default function ProductListingPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Alle Producten</h1>
-            <p className="text-xs text-[#B7B7B7]">Ontdek unieke items van lokale Nederlandse winkeliers</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("products.title")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("products.subtitle")}</p>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="w-full sm:w-64">
               <Input
-                placeholder="Zoek product..."
+                placeholder={t("products.search")}
                 icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -46,6 +48,7 @@ export default function ProductListingPage() {
             </div>
             <button
               onClick={() => setIsCategoryModalOpen(true)}
+              aria-label={t("products.filterCategories")}
               className="h-12 w-12 rounded-xl bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center hover:bg-[#F5CEE6] transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-5 h-5" />
@@ -55,10 +58,10 @@ export default function ProductListingPage() {
 
         {selectedCategory && (
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#B7B7B7]">Categorie:</span>
+            <span className="text-xs font-bold text-[#B7B7B7]">{t("products.category")}</span>
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#FA1EFF] text-white text-xs font-bold rounded-full">
               {selectedCategory}
-              <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75">
+              <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75" aria-label={t("products.removeFilter")}>
                 ×
               </button>
             </span>
@@ -75,9 +78,9 @@ export default function ProductListingPage() {
           <ErrorState message={error} onRetry={reload} />
         ) : products.length === 0 ? (
           <EmptyState
-            title="Geen producten gevonden"
-            description="Er zijn geen producten beschikbaar voor deze zoekopdracht."
-            actionLabel="Reset filters"
+            title={t("products.noneTitle")}
+            description={t("products.noneDesc")}
+            actionLabel={t("products.resetFilters")}
             onAction={() => {
               setSearchQuery("");
               setSelectedCategory(null);

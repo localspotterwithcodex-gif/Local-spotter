@@ -59,12 +59,11 @@ export class AuthService {
       // never created through public registration.
       throw new BadRequestException('Rol moet CONSUMER of BUSINESS_OWNER zijn');
     }
-    if (!this.mail.isConfigured()) {
-      // Do not create accounts nobody can verify.
+    const verificationChannel: 'EMAIL' | 'MOBILE' = email ? 'EMAIL' : 'MOBILE';
+    if (!this.mail.isConfigured() || !this.mail.supports(verificationChannel === 'EMAIL' ? 'EMAIL' : 'SMS')) {
+      // Do not create accounts nobody can verify (e.g. mobile signup while no SMS provider exists).
       throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
     }
-
-    const verificationChannel: 'EMAIL' | 'MOBILE' = email ? 'EMAIL' : 'MOBILE';
     const identifier = (email || mobile) as string;
 
     const existingUser = await this.prisma.user.findFirst({

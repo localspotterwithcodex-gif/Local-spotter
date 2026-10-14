@@ -11,10 +11,14 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { PlanSlug } from "@/types/subscription";
-import { formatCurrency } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { PLAN_DESCRIPTION_KEYS, PLAN_FEATURE_KEYS } from "@/content/plan-features";
 
 export default function SubscriptionSelectionPage() {
   const router = useRouter();
+  const { t } = useLocale();
+  const f = useFormat();
   const [selectedPlan, setSelectedPlan] = useState<PlanSlug>("workshop");
   const plansRes = useApiResource("subscription-plans", () => api.getSubscriptionPlans());
   const plans = plansRes.data ?? [];
@@ -31,17 +35,17 @@ export default function SubscriptionSelectionPage() {
             <Crown className="w-6 h-6" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold font-rubik text-[#111111]">
-            Kies je LocalSpotter Abonnement
+            {t("onb.sub.title")}
           </h1>
           <p className="text-sm text-[#B7B7B7] max-w-md mx-auto">
-            Stap 2 van 3: Selecteer het pakket dat het beste aansluit bij jouw winkel en ambities.
+            {t("onb.sub.subtitle")}
           </p>
         </div>
 
-        {plansRes.loading && <LoadingState label="Abonnementen laden..." />}
+        {plansRes.loading && <LoadingState label={t("onb.sub.loading")} />}
         {plansRes.error && <ErrorState message={plansRes.error} onRetry={plansRes.reload} />}
         {!plansRes.loading && !plansRes.error && plans.length === 0 && (
-          <EmptyState title="Geen abonnementen beschikbaar" description="Er zijn momenteel geen abonnementen om uit te kiezen." />
+          <EmptyState title={t("onb.sub.emptyTitle")} description={t("onb.sub.emptyDesc")} />
         )}
 
         {/* 3 Subscription Plan Cards */}
@@ -62,7 +66,7 @@ export default function SubscriptionSelectionPage() {
               >
                 {isPopular && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#FA1EFF] text-white px-3 py-1 rounded-full text-[11px] font-bold shadow-xs">
-                    Meest Gekozen
+                    {t("onb.sub.popular")}
                   </div>
                 )}
 
@@ -82,15 +86,15 @@ export default function SubscriptionSelectionPage() {
 
                   <div>
                     <span className="text-3xl font-extrabold text-[#111111] font-manrope">
-                      {formatCurrency(plan.monthlyPrice)}
+                      {f.currency(plan.monthlyPrice)}
                     </span>
-                    <span className="text-xs text-[#B7B7B7]"> / maand (excl. btw)</span>
+                    <span className="text-xs text-[#B7B7B7]">{t("onb.sub.perMonthExVat")}</span>
                   </div>
 
-                  <p className="text-xs text-[#555555] leading-relaxed">{plan.description}</p>
+                  <p className="text-xs text-[#555555] leading-relaxed">{PLAN_DESCRIPTION_KEYS[plan.slug] ? t(PLAN_DESCRIPTION_KEYS[plan.slug]) : plan.description}</p>
 
                   <ul className="space-y-2 pt-2 border-t border-[#F9F9F9]">
-                    {plan.features.map((feat, idx) => (
+                    {(PLAN_FEATURE_KEYS[plan.slug]?.map((k) => t(k)) ?? plan.features).map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-xs font-medium text-[#111111]">
                         <Check className="w-4 h-4 text-[#FA1EFF] shrink-0 mt-0.5" />
                         <span>{feat}</span>
@@ -105,7 +109,7 @@ export default function SubscriptionSelectionPage() {
                     size="md"
                     fullWidth
                   >
-                    {isSelected ? "Geselecteerd" : "Kies dit pakket"}
+                    {isSelected ? t("onb.sub.selected") : t("onb.sub.choose")}
                   </Button>
                 </div>
               </div>
@@ -116,7 +120,7 @@ export default function SubscriptionSelectionPage() {
         {/* Action Button */}
         <div className="flex justify-end pt-4 max-w-md mx-auto sm:max-w-none">
           <Button variant="primary" size="lg" className="w-full sm:w-64 gap-2" onClick={handleNext} disabled={!plans.some((p) => p.slug === selectedPlan)}>
-            NEXT <ArrowRight className="w-5 h-5" />
+            {t("onb.next")} <ArrowRight className="w-5 h-5" />
           </Button>
         </div>
       </div>

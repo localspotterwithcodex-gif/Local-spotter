@@ -10,7 +10,8 @@ import { ImageUploader } from "@/components/ui/ImageUploader";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 // Uses OpenStreetMap's free Nominatim reverse-geocoding endpoint. Swap this
 // for Google/Mapbox by changing only this function if the project already
@@ -26,6 +27,8 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 
 export default function BusinessOnboardingPage() {
   const router = useRouter();
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const { business: existingBusiness, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const categories = useApiResource("business-categories", () => api.getBusinessCategories());
 
@@ -46,7 +49,7 @@ export default function BusinessOnboardingPage() {
 
   const handleUseGps = () => {
     if (!navigator.geolocation) {
-      setError("GPS wordt niet ondersteund door deze browser.");
+      setError(t("onb.business.gpsUnsupported"));
       return;
     }
     setIsLocating(true);
@@ -65,7 +68,7 @@ export default function BusinessOnboardingPage() {
         }
       },
       () => {
-        setError("Kon je locatie niet ophalen. Vul het adres handmatig in.");
+        setError(t("onb.business.gpsFailed"));
         setIsLocating(false);
       }
     );
@@ -76,12 +79,12 @@ export default function BusinessOnboardingPage() {
     setError("");
 
     if (!storeName || !state || !city || !location || !phone || !kvkNumber || !shopDescription || !categoryId) {
-      setError("Vul a.u.b. alle verplichte velden in.");
+      setError(t("onb.business.fillRequired"));
       return;
     }
 
     if (businessError) {
-      setError("Je winkelgegevens konden niet worden gecontroleerd. Probeer het opnieuw.");
+      setError(t("onb.business.checkFailed"));
       return;
     }
 
@@ -108,7 +111,7 @@ export default function BusinessOnboardingPage() {
       }
       router.push("/onboarding/subscription");
     } catch (err) {
-      setError(getErrorMessage(err, "Opslaan is mislukt. Controleer je gegevens en probeer het opnieuw."));
+      setError(errMsg(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -122,10 +125,10 @@ export default function BusinessOnboardingPage() {
             <Store className="w-6 h-6" />
           </div>
           <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">
-            Complete information about your store
+            {t("onb.business.title")}
           </h1>
           <p className="text-xs text-[#B7B7B7]">
-            Step 1 of 3: Enter your store details to register on LocalSpotter.nl
+            {t("onb.business.subtitle")}
           </p>
         </div>
 
@@ -136,24 +139,24 @@ export default function BusinessOnboardingPage() {
           <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">
             {businessError}{" "}
             <button type="button" onClick={reloadBusiness} className="underline">
-              Opnieuw proberen
+              {t("common.retry")}
             </button>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex justify-center">
-            <ImageUploader variant="logo" label="Store Logo" onChange={(files) => setLogoFile(files[0] ?? null)} />
+            <ImageUploader variant="logo" label={t("onb.business.logoLabel")} onChange={(files) => setLogoFile(files[0] ?? null)} />
           </div>
           {logoFile && (
             <p className="text-xs text-[#B7B7B7] text-center">
-              Logo uploaden wordt nog niet ondersteund; je kunt je logo later toevoegen.
+              {t("onb.business.logoNotSupported")}
             </p>
           )}
 
           <Input
-            label="Store Name"
-            placeholder="e.g. Bag Shop Horn Center"
+            label={t("onb.business.storeName")}
+            placeholder={t("onb.business.storeNamePh")}
             icon={<Store className="w-4 h-4 text-[#B7B7B7]" />}
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
@@ -162,14 +165,14 @@ export default function BusinessOnboardingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="State / Province"
+              label={t("onb.business.state")}
               placeholder="Limburg"
               value={state}
               onChange={(e) => setState(e.target.value)}
               required
             />
             <Input
-              label="City"
+              label={t("onb.business.city")}
               placeholder="Horn"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -179,7 +182,7 @@ export default function BusinessOnboardingPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-[#111111]">Location</label>
+              <label className="text-sm font-bold text-[#111111]">{t("onb.business.location")}</label>
               <button
                 type="button"
                 onClick={handleUseGps}
@@ -187,11 +190,11 @@ export default function BusinessOnboardingPage() {
                 className="flex items-center gap-1 text-xs font-bold text-[#FA1EFF] hover:underline disabled:opacity-50"
               >
                 <Crosshair className="w-3.5 h-3.5" />
-                {isLocating ? "Locating…" : "Use my current location (GPS)"}
+                {isLocating ? t("onb.business.locating") : t("onb.business.useGps")}
               </button>
             </div>
             <Input
-              placeholder="Street, house number, postal code, city"
+              placeholder={t("onb.business.locationPh")}
               icon={<MapPin className="w-4 h-4 text-[#54D1CA]" />}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -201,7 +204,7 @@ export default function BusinessOnboardingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Phone Number"
+              label={t("onb.business.phone")}
               placeholder="+31 475 123456"
               icon={<Phone className="w-4 h-4 text-[#B7B7B7]" />}
               value={phone}
@@ -209,7 +212,7 @@ export default function BusinessOnboardingPage() {
               required
             />
             <Input
-              label="KVK Number"
+              label={t("onb.business.kvk")}
               placeholder="12345678"
               icon={<FileText className="w-4 h-4 text-[#B7B7B7]" />}
               value={kvkNumber}
@@ -219,11 +222,11 @@ export default function BusinessOnboardingPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-[#111111]">Shop Description</label>
+            <label className="text-sm font-bold text-[#111111]">{t("onb.business.description")}</label>
             <textarea
               rows={3}
               className="w-full bg-[#EAEAEA] text-[#111111] text-base p-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
-              placeholder="Describe your shop and what you offer..."
+              placeholder={t("onb.business.descriptionPh")}
               value={shopDescription}
               onChange={(e) => setShopDescription(e.target.value)}
               required
@@ -231,7 +234,7 @@ export default function BusinessOnboardingPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-[#111111]">Shop Type / Category</label>
+            <label className="text-sm font-bold text-[#111111]">{t("onb.business.category")}</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -239,7 +242,7 @@ export default function BusinessOnboardingPage() {
               required
               className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent disabled:opacity-60"
             >
-              <option value="">{categories.loading ? "Categorieën laden..." : "Kies een categorie"}</option>
+              <option value="">{categories.loading ? t("onb.business.categoriesLoading") : t("onb.business.chooseCategory")}</option>
               {(categories.data ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -248,16 +251,16 @@ export default function BusinessOnboardingPage() {
             </select>
             {categories.error && (
               <span className="text-xs text-[#ED4C5C] font-medium block">
-                Categorieën konden niet worden geladen.{" "}
+                {t("onb.business.categoriesFailed")}{" "}
                 <button type="button" onClick={categories.reload} className="underline font-bold">
-                  Opnieuw proberen
+                  {t("common.retry")}
                 </button>
               </span>
             )}
           </div>
 
           <Button type="submit" variant="primary" size="lg" fullWidth className="gap-2 mt-4" isLoading={isSubmitting} disabled={businessLoading}>
-            NEXT <ArrowRight className="w-5 h-5" />
+            {t("onb.next")} <ArrowRight className="w-5 h-5" />
           </Button>
         </form>
       </div>

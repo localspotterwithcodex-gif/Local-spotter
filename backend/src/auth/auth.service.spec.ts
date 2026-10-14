@@ -29,7 +29,7 @@ describe('AuthService', () => {
   let service: AuthService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let prisma: any;
-  const mail = { isConfigured: jest.fn(), send: jest.fn() };
+  const mail = { isConfigured: jest.fn(), supports: jest.fn(), send: jest.fn() };
   const jwt = { sign: jest.fn(() => 'signed.jwt.token'), decode: jest.fn() };
 
   const baseUser = {
@@ -57,6 +57,7 @@ describe('AuthService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mail.isConfigured.mockReturnValue(true);
+    mail.supports.mockReturnValue(true);
     mail.send.mockResolvedValue(undefined);
     prisma = {
       user: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
@@ -119,6 +120,13 @@ describe('AuthService', () => {
       mail.isConfigured.mockReturnValue(false);
       await expect(service.register(dto)).rejects.toThrow(HttpException);
       expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects mobile signup before creating an account when the provider cannot send SMS', async () => {
+      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
+      await expect(service.register({ ...dto, email: undefined, phone: '+31612345678' } as RegisterDto)).rejects.toThrow(HttpException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(mail.send).not.toHaveBeenCalled();
     });
   });
 

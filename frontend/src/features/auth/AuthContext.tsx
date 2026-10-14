@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyCode = useCallback(
     async (code: string) => {
       if (!pendingVerification) {
-        throw new ApiError("Geen verificatie in behandeling", 400, null);
+        throw new ApiError("No verification pending", 400, null);
       }
       const res = await apiClient.post<{ user: BackendUser }>("/auth/verify-code", {
         identifier: pendingVerification.identifier,

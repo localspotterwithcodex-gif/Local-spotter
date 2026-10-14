@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { describeError } from "@/lib/errors";
 
 export interface ApiResource<T> {
   data: T | undefined;
@@ -14,7 +15,8 @@ export interface ApiResource<T> {
 interface Settled<T> {
   key: string;
   data?: T;
-  error?: string;
+  err?: unknown;
+  failed?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ interface Settled<T> {
  * Never falls back to mock data: a failed request surfaces as `error`.
  */
 export function useApiResource<T>(key: string | null, fetcher: () => Promise<T>): ApiResource<T> {
+  const { t } = useLocale();
   const [nonce, setNonce] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
   const requestKey = key === null ? null : `${key}#${nonce}`;
@@ -35,7 +38,7 @@ export function useApiResource<T>(key: string | null, fetcher: () => Promise<T>)
         if (!cancelled) setSettled({ key: requestKey, data });
       },
       (err: unknown) => {
-        if (!cancelled) setSettled({ key: requestKey, error: getErrorMessage(err, "Er ging iets mis bij het laden.") });
+        if (!cancelled) setSettled({ key: requestKey, err, failed: true });
       }
     );
     return () => {
@@ -50,7 +53,8 @@ export function useApiResource<T>(key: string | null, fetcher: () => Promise<T>)
 
   return {
     data: current?.data,
-    error: current?.error,
+    // translated at render time so the message follows the language toggle
+    error: current?.failed ? describeError(current.err, t) : undefined,
     loading: requestKey !== null && current === null,
     reload,
   };

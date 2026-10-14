@@ -11,11 +11,15 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
-import { formatCurrency } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 function SubscriptionPaymentContent() {
   const router = useRouter();
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
   const searchParams = useSearchParams();
   const planSlug = searchParams.get("plan") || "workshop";
 
@@ -30,7 +34,7 @@ function SubscriptionPaymentContent() {
   if (plansRes.loading || businessLoading) {
     return (
       <ConsumerLayout>
-        <LoadingState label="Betalingsgegevens laden..." />
+        <LoadingState label={t("onb.pay.loading")} />
       </ConsumerLayout>
     );
   }
@@ -46,9 +50,9 @@ function SubscriptionPaymentContent() {
     return (
       <ConsumerLayout>
         <EmptyState
-          title="Abonnement niet gevonden"
-          description="Het gekozen abonnement bestaat niet (meer). Kies opnieuw een pakket."
-          actionLabel="Terug naar abonnementen"
+          title={t("onb.pay.planNotFoundTitle")}
+          description={t("onb.pay.planNotFoundDesc")}
+          actionLabel={t("onb.pay.backToPlans")}
           onAction={() => router.push("/onboarding/subscription")}
         />
       </ConsumerLayout>
@@ -58,9 +62,9 @@ function SubscriptionPaymentContent() {
     return (
       <ConsumerLayout>
         <EmptyState
-          title="Nog geen winkel"
-          description="Registreer eerst je winkelgegevens voordat je een abonnement kiest."
-          actionLabel="Winkelgegevens invullen"
+          title={t("onb.pay.noShopTitle")}
+          description={t("onb.pay.noShopDesc")}
+          actionLabel={t("onb.pay.fillShop")}
           onAction={() => router.push("/onboarding/business")}
         />
       </ConsumerLayout>
@@ -76,7 +80,7 @@ function SubscriptionPaymentContent() {
       await api.selectPlan(business.id, plan.slug);
       router.push("/onboarding/success");
     } catch (err) {
-      setError(getErrorMessage(err, "Abonnement bevestigen mislukt"));
+      setError(errMsg(err));
     } finally {
       setIsProcessing(false);
     }
@@ -93,32 +97,32 @@ function SubscriptionPaymentContent() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">
-            Betaling & Bevestiging
+            {t("onb.pay.title")}
           </h1>
           <p className="text-xs text-[#B7B7B7]">
-            Stap 3 van 3: Kies je gewenste betaalmethode voor de maandelijkse incasso.
+            {t("onb.pay.subtitle")}
           </p>
         </div>
 
         {/* Order / Subscription Summary */}
         <div className="bg-[#F9F9F9] p-4 rounded-2xl border border-[#EAEAEA] space-y-2">
           <div className="flex items-center justify-between text-sm font-bold text-[#111111]">
-            <span>Abonnement {plan.name}</span>
-            <span>{formatCurrency(plan.monthlyPrice)} / mnd</span>
+            <span>{t("onb.pay.subscription", { plan: plan.name })}</span>
+            <span>{t("onb.pay.perMonthShort", { price: f.currency(plan.monthlyPrice) })}</span>
           </div>
           <div className="flex items-center justify-between text-xs text-[#B7B7B7]">
-            <span>21% BTW</span>
-            <span>{formatCurrency(vatAmount)}</span>
+            <span>{t("onb.pay.vat")}</span>
+            <span>{f.currency(vatAmount)}</span>
           </div>
           <div className="flex items-center justify-between text-base font-extrabold text-[#111111] pt-2 border-t border-[#EAEAEA]">
-            <span>Totaal Eerste Betaling</span>
-            <span className="text-[#FA1EFF]">{formatCurrency(totalAmount)}</span>
+            <span>{t("onb.pay.firstTotal")}</span>
+            <span className="text-[#FA1EFF]">{f.currency(totalAmount)}</span>
           </div>
         </div>
 
         {/* Dutch Payment Methods Selection */}
         <div className="space-y-3">
-          <label className="text-sm font-bold text-[#111111] block">Betaalmethode Selecteren:</label>
+          <label className="text-sm font-bold text-[#111111] block">{t("onb.pay.selectMethod")}</label>
 
           {/* iDEAL */}
           <div
@@ -135,7 +139,7 @@ function SubscriptionPaymentContent() {
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">iDEAL</span>
-                <span className="block text-[11px] text-[#B7B7B7]">Direct & veilig via je eigen Nederlandse bank</span>
+                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.idealDesc")}</span>
               </div>
             </div>
             {paymentMethod === "ideal" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
@@ -144,7 +148,7 @@ function SubscriptionPaymentContent() {
           {/* Bank selector if iDEAL is chosen */}
           {paymentMethod === "ideal" && (
             <div className="pl-4 pr-2 py-2 bg-[#F9F9F9] rounded-xl border border-[#EAEAEA]">
-              <label className="text-xs font-bold text-[#111111] block mb-1">Kies je Bank:</label>
+              <label className="text-xs font-bold text-[#111111] block mb-1">{t("onb.pay.chooseBank")}</label>
               <select
                 value={selectedBank}
                 onChange={(e) => setSelectedBank(e.target.value)}
@@ -176,7 +180,7 @@ function SubscriptionPaymentContent() {
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">PayPal</span>
-                <span className="block text-[11px] text-[#B7B7B7]">Aankoopbescherming & automatisch verlengen</span>
+                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.paypalDesc")}</span>
               </div>
             </div>
             {paymentMethod === "paypal" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
@@ -197,7 +201,7 @@ function SubscriptionPaymentContent() {
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">Tikkie Zakelijk</span>
-                <span className="block text-[11px] text-[#B7B7B7]">Betaal via QR-code of WhatsApp link</span>
+                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.tikkieDesc")}</span>
               </div>
             </div>
             {paymentMethod === "tikkie" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
@@ -206,8 +210,7 @@ function SubscriptionPaymentContent() {
 
         {/* Honest payment status note (no payment provider connected yet, decision D-004) */}
         <p className="text-[11px] text-[#B7B7B7] text-center">
-          Online betalen is nog niet beschikbaar. Je pakket wordt geregistreerd en er wordt nu geen bedrag afgeschreven.
-          Het abonnement wordt actief zodra de betaling is verwerkt.
+          {t("onb.pay.notAvailable")}
         </p>
 
         {error && (
@@ -225,7 +228,7 @@ function SubscriptionPaymentContent() {
           onClick={handlePay}
           className="gap-2 mt-4"
         >
-          BEVESTIG PAKKET {plan.name.toUpperCase()}
+          {t("onb.pay.confirmPlan", { plan: plan.name.toUpperCase() })}
         </Button>
       </div>
     </ConsumerLayout>
@@ -233,12 +236,13 @@ function SubscriptionPaymentContent() {
 }
 
 export default function SubscriptionPaymentPage() {
+  const { t } = useLocale();
   return (
     <Suspense fallback={
       <ConsumerLayout>
         <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-3xl text-center space-y-4">
           <div className="w-8 h-8 border-4 border-[#FA1EFF] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-medium text-[#111111]">Betalingsgegevens laden...</p>
+          <p className="text-sm font-medium text-[#111111]">{t("onb.pay.loading")}</p>
         </div>
       </ConsumerLayout>
     }>

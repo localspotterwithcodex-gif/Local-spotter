@@ -36,6 +36,12 @@ describe('ResendMailProvider', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  it('supports email only', () => {
+    const p = make(jest.fn());
+    expect(p.supports('EMAIL')).toBe(true);
+    expect(p.supports('SMS')).toBe(false);
+  });
+
   it('refuses SMS', async () => {
     const fn = jest.fn();
     await expect(make(fn).send({ ...msg, channel: 'SMS' })).rejects.toBeInstanceOf(ServiceUnavailableException);

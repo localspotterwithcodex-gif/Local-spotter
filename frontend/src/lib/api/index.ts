@@ -93,6 +93,31 @@ export interface DeliveryAddressInput {
   notes?: string;
 }
 
+export interface ConsumerAddress {
+  id: string;
+  label: string;
+  fullName: string;
+  phone: string | null;
+  street: string;
+  houseNumber: string | null;
+  postalCode: string | null;
+  city: string;
+  countryCode: string;
+  isDefault: boolean;
+}
+
+export interface ConsumerAddressInput {
+  label: string;
+  fullName: string;
+  phone?: string;
+  street: string;
+  houseNumber?: string;
+  postalCode?: string;
+  city: string;
+  countryCode?: string;
+  isDefault?: boolean;
+}
+
 export interface CreateProductInput {
   name: string;
   description?: string;
@@ -282,6 +307,15 @@ export const api = {
   updateCartItem: (itemId: string, quantity: number) => apiClient.patch(`/cart/items/${itemId}`, { quantity }),
   removeCartItem: (itemId: string) => apiClient.delete(`/cart/items/${itemId}`),
   clearCart: () => apiClient.delete("/cart"),
+
+  // ---------------- SAVED ADDRESSES (consumer) ----------------
+  async getAddresses(): Promise<ConsumerAddress[]> {
+    const res = await apiClient.get<ConsumerAddress[] | { data: ConsumerAddress[] }>("/addresses");
+    return unwrap(res);
+  },
+  createAddress: (input: ConsumerAddressInput) => apiClient.post<ConsumerAddress>("/addresses", input),
+  updateAddress: (id: string, input: Partial<ConsumerAddressInput>) => apiClient.patch<ConsumerAddress>(`/addresses/${id}`, input),
+  deleteAddress: (id: string) => apiClient.delete<{ deleted: true }>(`/addresses/${id}`),
 
   // ---------------- ORDERS ----------------
   /** Creates the order from the server-side cart; totals are computed by the backend. */

@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useLocale } from "@/i18n/LocaleContext";
 import { cn } from "@/lib/utils";
 import { OrderStatus } from "@/types/order";
 
@@ -14,6 +17,7 @@ export const Badge: React.FC<BadgeProps> = ({
   children,
   ...props
 }) => {
+  const { label } = useLocale();
   let computedVariant = variant || "default";
 
   if (status) {
@@ -56,7 +60,7 @@ export const Badge: React.FC<BadgeProps> = ({
       )}
       {...props}
     >
-      {children || status}
+      {children || (status ? label("status", status) : null)}
     </span>
   );
 };

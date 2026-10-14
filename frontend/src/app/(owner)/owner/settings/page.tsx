@@ -10,11 +10,23 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { api, type BusinessCategory } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import type { TranslationKey } from "@/i18n/dictionaries";
 import type { Business, BusinessHours } from "@/types/business";
 import { Store, Clock, MapPin, Bell, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
 const DAY_ORDER: BusinessHours["day"][] = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
+
+const DAY_KEYS: Record<BusinessHours["day"], TranslationKey> = {
+  Maandag: "ownerx.day.Maandag",
+  Dinsdag: "ownerx.day.Dinsdag",
+  Woensdag: "ownerx.day.Woensdag",
+  Donderdag: "ownerx.day.Donderdag",
+  Vrijdag: "ownerx.day.Vrijdag",
+  Zaterdag: "ownerx.day.Zaterdag",
+  Zondag: "ownerx.day.Zondag",
+};
 
 interface DayRow {
   day: BusinessHours["day"];
@@ -36,6 +48,8 @@ function initialHours(business: Business): DayRow[] {
 }
 
 function SettingsForm({ business, categories }: { business: Business; categories: BusinessCategory[] }) {
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const [activeTab, setActiveTab] = useState<"profile" | "hours" | "notifications">("profile");
   const [storeName, setStoreName] = useState(business.name);
   const [categoryId, setCategoryId] = useState(categories.find((c) => c.name === business.category)?.id ?? "");
@@ -69,11 +83,11 @@ function SettingsForm({ business, categories }: { business: Business; categories
     const latNum = lat.trim() === "" ? undefined : Number(lat.replace(",", "."));
     const lngNum = lng.trim() === "" ? undefined : Number(lng.replace(",", "."));
     if ((latNum !== undefined && Number.isNaN(latNum)) || (lngNum !== undefined && Number.isNaN(lngNum))) {
-      setError("Breedte- en lengtegraad moeten getallen zijn.");
+      setError(t("ownerx.settings.errorLatLng"));
       return;
     }
     if (hoursDirty && hours.some((h) => !h.isClosed && (!h.open || !h.close))) {
-      setError("Vul voor elke geopende dag een openings- en sluitingstijd in, of markeer de dag als gesloten.");
+      setError(t("ownerx.settings.errorHours"));
       return;
     }
 
@@ -100,7 +114,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
       }
       setIsSaved(true);
     } catch (err) {
-      setError(getErrorMessage(err, "Instellingen opslaan mislukt"));
+      setError(errMsg(err));
     } finally {
       setIsLoading(false);
     }
@@ -112,17 +126,17 @@ function SettingsForm({ business, categories }: { business: Business; categories
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-2xl font-bold font-rubik text-[#111111]">
-              Winkel Instellingen
+              {t("ownerx.settings.title")}
             </h1>
             <p className="text-xs text-[#B7B7B7]">
-              Beheer je winkelprofiel, openingstijden, locatie en meldingsvoorkeuren.
+              {t("ownerx.settings.subtitle")}
             </p>
           </div>
 
           {isSaved && (
             <div className="flex items-center gap-2 px-4 py-2 bg-[#CBF5D5] text-[#3B9B52] rounded-2xl text-xs font-bold font-manrope animate-fade-in">
               <CheckCircle2 className="w-4 h-4" />
-              Instellingen opgeslagen!
+              {t("ownerx.settings.savedBanner")}
             </div>
           )}
         </div>
@@ -144,7 +158,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 : "text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <Store className="w-4 h-4 text-[#FA1EFF]" /> Profiel & Adres
+            <Store className="w-4 h-4 text-[#FA1EFF]" /> {t("ownerx.settings.tabProfile")}
           </button>
           <button
             onClick={() => setActiveTab("hours")}
@@ -154,7 +168,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 : "text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <Clock className="w-4 h-4 text-[#54D1CA]" /> Openingstijden
+            <Clock className="w-4 h-4 text-[#54D1CA]" /> {t("ownerx.settings.tabHours")}
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
@@ -164,7 +178,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 : "text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <Bell className="w-4 h-4 text-[#790166]" /> Meldingen
+            <Bell className="w-4 h-4 text-[#790166]" /> {t("ownerx.settings.tabNotifications")}
           </button>
         </div>
 
@@ -173,24 +187,24 @@ function SettingsForm({ business, categories }: { business: Business; categories
           {activeTab === "profile" && (
             <div className="space-y-6">
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pb-2 flex items-center gap-2">
-                <Store className="w-5 h-5 text-[#FA1EFF]" /> Winkel Informatie
+                <Store className="w-5 h-5 text-[#FA1EFF]" /> {t("ownerx.settings.shopInfo")}
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Winkelnaam"
+                  label={t("ownerx.settings.shopName")}
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
                   required
                 />
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#111111] block">Categorie</label>
+                  <label className="text-xs font-bold text-[#111111] block">{t("ownerx.settings.category")}</label>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full h-11 bg-[#EAEAEA] rounded-xl text-xs font-bold px-3 border-none focus:outline-none focus:ring-2 focus:ring-[#FA1EFF]"
                   >
-                    <option value="">Geen categorie</option>
+                    <option value="">{t("ownerx.settings.noCategory")}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -201,7 +215,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#111111] block">Winkel Omschrijving</label>
+                <label className="text-xs font-bold text-[#111111] block">{t("ownerx.settings.shopDescription")}</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -212,13 +226,13 @@ function SettingsForm({ business, categories }: { business: Business; categories
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Telefoonnummer"
+                  label={t("ownerx.settings.phone")}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
                 />
                 <Input
-                  label="KVK-nummer"
+                  label={t("ownerx.settings.kvk")}
                   value={kvk}
                   onChange={(e) => setKvk(e.target.value)}
                   required
@@ -226,20 +240,20 @@ function SettingsForm({ business, categories }: { business: Business; categories
               </div>
 
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pt-2 pb-2 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-[#54D1CA]" /> Locatie & GPS Coördinaten
+                <MapPin className="w-5 h-5 text-[#54D1CA]" /> {t("ownerx.settings.locationGps")}
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2">
                   <Input
-                    label="Straat & Huisnummer"
+                    label={t("ownerx.settings.street")}
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
                     required
                   />
                 </div>
                 <Input
-                  label="Stad"
+                  label={t("ownerx.settings.city")}
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   required
@@ -248,17 +262,17 @@ function SettingsForm({ business, categories }: { business: Business; categories
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input
-                  label="Provincie"
+                  label={t("ownerx.settings.province")}
                   value={province}
                   onChange={(e) => setProvince(e.target.value)}
                 />
                 <Input
-                  label="Breedtegraad (Lat)"
+                  label={t("ownerx.settings.lat")}
                   value={lat}
                   onChange={(e) => setLat(e.target.value)}
                 />
                 <Input
-                  label="Lengtegraad (Lng)"
+                  label={t("ownerx.settings.lng")}
                   value={lng}
                   onChange={(e) => setLng(e.target.value)}
                 />
@@ -269,7 +283,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
           {activeTab === "hours" && (
             <div className="space-y-6">
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pb-2 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-[#54D1CA]" /> Openingstijden Per Dag
+                <Clock className="w-5 h-5 text-[#54D1CA]" /> {t("ownerx.settings.hoursPerDay")}
               </h2>
 
               <div className="space-y-3">
@@ -278,7 +292,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                     key={item.day}
                     className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] gap-3"
                   >
-                    <span className="text-xs font-bold text-[#111111] w-28">{item.day}</span>
+                    <span className="text-xs font-bold text-[#111111] w-28">{t(DAY_KEYS[item.day])}</span>
 
                     <div className="flex items-center gap-2">
                       <label className="flex items-center gap-2 text-xs font-medium text-[#111111] cursor-pointer">
@@ -288,7 +302,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                           onChange={(e) => updateHour(idx, { isClosed: e.target.checked })}
                           className="rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
                         />
-                        Gesloten
+                        {t("ownerx.settings.closed")}
                       </label>
                     </div>
 
@@ -300,7 +314,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                           onChange={(e) => updateHour(idx, { open: e.target.value })}
                           className="px-2 py-1 bg-white border border-[#EAEAEA] rounded-xl text-xs font-bold"
                         />
-                        <span className="text-xs text-[#B7B7B7]">tot</span>
+                        <span className="text-xs text-[#B7B7B7]">{t("ownerx.settings.until")}</span>
                         <input
                           type="time"
                           value={item.close}
@@ -318,14 +332,14 @@ function SettingsForm({ business, categories }: { business: Business; categories
           {activeTab === "notifications" && (
             <div className="space-y-6">
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pb-2 flex items-center gap-2">
-                <Bell className="w-5 h-5 text-[#790166]" /> E-mail & Systeem Meldingen
+                <Bell className="w-5 h-5 text-[#790166]" /> {t("ownerx.settings.notificationsHeading")}
               </h2>
 
               <div className="space-y-4">
                 {[
-                  { title: "Nieuwe Bestellingen", text: "Ontvang direct een e-mailbericht wanneer een klant een bestelling plaatst." },
-                  { title: "Nieuwe Beoordelingen", text: "Melding wanneer een klant een review of sterrenscore achterlaat." },
-                  { title: "LocalSpotter Tips & Updates", text: "Maandelijkse tips om je lokale zichtbaarheid en verkopen te verhogen." },
+                  { title: t("ownerx.settings.notifOrdersTitle"), text: t("ownerx.settings.notifOrdersText") },
+                  { title: t("ownerx.settings.notifReviewsTitle"), text: t("ownerx.settings.notifReviewsText") },
+                  { title: t("ownerx.settings.notifTipsTitle"), text: t("ownerx.settings.notifTipsText") },
                 ].map((item) => (
                   <label key={item.title} className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] opacity-60">
                     <input type="checkbox" disabled className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]" />
@@ -337,7 +351,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 ))}
               </div>
               <p className="text-xs text-[#B7B7B7]">
-                Meldingsvoorkeuren kunnen nog niet worden opgeslagen omdat de server dit nog niet ondersteunt.
+                {t("ownerx.settings.notifUnsupported")}
               </p>
             </div>
           )}
@@ -349,7 +363,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
               isLoading={isLoading}
               className="gap-2 px-8 h-12"
             >
-              <Save className="w-4 h-4" /> WIJZIGINGEN OPSLAAN
+              <Save className="w-4 h-4" /> {t("ownerx.settings.saveChanges")}
             </Button>
           </div>
         </form>
@@ -358,16 +372,17 @@ function SettingsForm({ business, categories }: { business: Business; categories
 }
 
 export default function OwnerSettingsPage() {
+  const { t } = useLocale();
   const { business, loading, error, reload } = useMyBusiness();
   const categories = useApiResource("business-categories", () => api.getBusinessCategories());
 
   let content: React.ReactNode;
   if (loading || categories.loading) {
-    content = <LoadingState label="Instellingen laden..." />;
+    content = <LoadingState label={t("ownerx.settings.loading")} />;
   } else if (error ?? categories.error) {
     content = <ErrorState message={error ?? categories.error} onRetry={error ? reload : categories.reload} />;
   } else if (!business) {
-    content = <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om instellingen te beheren." />;
+    content = <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forSettings")} />;
   } else {
     content = <SettingsForm key={business.id} business={business} categories={categories.data ?? []} />;
   }

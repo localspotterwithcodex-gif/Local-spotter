@@ -9,9 +9,12 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { formatDate } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 
 export default function ConsumerReviewsPage() {
+  const { t } = useLocale();
+  const f = useFormat();
   const { data, error, loading, reload } = useApiResource("my-reviews", () => api.getMyReviews());
   const reviews = data ?? [];
 
@@ -23,51 +26,52 @@ export default function ConsumerReviewsPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/account"
+              aria-label={t("account.back")}
               className="w-10 h-10 rounded-full bg-[#F9F9F9] border border-[#EAEAEA] flex items-center justify-center text-[#111111] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold font-rubik text-[#111111]">
-                Mijn Beoordelingen
+                {t("account.myReviews")}
               </h1>
               <p className="text-xs text-[#B7B7B7]">
-                Overzicht van alle reviews die jij hebt geschreven voor lokale ondernemers.
+                {t("account.reviewsSubtitle")}
               </p>
             </div>
           </div>
 
           <div className="px-4 py-2 bg-[#FAE2F0] text-[#FA1EFF] rounded-2xl text-xs font-bold font-manrope">
-            {reviews.length} Beoordelingen
+            {t("account.reviewsCount", { n: reviews.length })}
           </div>
         </div>
 
         {/* Reviews List */}
         {loading ? (
-          <LoadingState label="Beoordelingen laden..." />
+          <LoadingState label={t("account.reviewsLoading")} />
         ) : error ? (
-          <ErrorState title="Beoordelingen niet beschikbaar" message={error} onRetry={reload} />
+          <ErrorState title={t("account.reviewsUnavailable")} message={error} onRetry={reload} />
         ) : reviews.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-[#EAEAEA] text-center space-y-4 shadow-xs">
             <div className="w-14 h-14 rounded-full bg-[#F9F9F9] text-[#B7B7B7] flex items-center justify-center mx-auto">
               <MessageSquare className="w-7 h-7" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-base font-bold text-[#111111]">Nog geen reviews geschreven</h2>
+              <h2 className="text-base font-bold text-[#111111]">{t("account.reviewsEmptyTitle")}</h2>
               <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto">
-                Laat na een aankoop of workshop een beoordeling achter om andere lokalen te helpen ontdekken!
+                {t("account.reviewsEmptyDesc")}
               </p>
             </div>
             <Link href="/products">
               <Button variant="primary" className="mt-2">
-                ONTDEK PRODUCTEN
+                {t("account.discoverProducts")}
               </Button>
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {reviews.map((review) => {
-              const businessName = review.businessName || "Lokale Winkel";
+              const businessName = review.businessName || t("account.defaultShop");
 
               return (
                 <div
@@ -101,7 +105,7 @@ export default function ConsumerReviewsPage() {
 
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[#B7B7B7]">
-                        {formatDate(review.createdAt)}
+                        {f.date(review.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -120,7 +124,7 @@ export default function ConsumerReviewsPage() {
                       href={`/businesses/${review.businessId}`}
                       className="text-xs text-[#FA1EFF] hover:underline font-bold flex items-center gap-1"
                     >
-                      Bekijk Winkelpagina <ExternalLink className="w-3.5 h-3.5" />
+                      {t("account.viewShop")} <ExternalLink className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>

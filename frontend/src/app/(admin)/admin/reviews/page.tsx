@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Star, Trash2, Eye } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
+import { useLocale } from "@/i18n/LocaleContext";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -15,6 +16,7 @@ import { useAdminAction } from "../_components/useAdminAction";
 const PAGE_SIZE = 20;
 
 export default function AdminReviewsPage() {
+  const { t, label } = useLocale();
   const [offset, setOffset] = useState(0);
   const { data, error, loading, reload } = useApiResource(`admin-reviews-${offset}`, () =>
     adminApi.getReviews({ limit: PAGE_SIZE, offset })
@@ -26,8 +28,8 @@ export default function AdminReviewsPage() {
     <AdminLayout>
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Reviews Moderatie</h1>
-          <p className="text-xs text-[#B7B7B7]">Beheer en modereer geschreven reviews van consumenten</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.reviewModeration")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("adminx.reviews.subtitle")}</p>
         </div>
 
         <ActionError message={action.error} />
@@ -37,7 +39,7 @@ export default function AdminReviewsPage() {
         ) : loading ? (
           <LoadingState />
         ) : !data || reviews.length === 0 ? (
-          <EmptyState title="Geen reviews gevonden" description="Er zijn nog geen reviews geschreven." />
+          <EmptyState title={t("adminx.reviews.emptyTitle")} description={t("adminx.reviews.emptyDesc")} />
         ) : (
           <div className="space-y-3">
             {reviews.map((r) => {
@@ -55,7 +57,7 @@ export default function AdminReviewsPage() {
                         <span className="text-xs font-bold ml-1">{r.rating}</span>
                       </div>
                       <span className="text-[10px] text-[#B7B7B7]">
-                        {r.businessName} • {r.status}
+                        {r.businessName} • {label("status", r.status)}
                       </span>
                     </div>
                     {r.title && <h4 className="text-xs font-bold text-[#111111]">{r.title}</h4>}
@@ -67,7 +69,7 @@ export default function AdminReviewsPage() {
                       onClick={() => action.run(r.id, () => adminApi.moderateReview(r.id, "HIDDEN"))}
                       disabled={action.busyId !== null}
                       className="p-2 text-[#ED4C5C] hover:bg-[#F2D9DE] rounded-xl transition-colors shrink-0 disabled:opacity-50"
-                      title="Verberg review"
+                      title={t("adminx.reviews.hide")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -76,7 +78,7 @@ export default function AdminReviewsPage() {
                       onClick={() => action.run(r.id, () => adminApi.moderateReview(r.id, "PUBLISHED"))}
                       disabled={action.busyId !== null}
                       className="p-2 text-[#3B9B52] hover:bg-[#CBF5D5] rounded-xl transition-colors shrink-0 disabled:opacity-50"
-                      title="Herstel review"
+                      title={t("adminx.reviews.restore")}
                     >
                       <Eye className="w-4 h-4" />
                     </button>

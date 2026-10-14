@@ -5,12 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { MapPin, Navigation, Store } from "lucide-react";
 import { Shoproute } from "@/types/shoproute";
+import { useLocale } from "@/i18n/LocaleContext";
 
 interface ShoprouteCardProps {
   route: Shoproute;
 }
 
 export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
+  const { t } = useLocale();
   return (
     <Link
       href={`/shoproutes/${route.id}`}
@@ -47,10 +49,10 @@ export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#F9F9F9]">
           <span className="text-xs font-medium text-[#111111] flex items-center gap-1">
             <Store className="w-3.5 h-3.5 text-[#FA1EFF]" />
-            {route.shopCount} Deelnemende winkels
+            {t("cards.participatingShops", { n: route.shopCount })}
           </span>
           <span className="text-xs font-bold text-[#54D1CA] group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-            Start de shoproute <Navigation className="w-3 h-3" />
+            {t("cards.startRoute")} <Navigation className="w-3 h-3" />
           </span>
         </div>
       </div>

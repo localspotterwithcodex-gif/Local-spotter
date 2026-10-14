@@ -9,9 +9,11 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export default function ShoprouteDetailPage({ params }: { params: Promise<{ routeId: string }> }) {
   const { routeId } = use(params);
+  const { t } = useLocale();
 
   const { data: route, error, loading: isLoading, reload } = useApiResource(`shoproute:${routeId}`, () =>
     api.getShoprouteById(routeId)
@@ -34,17 +36,17 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             lng: position.coords.longitude,
           });
         },
-        () => setLocationError("Je locatie is niet beschikbaar. Geef toestemming om jezelf op de route te zien.")
+        () => setLocationError(t("routes.detail.locationDenied"))
       );
     } else {
-      setLocationError("Je browser ondersteunt geen locatiebepaling.");
+      setLocationError(t("routes.detail.locationUnsupported"));
     }
   };
 
   if (isLoading) {
     return (
       <ConsumerLayout>
-        <LoadingState label="Shoproute laden..." />
+        <LoadingState label={t("routes.detail.loading")} />
       </ConsumerLayout>
     );
   }
@@ -52,7 +54,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
   if (error) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Shoproute niet beschikbaar" message={error} onRetry={reload} />
+        <ErrorState title={t("routes.detail.unavailable")} message={error} onRetry={reload} />
       </ConsumerLayout>
     );
   }
@@ -60,7 +62,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
   if (!route) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Shoproute niet gevonden" message="Deze route bestaat niet meer." />
+        <ErrorState title={t("routes.detail.notFound")} message={t("routes.detail.notFoundDesc")} />
       </ConsumerLayout>
     );
   }
@@ -70,7 +72,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
       <div className="space-y-6 max-w-5xl mx-auto">
         <Link href="/shoproutes" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar alle shoproutes
+          {t("routes.detail.back")}
         </Link>
 
         {/* Route Title Header */}
@@ -91,7 +93,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             className="gap-2 bg-[#54D1CA] hover:bg-[#43B8B1] text-white shrink-0"
           >
             <Navigation className="w-5 h-5" />
-            {isNavigating ? "Route Actief" : "Start de shoproute"}
+            {isNavigating ? t("routes.detail.active") : t("routes.detail.start")}
           </Button>
         </div>
 
@@ -107,7 +109,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
               {isNavigating && userLocation && (
                 <div className="absolute top-8 left-12 bg-[#121F3E] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5 animate-pulse z-20">
                   <Compass className="w-4 h-4 text-[#54D1CA]" />
-                  You are here
+                  {t("routes.detail.youAreHere")}
                 </div>
               )}
 
@@ -149,7 +151,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
               <div className="mt-4 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-[#54D1CA] uppercase">
-                    Stop #{selectedStop.sequenceOrder}
+                    {t("routes.detail.stop", { n: selectedStop.sequenceOrder })}
                   </span>
                   <h4 className="text-sm font-bold text-[#111111]">{selectedStop.businessName}</h4>
                   <p className="text-xs text-[#B7B7B7]">{selectedStop.address}</p>
@@ -158,7 +160,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                   href={`/businesses/${selectedStop.businessId}`}
                   className="px-3 py-1.5 rounded-xl bg-[#FA1EFF] text-white text-xs font-bold hover:bg-[#E000EC] transition-colors"
                 >
-                  Bekijk Winkel
+                  {t("routes.detail.viewShop")}
                 </Link>
               </div>
             )}
@@ -168,7 +170,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
           <div className="bg-white rounded-3xl p-5 border border-[#EAEAEA] space-y-4">
             <h3 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
               <Store className="w-4 h-4 text-[#FA1EFF]" />
-              Deelnemende Winkels ({route.stops.length})
+              {t("routes.detail.participating", { n: route.stops.length })}
             </h3>
 
             <div className="space-y-2.5">

@@ -36,11 +36,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   } catch (networkErr) {
     // fetch() only throws when no response arrived at all (backend down, no network).
-    throw new ApiError(
-      "Kan geen verbinding maken met de server. Controleer of de backend draait en of BACKEND_URL correct is ingesteld.",
-      0,
-      networkErr
-    );
+    throw new ApiError("Network error: could not reach the API (is BACKEND_URL correct?)", 0, networkErr);
   }
 
   const contentType = res.headers.get("content-type") || "";

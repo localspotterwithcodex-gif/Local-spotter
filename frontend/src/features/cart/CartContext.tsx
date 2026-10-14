@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { api, type ServerCart } from "@/lib/api";
-import { getErrorMessage } from "@/lib/errors";
+import { describeError } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
 import { useAuth } from "@/features/auth/AuthContext";
 
 export interface CartLine {
@@ -51,7 +52,9 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 interface Settled {
   userId: string;
   cart?: ServerCart;
-  error?: string;
+  /** raw failure, translated at render so it follows the language toggle */
+  err?: unknown;
+  failed?: boolean;
 }
 
 /**
@@ -59,6 +62,7 @@ interface Settled {
  * CONSUMER users have a cart; for everyone else the cart is empty and no request is made.
  */
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useLocale();
   const { user, role, isAuthenticated } = useAuth();
   const userId = isAuthenticated && role === "CONSUMER" && user ? user.id : null;
 
@@ -74,7 +78,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!cancelled) setSettled({ userId, cart });
       },
       (err: unknown) => {
-        if (!cancelled) setSettled({ userId, error: getErrorMessage(err, "Winkelwagen kon niet worden geladen.") });
+        if (!cancelled) setSettled({ userId, err, failed: true });
       }
     );
     return () => {
@@ -97,7 +101,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const fresh = await api.getCart();
           setSettled({ userId, cart: fresh });
         } catch (err) {
-          setSettled({ userId, error: getErrorMessage(err, "Winkelwagen kon niet worden geladen.") });
+          setSettled({ userId, err, failed: true });
         }
         setPendingCount((n) => n - 1);
       }
@@ -141,7 +145,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deliveryFee: cart?.deliveryFee ?? 0,
     isLoading: userId !== null && current === null,
     isUpdating: pendingCount > 0,
-    error: current?.error,
+    error: current?.failed ? describeError(current.err, t) : undefined,
     reload,
     addItem,
     removeItem,

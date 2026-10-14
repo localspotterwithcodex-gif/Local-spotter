@@ -10,7 +10,7 @@ Date: 2026-10-13. Each entry: root cause · files · test command · **actual re
 | A1 | Unescaped quotes in JSX | `(consumer)/account/reviews/page.tsx` | `eslint` 0 errors | — |
 | A2 | `Math.random` + `MOCK_PRODUCTS` rendered in checkout success (impure render, fake data) | `(consumer)/checkout/success/page.tsx` | now fetches the real order by `?orderId=`; lint clean | Payment still shown as "not yet processed" (D-004) |
 | A3 | `catch (err: any)` / `any` props | owner orders, owner products/new, workshop detail, home page, `ShopRegistrationModal`; new `lib/errors.ts` | lint clean | — |
-| A4 | `FeedbackButton` set state in effect / unstable callbacks | `components/widgets/FeedbackButton.tsx` (`useSyncExternalStore`, local handlers) | lint clean | Behaviour not browser-tested |
+| A4 | (FeedbackButton later removed entirely at the owner's request) | — | — | — |
 | A5 | `AuthContext` set state synchronously in an effect | `features/auth/AuthContext.tsx` (async fetch, cancel flag) | lint clean | — |
 | A6 | `LocaleProvider` initialised to `"en"` in an effect (hydration mismatch, `<html lang="nl">`) | `i18n/LocaleContext.tsx`, new `i18n/server-locale.ts`, `app/layout.tsx` | lint clean | Default language still pending your decision (D-008) |
 | A7 | Unused imports/vars (9) | reset-password, WorkshopCard, AppHeader, TopNav, ShopRegistrationModal | lint clean | `showBack` prop left (public prop of `AppHeader`) |
@@ -125,3 +125,13 @@ Apply order when you decide to: (1) create a Neon branch/backup of production, (
 Production migration (your output): `prisma migrate deploy` applied both pending migrations after the Neon backup branch `pre-migration-2026-10-13` was created; `db:prod:status` = "Database schema is up to date" (3 migrations), `db:prod:diff` = empty migration.
 
 Email (decision: Resend): `ResendMailProvider` in `backend/src/mail/mail.provider.ts` calls `POST https://api.resend.com/emails` with `fetch` (no new dependency), 8 s timeout, one retry on network/429/5xx using the same `Idempotency-Key`, logs only the status code (never key, recipient or body). SMS is refused with 503 (no SMS provider). Env: `MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM`. `validateEnv` now requires these in production and whenever `resend` is selected. Verified by me: 5 new provider unit tests + env validation tests pass (18 tests across `src/mail` and `src/common/guards`), backend `tsc` exit 0. Not verified: a real email delivery (needs your key and verified domain).
+
+## N. Language, feedback button, demo logins, addresses, ratings (2026-10-14)
+
+- **Language (frontend):** `src/i18n/dict/{core,common,auth,public,account,owner,admin}.ts` (typed pairs via `defineDict`, so a key missing in one language is a compile error); `t(key, params)`, `label(prefix, enum)`, `useFormat()` (currency/date/time per language), `useErrorMessage()` / `describeError()` (HTTP status → translated message; server text is never shown). Metadata title/description are translated server-side (`getServerT`). Tests check EN/NL key parity, duplicate keys across modules and matching `{placeholders}`. Static scan: no hardcoded user-visible text left except brand/bank names. Plan descriptions/features are translated by slug (`PLAN_DESCRIPTION_KEYS`, `PLAN_FEATURE_KEYS`). Limits: backend emails are Dutch; API data (names, categories) is shown as stored.
+- **Feedback button:** `FeedbackButton.tsx` deleted and removed from `app/layout.tsx`.
+- **Demo logins:** see IMPLEMENTATION-STATUS. These passwords are public in the repository; run the seed only on dev/test databases or temporarily, and run `npm run seed:demo:disable` before real launch.
+- **Registration:** `MailProvider.supports(channel)`; mobile sign-up is refused (503) before any account is created while no SMS provider exists; UI shows "register with email". Free SMS verification providers were reviewed: none suits production (Twilio trial = verified numbers only; Firebase phone auth needs a billed plan).
+- **Addresses:** `backend/src/addresses/*`, frontend `account/addresses` page, checkout pre-fill from the default address.
+- **Ratings:** public product list/detail now include `averageRating` and `ratingCount` from PUBLISHED reviews (one grouped query).
+- **Still blocked on decisions/inputs:** D-001..D-004, D-006 (owner payouts view/commission), D-008; image upload needs a storage service; chat and virtual store are not built.

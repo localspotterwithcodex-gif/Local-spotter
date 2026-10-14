@@ -7,10 +7,14 @@ import { Lock, CheckCircle2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 function ResetPasswordForm() {
   const router = useRouter();
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
 
@@ -32,15 +36,15 @@ function ResetPasswordForm() {
     setError("");
 
     if (!token) {
-      setError("Deze herstellink is ongeldig. Vraag een nieuwe aan via 'Wachtwoord vergeten'.");
+      setError(t("authx.reset.invalidLink"));
       return;
     }
     if (!hasMinLength) {
-      setError("Wachtwoord moet minimaal 8 tekens lang zijn.");
+      setError(t("authx.reset.minLength"));
       return;
     }
     if (!passwordsMatch) {
-      setError("Wachtwoorden komen niet overeen.");
+      setError(t("authx.signup.mismatch"));
       return;
     }
 
@@ -49,7 +53,7 @@ function ResetPasswordForm() {
       await apiClient.post("/auth/reset-password", { token, newPassword: password });
       setIsSuccess(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Wachtwoord wijzigen is mislukt.");
+      setError(errMsg(err, { validation: "authx.reset.invalidLink", notFound: "authx.reset.invalidLink", unknown: "authx.reset.failed" }));
     } finally {
       setIsLoading(false);
     }
@@ -63,10 +67,10 @@ function ResetPasswordForm() {
           <Lock className="w-7 h-7" />
         </div>
         <h1 className="text-2xl font-bold font-rubik text-[#111111]">
-          Nieuw Wachtwoord Instellen
+          {t("authx.reset.title")}
         </h1>
         <p className="text-xs text-[#B7B7B7]">
-          Voer hieronder je nieuwe wachtwoord in om je LocalSpotter account weer te beveiligen.
+          {t("authx.reset.subtitle")}
         </p>
       </div>
 
@@ -77,10 +81,10 @@ function ResetPasswordForm() {
           </div>
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-[#111111] font-rubik">
-              Wachtwoord Gewijzigd!
+              {t("authx.reset.doneTitle")}
             </h2>
             <p className="text-xs text-[#B7B7B7]">
-              Je wachtwoord is succesvol bijgewerkt. Je kunt nu inloggen met je nieuwe wachtwoord.
+              {t("authx.reset.doneText")}
             </p>
           </div>
           <Button
@@ -89,7 +93,7 @@ function ResetPasswordForm() {
             onClick={() => router.push("/login")}
             className="gap-2 mt-4"
           >
-            NAAR INLOGGEN <ArrowRight className="w-4 h-4" />
+            {t("authx.reset.toLogin")} <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       ) : (
@@ -103,7 +107,7 @@ function ResetPasswordForm() {
           {/* New Password */}
           <div className="space-y-1 relative">
             <Input
-              label="Nieuw Wachtwoord"
+              label={t("authx.reset.newPassword")}
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
               value={password}
@@ -113,6 +117,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? t("authx.reset.hide") : t("authx.reset.show")}
               className="absolute right-3 top-[38px] text-[#B7B7B7] hover:text-[#111111] transition-colors"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -122,7 +127,7 @@ function ResetPasswordForm() {
           {/* Confirm Password */}
           <div className="space-y-1 relative">
             <Input
-              label="Bevestig Nieuw Wachtwoord"
+              label={t("authx.reset.confirmNew")}
               type={showConfirmPassword ? "text" : "password"}
               placeholder="••••••••"
               value={confirmPassword}
@@ -132,6 +137,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              aria-label={showConfirmPassword ? t("authx.reset.hide") : t("authx.reset.show")}
               className="absolute right-3 top-[38px] text-[#B7B7B7] hover:text-[#111111] transition-colors"
             >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -140,24 +146,24 @@ function ResetPasswordForm() {
 
           {/* Password Requirements Checklist */}
           <div className="p-3 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-2 text-xs">
-            <span className="font-bold text-[#111111] block mb-1">Vereisten voor wachtwoord:</span>
+            <span className="font-bold text-[#111111] block mb-1">{t("authx.reset.requirements")}</span>
             <div className="flex items-center gap-2 text-[#111111]">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasMinLength ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
                 ✓
               </div>
-              <span className={hasMinLength ? "text-[#111111]" : "text-[#B7B7B7]"}>Minimaal 8 tekens</span>
+              <span className={hasMinLength ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleLength")}</span>
             </div>
             <div className="flex items-center gap-2 text-[#111111]">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasNumber ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
                 ✓
               </div>
-              <span className={hasNumber ? "text-[#111111]" : "text-[#B7B7B7]"}>Bevat ten minste 1 getal</span>
+              <span className={hasNumber ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleNumber")}</span>
             </div>
             <div className="flex items-center gap-2 text-[#111111]">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${passwordsMatch ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
                 ✓
               </div>
-              <span className={passwordsMatch ? "text-[#111111]" : "text-[#B7B7B7]"}>Wachtwoorden komen overeen</span>
+              <span className={passwordsMatch ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleMatch")}</span>
             </div>
           </div>
 
@@ -168,7 +174,7 @@ function ResetPasswordForm() {
             isLoading={isLoading}
             className="mt-4"
           >
-            WACHTWOORD BIJWERKEN
+            {t("authx.reset.submit")}
           </Button>
 
           <div className="text-center pt-2">
@@ -176,7 +182,7 @@ function ResetPasswordForm() {
               href="/login"
               className="text-xs text-[#FA1EFF] hover:underline font-bold"
             >
-              Terug naar Inloggen
+              {t("authx.reset.backToLogin")}
             </Link>
           </div>
         </form>
@@ -186,12 +192,13 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useLocale();
   return (
     <ConsumerLayout>
       <Suspense fallback={
         <div className="max-w-md mx-auto my-12 p-8 bg-white rounded-3xl text-center space-y-4">
           <div className="w-8 h-8 border-4 border-[#FA1EFF] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-medium text-[#111111]">Laden...</p>
+          <p className="text-sm font-medium text-[#111111]">{t("common.loading")}</p>
         </div>
       }>
         <ResetPasswordForm />

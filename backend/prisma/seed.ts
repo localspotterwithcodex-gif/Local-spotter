@@ -3,8 +3,27 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+function describeTarget(): string {
+  try {
+    const u = new URL(process.env.DIRECT_URL || process.env.DATABASE_URL || '');
+    return `${u.hostname}${u.pathname}`; // never the credentials
+  } catch {
+    return '(unparseable database url)';
+  }
+}
+
 async function main() {
-  console.log('🌱 Starting LocalSpotter database seed...');
+  // This seed creates DEMO accounts with publicly known passwords (Admin@123,
+  // Owner@123, Customer@123). Anyone who reads this repository can log in as
+  // the admin on any database it has been run against, so it must be opt-in.
+  if (process.env.ALLOW_DEMO_SEED !== 'yes') {
+    console.error('Refusing to seed: demo accounts have publicly known passwords.');
+    console.error(`Target database: ${describeTarget()}`);
+    console.error('If this is a development/staging/demo database, re-run with ALLOW_DEMO_SEED=yes.');
+    console.error('Remove the demo logins again later with: npm run seed:demo:disable');
+    process.exit(1);
+  }
+  console.log(`🌱 Starting LocalSpotter database seed on ${describeTarget()} ...`);
 
   const passwordHash = await bcrypt.hash('Password123!', 10);
 
@@ -76,20 +95,20 @@ async function main() {
 
   // 3. Create Business Owner 1 & Profile
   // Simple test login credentials (same pattern as Super Admin):
-  //   username: owner   |  password: Owner@123
+  //   username: Business_owner   |  password: Owner@123
   //   (also reachable via email eigenaar@boetiek-amsterdam.nl)
   console.log('🏬 Seeding Business Owner 1 & Profile...');
   const ownerPasswordHash = await bcrypt.hash('Owner@123', 10);
   const ownerUser1 = await prisma.user.upsert({
     where: { email: 'eigenaar@boetiek-amsterdam.nl' },
     update: {
-      username: 'owner',
+      username: 'Business_owner',
       passwordHash: ownerPasswordHash,
       status: UserStatus.ACTIVE,
     },
     create: {
       email: 'eigenaar@boetiek-amsterdam.nl',
-      username: 'owner',
+      username: 'Business_owner',
       mobile: '+31623456789',
       passwordHash: ownerPasswordHash,
       role: UserRole.BUSINESS_OWNER,
@@ -250,20 +269,20 @@ async function main() {
 
   // 7. Create Consumer User & Profile
   // Simple test login credentials (same pattern as Super Admin):
-  //   username: consumer  |  password: Consumer@123
+  //   username: customer  |  password: Customer@123
   //   (also reachable via email sophie.vis@example.nl)
   console.log('🛍️ Seeding Consumer User...');
-  const consumerPasswordHash = await bcrypt.hash('Consumer@123', 10);
+  const consumerPasswordHash = await bcrypt.hash('Customer@123', 10);
   const consumerUser = await prisma.user.upsert({
     where: { email: 'sophie.vis@example.nl' },
     update: {
-      username: 'consumer',
+      username: 'customer',
       passwordHash: consumerPasswordHash,
       status: UserStatus.ACTIVE,
     },
     create: {
       email: 'sophie.vis@example.nl',
-      username: 'consumer',
+      username: 'customer',
       mobile: '+31634567890',
       passwordHash: consumerPasswordHash,
       role: UserRole.CONSUMER,
@@ -376,8 +395,8 @@ async function main() {
   console.log('');
   console.log('🔑 Test login credentials:');
   console.log('   Super Admin  → username: Admin     password: Admin@123');
-  console.log('   Business Owner → username: owner   password: Owner@123');
-  console.log('   Consumer     → username: consumer  password: Consumer@123');
+  console.log('   Business Owner → username: Business_owner password: Owner@123');
+  console.log('   Consumer     → username: customer  password: Customer@123');
 }
 
 main()

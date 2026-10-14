@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { ArrowLeft, ArrowRight, Store, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { TranslationKey } from "@/i18n/dictionaries";
 
 /* ------------------------------------------------------------------ */
 /*  Option lists (mirrors backend CreateShopRegistrationDto)           */
@@ -68,56 +70,59 @@ const ROUTE_INTEREST = ["Definitely", "Maybe", "No"] as const;
 
 const ROUTE_OFFERS = ["Discount", "Small gift", "Special product", "Workshop/demo", "Other", "No"] as const;
 
-const DUTCH_OPTIONS: Record<string, string> = {
-  Fashion: "Mode",
-  "Home & interior": "Wonen & interieur",
-  Gifts: "Cadeaus",
-  "Beauty & lifestyle": "Beauty & lifestyle",
-  Kids: "Kinderen",
-  "Food / specialty products": "Voeding / speciaalproducten",
-  "Jewellery & accessories": "Sieraden & accessoires",
-  "Books / stationery": "Boeken / kantoorartikelen",
-  Other: "Anders",
-  "Under 50": "Minder dan 50",
-  "More than 1,000": "Meer dan 1.000",
-  "No, only in-store": "Nee, alleen in de winkel",
-  "Yes, through our own webshop": "Ja, via onze eigen webshop",
-  "Yes, through marketplaces": "Ja, via marktplaatsen",
-  "Yes, through social media": "Ja, via sociale media",
-  None: "Geen",
-  "Yes, definitely": "Ja, zeker",
-  "Maybe, I'd like to know more": "Misschien, ik wil graag meer weten",
-  "Not right now": "Op dit moment niet",
-  "Showing my products to people nearby": "Mijn producten tonen aan mensen in de buurt",
-  "Selling products through the app": "Producten verkopen via de app",
-  "Click & collect": "Klik & haal op",
-  "Local delivery": "Lokale bezorging",
-  "Bringing more people into my physical shop": "Meer mensen naar mijn fysieke winkel brengen",
-  "Participating in shopping routes": "Deelnemen aan winkelroutes",
-  "Promoting offers/events": "Aanbiedingen/evenementen promoten",
-  "Being featured in local recommendations": "Vermeld worden in lokale aanbevelingen",
-  "Customer analytics": "Klantanalyses",
-  "I would only use a free version": "Ik zou alleen een gratis versie gebruiken",
-  "Up to €10/month": "Tot €10/maand",
-  "€10–€25/month": "€10–€25/maand",
-  "€25–€50/month": "€25–€50/maand",
-  "€50–€100/month": "€50–€100/maand",
-  "€100+ if it generates sufficient sales/customers": "€100+ als het voldoende omzet/klanten oplevert",
-  "Fixed monthly subscription": "Vast maandabonnement",
-  "Small fee/commission per sale": "Kleine vergoeding/commissie per verkoop",
-  "Combination of subscription + lower commission": "Combinatie van abonnement + lagere commissie",
-  "Pay only for additional promotion/visibility": "Alleen betalen voor extra promotie/zichtbaarheid",
-  "Not sure": "Weet ik niet",
-  Definitely: "Zeker",
-  Maybe: "Misschien",
-  No: "Nee",
-  Discount: "Korting",
-  "Small gift": "Klein cadeau",
-  "Special product": "Speciaal product",
-  "Workshop/demo": "Workshop/demonstratie",
+const OPTION_KEYS: Record<string, TranslationKey> = {
+  "Fashion": "shopreg.opt.fashion",
+  "Home & interior": "shopreg.opt.homeInterior",
+  "Gifts": "shopreg.opt.gifts",
+  "Beauty & lifestyle": "shopreg.opt.beauty",
+  "Kids": "shopreg.opt.kids",
+  "Food / specialty products": "shopreg.opt.food",
+  "Jewellery & accessories": "shopreg.opt.jewellery",
+  "Books / stationery": "shopreg.opt.books",
+  "Other": "shopreg.opt.other",
+  "Under 50": "shopreg.opt.under50",
+  "50–250": "shopreg.opt.c50_250",
+  "250–1,000": "shopreg.opt.c250_1000",
+  "More than 1,000": "shopreg.opt.over1000",
+  "No, only in-store": "shopreg.opt.onlineNo",
+  "Yes, through our own webshop": "shopreg.opt.onlineOwn",
+  "Yes, through marketplaces": "shopreg.opt.onlineMarket",
+  "Yes, through social media": "shopreg.opt.onlineSocial",
+  "Shopify": "shopreg.opt.posShopify",
+  "WooCommerce": "shopreg.opt.posWoo",
+  "Lightspeed": "shopreg.opt.posLight",
+  "None": "shopreg.opt.posNone",
+  "Yes, definitely": "shopreg.opt.pilotYes",
+  "Maybe, I'd like to know more": "shopreg.opt.pilotMaybe",
+  "Not right now": "shopreg.opt.pilotNo",
+  "Showing my products to people nearby": "shopreg.opt.featShow",
+  "Selling products through the app": "shopreg.opt.featSell",
+  "Click & collect": "shopreg.opt.featClick",
+  "Local delivery": "shopreg.opt.featDelivery",
+  "Bringing more people into my physical shop": "shopreg.opt.featFoot",
+  "Participating in shopping routes": "shopreg.opt.featRoutes",
+  "Promoting offers/events": "shopreg.opt.featPromo",
+  "Being featured in local recommendations": "shopreg.opt.featRecs",
+  "Customer analytics": "shopreg.opt.featAnalytics",
+  "I would only use a free version": "shopreg.opt.priceFree",
+  "Up to €10/month": "shopreg.opt.price10",
+  "€10–€25/month": "shopreg.opt.price10_25",
+  "€25–€50/month": "shopreg.opt.price25_50",
+  "€50–€100/month": "shopreg.opt.price50_100",
+  "€100+ if it generates sufficient sales/customers": "shopreg.opt.price100",
+  "Fixed monthly subscription": "shopreg.opt.modelFixed",
+  "Small fee/commission per sale": "shopreg.opt.modelCommission",
+  "Combination of subscription + lower commission": "shopreg.opt.modelCombo",
+  "Pay only for additional promotion/visibility": "shopreg.opt.modelPromo",
+  "Not sure": "shopreg.opt.notSure",
+  "Definitely": "shopreg.opt.routeDefinitely",
+  "Maybe": "shopreg.opt.routeMaybe",
+  "No": "shopreg.opt.routeNo",
+  "Discount": "shopreg.opt.offerDiscount",
+  "Small gift": "shopreg.opt.offerGift",
+  "Special product": "shopreg.opt.offerProduct",
+  "Workshop/demo": "shopreg.opt.offerWorkshop",
 };
-
-type Language = "en" | "nl";
 
 type FormState = {
   shopName: string;
@@ -167,145 +172,6 @@ const EMPTY_FORM: FormState = {
   routeOffer: "",
   otherRouteOffer: "",
   biggestChallenge: "",
-};
-
-const COPY = {
-  en: {
-    eyebrow: "Discover. Connect. Shop Local.",
-    registration: "Shop Owner Registration",
-    steps: [
-      { title: "About your shop", subtitle: "Tell us a little about your shop." },
-      { title: "Your business", subtitle: "Help us understand your products and current setup." },
-      { title: "Local Spotter", subtitle: "Tell us how Local Spotter could help your shop." },
-    ],
-    next: "Next",
-    continue: "Continue",
-    back: "Back",
-    submit: "Submit registration",
-    submitting: "Submitting…",
-    selectAll: "Select all that apply",
-    fields: {
-      shopName: "Shop name",
-      contactPersonName: "Contact person's name",
-      email: "Email address",
-      phone: "Phone number",
-      shopAddress: "Shop address",
-      websiteInstagram: "Website / Instagram",
-      shopType: "What type of shop are you?",
-      otherShopType: "Other shop type",
-      productCount: "Approximately how many different products do you sell?",
-      sellsOnline: "Do you currently sell products online?",
-      otherSellsOnline: "How do you sell online?",
-      webshopPos: "Which webshop/POS system do you use?",
-      otherWebshopPos: "Which system do you use?",
-      pilotInterest: "Would you be interested in joining our pilot?",
-      valuableFeatures: "Which features would be most valuable to your shop?",
-      otherFeature: "Other feature",
-      monthlyPrice: "If the platform brings your shop additional visibility and customers, what monthly price would you consider reasonable?",
-      pricingModel: "Which pricing model would you prefer?",
-      routeInterest: "Would you want your shop to participate in these routes?",
-      routeOffer: "Would you offer something special to customers following a route?",
-      otherRouteOffer: "What would you offer?",
-      biggestChallenge: "What is currently your biggest challenge in attracting local customers?",
-    },
-    placeholders: {
-      shopName: "e.g. Anna's Boutique",
-      contactPersonName: "e.g. Anna Smith",
-      email: "e.g. hello@yourshop.com",
-      phone: "e.g. +31 6 12345678",
-      shopAddress: "Enter your full shop address",
-      websiteInstagram: "e.g. www.yourshop.com or @yourshop",
-      other: "Please tell us more",
-      challenge: "Share your experience with us…",
-    },
-    sections: { pricing: "Pricing", routes: "Shop routes", challenge: "Your biggest challenge" },
-    info: {
-      localSpotter: "Local Spotter helps consumers discover and buy products from independent shops in their neighbourhood.",
-      routes: "We are considering curated shopping routes, such as “Local Fashion Route” or “Perfect Saturday Shopping Route”.",
-    },
-    validation: {
-      shopName: "Please enter your shop name",
-      contactPersonName: "Please tell us who we can contact",
-      email: "Please enter a valid email address",
-      shopAddress: "Please enter your shop address",
-      shopType: "Please choose the type of shop you are",
-      pilotInterest: "Please let us know if the pilot interests you",
-      form: "Please complete the highlighted fields.",
-      save: "Something went wrong. Please try again.",
-      network: "We couldn't reach the server. Please check your connection and try again.",
-    },
-    successTitle: "Thank you for your interest in Local Spotter!",
-    successBody: "Your response has been submitted successfully. We will be in touch soon.",
-    close: "Close",
-  },
-  nl: {
-    eyebrow: "Ontdek. Verbind. Winkel lokaal.",
-    registration: "Registratie voor winkeliers",
-    steps: [
-      { title: "Over uw winkel", subtitle: "Vertel ons iets over uw winkel." },
-      { title: "Uw onderneming", subtitle: "Help ons uw producten en huidige werkwijze te begrijpen." },
-      { title: "Local Spotter", subtitle: "Vertel ons hoe Local Spotter uw winkel kan helpen." },
-    ],
-    next: "Volgende",
-    continue: "Doorgaan",
-    back: "Terug",
-    submit: "Registratie verzenden",
-    submitting: "Verzenden…",
-    selectAll: "Selecteer alles wat van toepassing is",
-    fields: {
-      shopName: "Winkelnaam",
-      contactPersonName: "Naam contactpersoon",
-      email: "E-mailadres",
-      phone: "Telefoonnummer",
-      shopAddress: "Winkeladres",
-      websiteInstagram: "Website / Instagram",
-      shopType: "Wat voor soort winkel heeft u?",
-      otherShopType: "Ander type winkel",
-      productCount: "Hoeveel verschillende producten verkoopt u ongeveer?",
-      sellsOnline: "Verkoopt u momenteel producten online?",
-      otherSellsOnline: "Hoe verkoopt u online?",
-      webshopPos: "Welk webshop-/kassasysteem gebruikt u?",
-      otherWebshopPos: "Welk systeem gebruikt u?",
-      pilotInterest: "Zou u interesse hebben om deel te nemen aan onze pilot?",
-      valuableFeatures: "Welke functies zouden voor uw winkel het waardevolst zijn?",
-      otherFeature: "Andere functie",
-      monthlyPrice: "Als het platform uw winkel extra zichtbaarheid en klanten oplevert, welke maandprijs vindt u dan redelijk?",
-      pricingModel: "Welk prijsmodel heeft uw voorkeur?",
-      routeInterest: "Wilt u dat uw winkel deelneemt aan deze routes?",
-      routeOffer: "Zou u iets speciaals aanbieden aan klanten die een route volgen?",
-      otherRouteOffer: "Wat zou u aanbieden?",
-      biggestChallenge: "Wat is momenteel uw grootste uitdaging bij het aantrekken van lokale klanten?",
-    },
-    placeholders: {
-      shopName: "bijv. Anna's Boutique",
-      contactPersonName: "bijv. Anna de Vries",
-      email: "bijv. hallo@uwwinkel.nl",
-      phone: "bijv. +31 6 12345678",
-      shopAddress: "Vul het volledige winkeladres in",
-      websiteInstagram: "bijv. www.uwwinkel.nl of @uwwinkel",
-      other: "Vertel ons meer",
-      challenge: "Deel uw ervaring met ons…",
-    },
-    sections: { pricing: "Prijzen", routes: "Winkelroutes", challenge: "Uw grootste uitdaging" },
-    info: {
-      localSpotter: "Local Spotter helpt consumenten producten van onafhankelijke winkels in hun buurt te ontdekken en te kopen.",
-      routes: "We overwegen samengestelde winkelroutes, zoals ‘Lokale Moderoute’ of ‘Perfecte Zaterdag Winkelroute’.",
-    },
-    validation: {
-      shopName: "Vul uw winkelnaam in",
-      contactPersonName: "Vertel ons met wie we contact kunnen opnemen",
-      email: "Vul een geldig e-mailadres in",
-      shopAddress: "Vul uw winkeladres in",
-      shopType: "Kies het type winkel dat u heeft",
-      pilotInterest: "Laat ons weten of u interesse heeft in de pilot",
-      form: "Vul de gemarkeerde velden in.",
-      save: "Er is iets misgegaan. Probeer het opnieuw.",
-      network: "We konden de server niet bereiken. Controleer uw verbinding en probeer opnieuw.",
-    },
-    successTitle: "Bedankt voor uw interesse in Local Spotter!",
-    successBody: "Uw reactie is succesvol verzonden. We nemen binnenkort contact met u op.",
-    close: "Sluiten",
-  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -416,15 +282,15 @@ function OptionGrid({
 interface ShopRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultLanguage?: Language;
+  /** @deprecated The form follows the site-wide language; kept so existing callers still compile. */
+  defaultLanguage?: "en" | "nl";
 }
 
 export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
   isOpen,
   onClose,
-  defaultLanguage = "nl",
 }) => {
-  const [language, setLanguage] = useState<Language>(defaultLanguage);
+  const { t } = useLocale();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -434,8 +300,71 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
 
   if (!isOpen) return null;
 
-  const copy = COPY[language];
-  const optionLabel = (option: string) => (language === "nl" ? DUTCH_OPTIONS[option] ?? option : option);
+  const copy = {
+    eyebrow: t("shopreg.eyebrow"),
+    registration: t("shopreg.registration"),
+    steps: [
+      { title: t("shopreg.step1Title"), subtitle: t("shopreg.step1Sub") },
+      { title: t("shopreg.step2Title"), subtitle: t("shopreg.step2Sub") },
+      { title: t("shopreg.step3Title"), subtitle: t("shopreg.step3Sub") },
+    ],
+    next: t("shopreg.next"),
+    continue: t("shopreg.continue"),
+    back: t("shopreg.back"),
+    submit: t("shopreg.submit"),
+    selectAll: t("shopreg.selectAll"),
+    fields: {
+      shopName: t("shopreg.f.shopName"),
+      contactPersonName: t("shopreg.f.contactPersonName"),
+      email: t("shopreg.f.email"),
+      phone: t("shopreg.f.phone"),
+      shopAddress: t("shopreg.f.shopAddress"),
+      websiteInstagram: t("shopreg.f.websiteInstagram"),
+      shopType: t("shopreg.f.shopType"),
+      otherShopType: t("shopreg.f.otherShopType"),
+      productCount: t("shopreg.f.productCount"),
+      sellsOnline: t("shopreg.f.sellsOnline"),
+      otherSellsOnline: t("shopreg.f.otherSellsOnline"),
+      webshopPos: t("shopreg.f.webshopPos"),
+      otherWebshopPos: t("shopreg.f.otherWebshopPos"),
+      pilotInterest: t("shopreg.f.pilotInterest"),
+      valuableFeatures: t("shopreg.f.valuableFeatures"),
+      otherFeature: t("shopreg.f.otherFeature"),
+      monthlyPrice: t("shopreg.f.monthlyPrice"),
+      pricingModel: t("shopreg.f.pricingModel"),
+      routeInterest: t("shopreg.f.routeInterest"),
+      routeOffer: t("shopreg.f.routeOffer"),
+      otherRouteOffer: t("shopreg.f.otherRouteOffer"),
+      biggestChallenge: t("shopreg.f.biggestChallenge"),
+    },
+    placeholders: {
+      shopName: t("shopreg.p.shopName"),
+      contactPersonName: t("shopreg.p.contactPersonName"),
+      email: t("shopreg.p.email"),
+      phone: t("shopreg.p.phone"),
+      shopAddress: t("shopreg.p.shopAddress"),
+      websiteInstagram: t("shopreg.p.websiteInstagram"),
+      other: t("shopreg.p.other"),
+      challenge: t("shopreg.p.challenge"),
+    },
+    sections: { pricing: t("shopreg.s.pricing"), routes: t("shopreg.s.routes"), challenge: t("shopreg.s.challenge") },
+    info: { localSpotter: t("shopreg.info.localSpotter"), routes: t("shopreg.info.routes") },
+    validation: {
+      shopName: t("shopreg.v.shopName"),
+      contactPersonName: t("shopreg.v.contactPersonName"),
+      email: t("shopreg.v.email"),
+      shopAddress: t("shopreg.v.shopAddress"),
+      shopType: t("shopreg.v.shopType"),
+      pilotInterest: t("shopreg.v.pilotInterest"),
+      form: t("shopreg.v.form"),
+      save: t("shopreg.v.save"),
+      network: t("shopreg.v.network"),
+    },
+    successTitle: t("shopreg.successTitle"),
+    successBody: t("shopreg.successBody"),
+    close: t("shopreg.close"),
+  };
+  const optionLabel = (option: string) => (OPTION_KEYS[option] ? t(OPTION_KEYS[option]) : option);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -545,20 +474,6 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <div className="mr-1 flex rounded-full bg-white/70 p-0.5">
-              {(["nl", "en"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setLanguage(value)}
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold transition-colors ${
-                    language === value ? "bg-[#FA1EFF] text-white" : "text-[#0A182E]"
-                  }`}
-                >
-                  {value.toUpperCase()}
-                </button>
-              ))}
-            </div>
             <button
               onClick={handleClose}
               aria-label={copy.close}

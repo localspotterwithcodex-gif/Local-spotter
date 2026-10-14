@@ -13,11 +13,14 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { getErrorMessage } from "@/lib/errors";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { useLocale } from "@/i18n/LocaleContext";
 import { useAuth } from "@/features/auth/AuthContext";
 
 export default function BusinessDetailPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
+  const { t } = useLocale();
+  const errMsg = useErrorMessage();
   const { role, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -64,7 +67,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
       const next = isFollowing ? await api.unfollowBusiness(business.id) : await api.followBusiness(business.id);
       setFollowOverride(next);
     } catch (err) {
-      setFollowError(getErrorMessage(err, "Volgen is niet gelukt."));
+      setFollowError(errMsg(err));
     } finally {
       setFollowBusy(false);
     }
@@ -73,7 +76,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
   if (isLoading) {
     return (
       <ConsumerLayout>
-        <LoadingState label="Winkelprofiel laden..." />
+        <LoadingState label={t("shops.detail.loading")} />
       </ConsumerLayout>
     );
   }
@@ -81,7 +84,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
   if (businessRes.error) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Winkel niet beschikbaar" message={businessRes.error} onRetry={businessRes.reload} />
+        <ErrorState title={t("shops.detail.unavailable")} message={businessRes.error} onRetry={businessRes.reload} />
       </ConsumerLayout>
     );
   }
@@ -89,7 +92,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
   if (!business) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Winkel niet gevonden" message="Deze winkel bestaat niet meer." />
+        <ErrorState title={t("shops.detail.notFound")} message={t("shops.detail.notFoundDesc")} />
       </ConsumerLayout>
     );
   }
@@ -148,11 +151,11 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 >
                   {isFollowing ? (
                     <>
-                      <Check className="w-4 h-4" /> Volgend
+                      <Check className="w-4 h-4" /> {t("shops.detail.following")}
                     </>
                   ) : (
                     <>
-                      <Heart className="w-4 h-4" /> Volg Winkel
+                      <Heart className="w-4 h-4" /> {t("shops.detail.follow")}
                     </>
                   )}
                 </Button>
@@ -172,19 +175,19 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   <Star className="w-4 h-4 fill-[#D4B011] text-[#D4B011]" />
                   {business.rating}
                 </div>
-                <span className="text-[11px] text-[#B7B7B7]">Score</span>
+                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.score")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{business.reviewCount}</span>
-                <span className="text-[11px] text-[#B7B7B7]">Reviews</span>
+                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.reviews")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{followerCount}</span>
-                <span className="text-[11px] text-[#B7B7B7]">Volgers</span>
+                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.followers")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{products.length}</span>
-                <span className="text-[11px] text-[#B7B7B7]">Producten</span>
+                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.products")}</span>
               </div>
             </div>
 
@@ -202,7 +205,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 </span>
                 <span className="flex items-center gap-1.5">
                   <FileText className="w-4 h-4 text-[#B7B7B7]" />
-                  KVK: {business.kvkNumber}
+                  {t("shops.detail.kvk", { n: business.kvkNumber })}
                 </span>
               </div>
             </div>
@@ -219,7 +222,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <ShoppingBag className="w-4 h-4" /> Producten ({products.length})
+            <ShoppingBag className="w-4 h-4" /> {t("shops.detail.tabProducts", { n: products.length })}
           </button>
 
           <button
@@ -230,7 +233,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <Calendar className="w-4 h-4" /> Workshops ({workshops.length})
+            <Calendar className="w-4 h-4" /> {t("shops.detail.tabWorkshops", { n: workshops.length })}
             {!hasWorkshops && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
           </button>
 
@@ -242,7 +245,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <MapPin className="w-4 h-4" /> Kaart & Locatie
+            <MapPin className="w-4 h-4" /> {t("shops.detail.tabMap")}
             {!hasShoproutes && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
           </button>
 
@@ -254,7 +257,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
             }`}
           >
-            <Star className="w-4 h-4" /> Reviews ({reviews.length})
+            <Star className="w-4 h-4" /> {t("shops.detail.tabReviews", { n: reviews.length })}
             {!hasReviews && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
           </button>
         </div>
@@ -264,11 +267,11 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
         {activeTab === "products" && (
           <div>
             {productsRes.loading ? (
-              <LoadingState label="Producten laden..." />
+              <LoadingState label={t("shops.detail.loadingProducts")} />
             ) : productsRes.error ? (
               <ErrorState message={productsRes.error} onRetry={productsRes.reload} />
             ) : products.length === 0 ? (
-              <EmptyState title="Geen producten" description="Deze winkel heeft nog geen producten geplaatst." />
+              <EmptyState title={t("shops.detail.noProductsTitle")} description={t("shops.detail.noProductsDesc")} />
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {products.map((product) => (
@@ -285,17 +288,17 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             {!hasWorkshops ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
                 <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
-                <h3 className="text-base font-bold font-rubik text-[#111111]">Workshops Niet Geactiveerd</h3>
+                <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.workshopsOffTitle")}</h3>
                 <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
-                  Deze winkel heeft het Workshop-abonnement nog niet geactiveerd.
+                  {t("shops.detail.workshopsOffDesc")}
                 </p>
               </div>
             ) : workshopsRes.loading ? (
-              <LoadingState label="Workshops laden..." />
+              <LoadingState label={t("shops.detail.loadingWorkshops")} />
             ) : workshopsRes.error ? (
               <ErrorState message={workshopsRes.error} onRetry={workshopsRes.reload} />
             ) : workshops.length === 0 ? (
-              <EmptyState title="Geen workshops" description="Er zijn momenteel geen workshops gepland." />
+              <EmptyState title={t("shops.detail.noWorkshopsTitle")} description={t("shops.detail.noWorkshopsDesc")} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {workshops.map((ws) => (
@@ -312,9 +315,9 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             {!hasShoproutes ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
                 <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
-                <h3 className="text-base font-bold font-rubik text-[#111111]">Winkelkaart Niet Geactiveerd</h3>
+                <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.mapOffTitle")}</h3>
                 <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
-                  Deze winkel is niet zichtbaar op de shoproutes kaart.
+                  {t("shops.detail.mapOffDesc")}
                 </p>
               </div>
             ) : (
@@ -323,7 +326,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   <div className="w-10 h-10 rounded-full bg-[#54D1CA] text-white flex items-center justify-center shadow-md mb-2 animate-bounce">
                     <MapPin className="w-6 h-6" />
                   </div>
-                  <span className="text-sm font-bold text-[#111111]">Uw winkel is hier!</span>
+                  <span className="text-sm font-bold text-[#111111]">{t("shops.detail.mapHere")}</span>
                   <span className="text-xs text-[#555555]">
                     {business.location.street} {business.location.houseNumber}, {business.location.city}
                   </span>
@@ -339,17 +342,17 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             {!hasReviews ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
                 <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
-                <h3 className="text-base font-bold font-rubik text-[#111111]">Reviews Niet Geactiveerd</h3>
+                <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.reviewsOffTitle")}</h3>
                 <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
-                  Klantbeoordelingen zijn beschikbaar voor winkels met het Workshop abonnement.
+                  {t("shops.detail.reviewsOffDesc")}
                 </p>
               </div>
             ) : reviewsRes.loading ? (
-              <LoadingState label="Reviews laden..." />
+              <LoadingState label={t("shops.detail.loadingReviews")} />
             ) : reviewsRes.error ? (
               <ErrorState message={reviewsRes.error} onRetry={reviewsRes.reload} />
             ) : reviews.length === 0 ? (
-              <EmptyState title="Nog geen reviews" description="Wees de eerste die een review schrijft voor deze winkel!" />
+              <EmptyState title={t("shops.detail.noReviewsTitle")} description={t("shops.detail.noReviewsDesc")} />
             ) : (
               <div className="space-y-3">
                 {reviews.map((rev) => (

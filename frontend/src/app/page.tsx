@@ -15,10 +15,12 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 type DiscoveryTab = "producten" | "workshops" | "shoproutes";
 
 export default function DiscoveryHomePage() {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<DiscoveryTab>("producten");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -45,10 +47,10 @@ export default function DiscoveryHomePage() {
 
   const searchPlaceholder =
     activeTab === "shoproutes"
-      ? "Which city are you shopping in?"
+      ? t("home.searchCity")
       : activeTab === "workshops"
-      ? "Which workshop are you looking for?"
-      : "Which product are you looking for?";
+      ? t("home.searchWorkshop")
+      : t("home.searchProduct");
 
   return (
     <ConsumerLayout>
@@ -57,9 +59,9 @@ export default function DiscoveryHomePage() {
         <div className="pt-2">
           <SegmentedSwitch
             options={[
-              { id: "producten", label: "Products" },
-              { id: "workshops", label: "Workshops" },
-              { id: "shoproutes", label: "Shop Routes" },
+              { id: "producten", label: t("nav.products") },
+              { id: "workshops", label: t("nav.workshops") },
+              { id: "shoproutes", label: t("nav.shopRoutes") },
             ]}
             activeId={activeTab}
             onChange={(id) => {
@@ -83,7 +85,7 @@ export default function DiscoveryHomePage() {
           <button
             onClick={() => setIsCategoryModalOpen(true)}
             className="h-12 w-12 rounded-xl bg-[#FCE1F0] text-[#EA89B1] flex items-center justify-center hover:bg-[#F8D4E6] transition-colors shrink-0 shadow-2xs"
-            aria-label="Filter categories"
+            aria-label={t("home.filterCategories")}
           >
             <SlidersHorizontal className="w-5 h-5" />
           </button>
@@ -92,11 +94,11 @@ export default function DiscoveryHomePage() {
         {/* Active Filter Chips */}
         {(selectedCategory || selectedCity) && (
           <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
-            <span className="text-xs font-bold text-[#8A95A5]">Active filter:</span>
+            <span className="text-xs font-bold text-[#8A95A5]">{t("home.activeFilter")}</span>
             {selectedCategory && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full shadow-2xs">
                 {selectedCategory}
-                <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75">
+                <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75" aria-label={t("home.removeFilter")}>
                   ×
                 </button>
               </span>
@@ -105,7 +107,7 @@ export default function DiscoveryHomePage() {
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#FBBC3E] text-[#0A182E] text-xs font-bold rounded-full shadow-2xs">
                 <MapPin className="w-3 h-3" />
                 {selectedCity}
-                <button onClick={() => setSelectedCity(null)} className="ml-1 hover:opacity-75">
+                <button onClick={() => setSelectedCity(null)} className="ml-1 hover:opacity-75" aria-label={t("home.removeFilter")}>
                   ×
                 </button>
               </span>
@@ -119,9 +121,9 @@ export default function DiscoveryHomePage() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold font-rubik text-[#0A182E] flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#EA89B1]" />
-                Popular Products
+                {t("home.popularProducts")}
               </h2>
-              <span className="text-xs font-bold text-[#8A95A5]">{products.length} results</span>
+              <span className="text-xs font-bold text-[#8A95A5]">{t("home.results", { n: products.length })}</span>
             </div>
 
             {productsRes.loading ? (
@@ -134,9 +136,9 @@ export default function DiscoveryHomePage() {
               <ErrorState message={productsRes.error} onRetry={productsRes.reload} />
             ) : products.length === 0 ? (
               <EmptyState
-                title="No products found"
-                description="There are no products matching your search query."
-                actionLabel="Clear filters"
+                title={t("home.noProductsTitle")}
+                description={t("home.noProductsDesc")}
+                actionLabel={t("home.clearFilters")}
                 onAction={() => {
                   setSearchQuery("");
                   setSelectedCategory(null);
@@ -155,15 +157,15 @@ export default function DiscoveryHomePage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold font-rubik text-[#0A182E] flex items-center gap-2">
                   <Store className="w-4 h-4 text-[#EA89B1]" />
-                  Our Locals (Shops)
+                  {t("home.ourLocals")}
                 </h2>
               </div>
               {businessesRes.loading ? (
-                <LoadingState label="Loading shops..." />
+                <LoadingState label={t("home.loadingShops")} />
               ) : businessesRes.error ? (
                 <ErrorState message={businessesRes.error} onRetry={businessesRes.reload} />
               ) : businesses.length === 0 ? (
-                <EmptyState title="No shops found" description="There are no shops available yet." />
+                <EmptyState title={t("home.noShopsTitle")} description={t("home.noShopsDesc")} />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {businesses.slice(0, 4).map((business) => (
@@ -179,18 +181,18 @@ export default function DiscoveryHomePage() {
         {activeTab === "workshops" && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold font-rubik text-[#111111]">Available Workshops</h2>
-              <span className="text-xs font-bold text-[#B7B7B7]">{workshops.length} workshops</span>
+              <h2 className="text-base font-bold font-rubik text-[#111111]">{t("home.availableWorkshops")}</h2>
+              <span className="text-xs font-bold text-[#B7B7B7]">{t("home.workshopsCount", { n: workshops.length })}</span>
             </div>
 
             {workshopsRes.loading ? (
-              <LoadingState label="Loading workshops..." />
+              <LoadingState label={t("home.loadingWorkshops")} />
             ) : workshopsRes.error ? (
               <ErrorState message={workshopsRes.error} onRetry={workshopsRes.reload} />
             ) : workshops.length === 0 ? (
               <EmptyState
-                title="No workshops found"
-                description="There are currently no workshops scheduled matching your search query."
+                title={t("home.noWorkshopsTitle")}
+                description={t("home.noWorkshopsDesc")}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -206,18 +208,18 @@ export default function DiscoveryHomePage() {
         {activeTab === "shoproutes" && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold font-rubik text-[#111111]">Interactive Shop Routes</h2>
-              <span className="text-xs font-bold text-[#B7B7B7]">{shoproutes.length} routes</span>
+              <h2 className="text-base font-bold font-rubik text-[#111111]">{t("home.interactiveRoutes")}</h2>
+              <span className="text-xs font-bold text-[#B7B7B7]">{t("home.routesCount", { n: shoproutes.length })}</span>
             </div>
 
             {routesRes.loading ? (
-              <LoadingState label="Loading shop routes..." />
+              <LoadingState label={t("home.loadingRoutes")} />
             ) : routesRes.error ? (
               <ErrorState message={routesRes.error} onRetry={routesRes.reload} />
             ) : shoproutes.length === 0 ? (
               <EmptyState
-                title="No shop routes found"
-                description="No shop routes are available for this search query yet."
+                title={t("home.noRoutesTitle")}
+                description={t("home.noRoutesDesc")}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

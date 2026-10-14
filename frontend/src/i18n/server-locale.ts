@@ -15,3 +15,17 @@ export async function getInitialLocale(): Promise<Locale> {
   const accept = (await headers()).get("accept-language") ?? "";
   return accept.toLowerCase().startsWith("nl") ? "nl" : "en";
 }
+
+import { dictionaries } from "./dictionaries";
+import type { TranslationKey } from "./dictionaries";
+import { interpolate } from "./define";
+
+/** Translator for server components / metadata (same resolution as the client provider). */
+export async function getServerT() {
+  const locale = await getInitialLocale();
+  return {
+    locale,
+    t: (key: TranslationKey, params?: Record<string, string | number>) =>
+      interpolate(dictionaries[locale][key] ?? dictionaries.en[key] ?? key, params),
+  };
+}

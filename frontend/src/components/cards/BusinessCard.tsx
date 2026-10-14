@@ -5,12 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Star, MapPin, Heart, ShoppingBag } from "lucide-react";
 import { Business } from "@/types/business";
+import { useLocale } from "@/i18n/LocaleContext";
 
 interface BusinessCardProps {
   business: Business;
 }
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({ business }) => {
+  const { t } = useLocale();
   return (
     <Link
       href={`/businesses/${business.id}`}
@@ -58,7 +60,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business }) => {
             </span>
             <span className="flex items-center gap-1">
               <ShoppingBag className="w-3 h-3 text-[#B7B7B7]" />
-              {business.productCount} producten
+              {t("cards.productsCount", { n: business.productCount })}
             </span>
             <span className="flex items-center gap-1">
               <Heart className="w-3 h-3 text-[#ED4C5C]" />

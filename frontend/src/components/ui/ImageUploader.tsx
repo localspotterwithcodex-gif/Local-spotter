@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export interface StagedImage {
   file: File;
@@ -35,6 +36,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   label,
   variant = "grid",
 }) => {
+  const { t } = useLocale();
   const [staged, setStaged] = useState<StagedImage[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -71,7 +73,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           <div className="w-20 h-20 rounded-full bg-[#EAEAEA] border-2 border-dashed border-[#B7B7B7] flex items-center justify-center overflow-hidden">
             {preview ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="Store logo preview" className="w-full h-full object-cover" />
+              <img src={preview} alt={t("imgup.logoAlt")} className="w-full h-full object-cover" />
             ) : (
               <Upload className="w-6 h-6 text-[#B7B7B7]" />
             )}
@@ -80,7 +82,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             type="button"
             onClick={() => inputRef.current?.click()}
             className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#FA1EFF] text-white flex items-center justify-center shadow-md hover:bg-[#E000EC]"
-            aria-label="Upload store logo"
+            aria-label={t("imgup.uploadLogo")}
           >
             +
           </button>
@@ -101,7 +103,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       <div className="flex items-center justify-between">
         {label && <span className="text-sm font-bold text-[#111111]">{label}</span>}
         <span className="text-xs text-[#B7B7B7]">
-          {totalCount} / {maxImages} photos
+          {t("imgup.photosCount", { count: totalCount, max: maxImages })}
         </span>
       </div>
 
@@ -109,19 +111,19 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         {existingUrls.map((url, i) => (
           <div key={`existing-${i}`} className="relative w-24 h-24 rounded-xl overflow-hidden border border-[#EAEAEA]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt={`Product image ${i + 1}`} className="w-full h-full object-cover" />
+            <img src={url} alt={t("imgup.productAlt", { n: i + 1 })} className="w-full h-full object-cover" />
           </div>
         ))}
 
         {staged.map((s, i) => (
           <div key={`staged-${i}`} className="relative w-24 h-24 rounded-xl overflow-hidden border border-[#EAEAEA]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={s.previewUrl} alt={`Staged image ${i + 1}`} className="w-full h-full object-cover" />
+            <img src={s.previewUrl} alt={t("imgup.stagedAlt", { n: i + 1 })} className="w-full h-full object-cover" />
             <button
               type="button"
               onClick={() => removeStaged(i)}
               className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
-              aria-label="Remove image"
+              aria-label={t("imgup.remove")}
             >
               <X className="w-3 h-3" />
             </button>
@@ -135,7 +137,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-[#B7B7B7] hover:border-[#FA1EFF] hover:text-[#FA1EFF] transition-colors"
           >
             <Upload className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Upload Photos</span>
+            <span className="text-[10px] font-bold">{t("imgup.uploadPhotos")}</span>
           </button>
         )}
       </div>

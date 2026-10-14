@@ -5,25 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("nl-NL", {
+/** Intl locale per app language. Prefer the `useFormat()` hook in components. */
+const INTL: Record<"en" | "nl", string> = { en: "en-GB", nl: "nl-NL" };
+
+export function formatCurrency(amount: number, locale: "en" | "nl" = "nl"): string {
+  return new Intl.NumberFormat(INTL[locale], {
     style: "currency",
     currency: "EUR",
   }).format(amount);
 }
 
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string, locale: "en" | "nl" = "nl"): string {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat("nl-NL", {
+  return new Intl.DateTimeFormat(INTL[locale], {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(date);
 }
 
-export function formatShortDate(dateString: string): { month: string; day: string } {
+export function formatShortDate(dateString: string, locale: "en" | "nl" = "nl"): { month: string; day: string } {
   const date = new Date(dateString);
-  const month = date.toLocaleString("nl-NL", { month: "short" }).toUpperCase();
+  const month = date.toLocaleString(INTL[locale], { month: "short" }).toUpperCase();
   const day = date.getDate().toString();
   return { month, day };
 }

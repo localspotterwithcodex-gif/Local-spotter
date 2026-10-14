@@ -15,6 +15,8 @@ export interface OutboundMessage {
 /** Boundary to the email/SMS delivery service (email: Resend; SMS: not implemented). */
 export interface MailProvider {
   isConfigured(): boolean;
+  /** Whether this provider can deliver on the given channel (Resend: EMAIL only). */
+  supports(channel: OutboundMessage['channel']): boolean;
   send(message: OutboundMessage): Promise<void>;
 }
 
@@ -24,6 +26,10 @@ export class UnconfiguredMailProvider implements MailProvider {
   private readonly logger = new Logger(UnconfiguredMailProvider.name);
 
   isConfigured(): boolean {
+    return false;
+  }
+
+  supports(): boolean {
     return false;
   }
 
@@ -42,6 +48,10 @@ export class UnconfiguredMailProvider implements MailProvider {
 @Injectable()
 export class DevFileMailProvider implements MailProvider {
   isConfigured(): boolean {
+    return true;
+  }
+
+  supports(): boolean {
     return true;
   }
 
@@ -80,6 +90,10 @@ export class ResendMailProvider implements MailProvider {
 
   isConfigured(): boolean {
     return true;
+  }
+
+  supports(channel: OutboundMessage['channel']): boolean {
+    return channel === 'EMAIL';
   }
 
   async send(message: OutboundMessage): Promise<void> {

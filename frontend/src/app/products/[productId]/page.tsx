@@ -12,13 +12,17 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { ProductSize } from "@/types/product";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { getErrorMessage } from "@/lib/errors";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { useAuth } from "@/features/auth/AuthContext";
-import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/features/cart/CartContext";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = use(params);
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
   const { addItem } = useCart();
   const { isAuthenticated, role } = useAuth();
   const router = useRouter();
@@ -47,7 +51,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
       return;
     }
     if (role !== "CONSUMER") {
-      setAddError("Alleen consumenten kunnen producten in de winkelwagen plaatsen.");
+      setAddError(t("products.detail.onlyConsumers"));
       return;
     }
 
@@ -57,7 +61,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
         (v) => (v.size ?? null) === selectedSize && (v.colorName ?? null) === selectedColor
       );
       if (!match) {
-        setAddError("Deze combinatie van maat en kleur is niet beschikbaar.");
+        setAddError(t("products.detail.variantUnavailable"));
         return;
       }
       variantId = match.id;
@@ -70,7 +74,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
       setIsAdded(true);
       window.setTimeout(() => setIsAdded(false), 2500);
     } catch (err) {
-      setAddError(getErrorMessage(err, "Toevoegen aan winkelwagen is mislukt."));
+      setAddError(errMsg(err));
     } finally {
       setIsAdding(false);
     }
@@ -79,7 +83,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
   if (isLoading) {
     return (
       <ConsumerLayout>
-        <LoadingState label="Product details laden..." />
+        <LoadingState label={t("products.detail.loading")} />
       </ConsumerLayout>
     );
   }
@@ -87,7 +91,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
   if (error) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Product niet beschikbaar" message={error} onRetry={reload} />
+        <ErrorState title={t("products.detail.unavailable")} message={error} onRetry={reload} />
       </ConsumerLayout>
     );
   }
@@ -96,8 +100,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     return (
       <ConsumerLayout>
         <ErrorState
-          title="Product niet gevonden"
-          message="Dit product bestaat niet meer of is verwijderd."
+          title={t("products.detail.notFound")}
+          message={t("products.detail.notFoundDesc")}
         />
       </ConsumerLayout>
     );
@@ -115,7 +119,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
         {/* Back Link */}
         <Link href="/products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar producten
+          {t("products.detail.back")}
         </Link>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-4 md:p-6 rounded-3xl border border-[#EAEAEA]">
@@ -141,7 +145,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                       selectedImageIndex === idx ? "border-[#FA1EFF]" : "border-transparent opacity-70 hover:opacity-100"
                     }`}
                   >
-                    <Image src={img} alt="Thumbnail" fill className="object-cover" />
+                    <Image src={img} alt={t("products.detail.thumbnailAlt")} fill className="object-cover" />
                   </button>
                 ))}
               </div>
@@ -170,22 +174,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-[#D4B011] text-[#D4B011]" />
                   <span className="font-bold text-[#111111]">{product.rating}</span>
-                  <span className="text-[#B7B7B7]">({product.reviewCount} reviews)</span>
+                  <span className="text-[#B7B7B7]">({t("products.detail.reviews", { n: product.reviewCount })})</span>
                 </div>
                 <div className="flex items-center gap-1 text-[#B7B7B7]">
                   <Heart className="w-3.5 h-3.5 text-[#ED4C5C]" />
-                  <span>{product.likeCount} likes</span>
+                  <span>{t("products.detail.likes", { n: product.likeCount })}</span>
                 </div>
               </div>
 
               {/* Price Block (EUR) */}
               <div className="flex items-baseline gap-3 pt-2">
                 <span className="text-2xl font-extrabold text-[#111111] font-manrope">
-                  {formatCurrency(product.price)}
+                  {f.currency(product.price)}
                 </span>
                 {product.compareAtPrice && product.compareAtPrice > product.price && (
                   <span className="text-sm text-[#B7B7B7] line-through font-medium">
-                    {formatCurrency(product.compareAtPrice)}
+                    {f.currency(product.compareAtPrice)}
                   </span>
                 )}
               </div>
@@ -198,7 +202,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               {/* Size Selector */}
               {sizes.length > 0 && (
               <div className="space-y-2 pt-2">
-                <span className="text-xs font-bold text-[#111111] block">Selecteer Maat:</span>
+                <span className="text-xs font-bold text-[#111111] block">{t("products.detail.selectSize")}</span>
                 <div className="flex gap-2">
                   {sizes.map((sz) => (
                     <button
@@ -221,7 +225,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               {colorVariants.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-[#111111] block">
-                    Kleur: {selectedColor}
+                    {t("products.detail.color", { color: selectedColor ?? "" })}
                   </span>
                   <div className="flex gap-2">
                     {colorVariants.map(
@@ -244,10 +248,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
 
               {/* Quantity Selector */}
               <div className="flex items-center gap-3 pt-2">
-                <span className="text-xs font-bold text-[#111111]">Aantal:</span>
+                <span className="text-xs font-bold text-[#111111]">{t("products.detail.quantity")}</span>
                 <div className="flex items-center border border-[#EAEAEA] rounded-xl bg-[#F9F9F9]">
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    aria-label={t("products.detail.decrease")}
                     className="w-9 h-9 flex items-center justify-center font-bold text-[#111111] hover:bg-[#EAEAEA] rounded-l-xl"
                   >
                     -
@@ -255,6 +260,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   <span className="w-10 text-center font-bold text-sm">{quantity}</span>
                   <button
                     onClick={() => setQuantity((q) => q + 1)}
+                    aria-label={t("products.detail.increase")}
                     className="w-9 h-9 flex items-center justify-center font-bold text-[#111111] hover:bg-[#EAEAEA] rounded-r-xl"
                   >
                     +
@@ -281,11 +287,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               >
                 {isAdded ? (
                   <>
-                    <Check className="w-5 h-5" /> Toegevoegd aan winkelwagen!
+                    <Check className="w-5 h-5" /> {t("products.detail.added")}
                   </>
                 ) : (
                   <>
-                    <ShoppingBag className="w-5 h-5" /> In Winkelwagen
+                    <ShoppingBag className="w-5 h-5" /> {t("products.detail.addToCart")}
                   </>
                 )}
               </Button>
@@ -297,7 +303,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   rel="noopener noreferrer"
                   className="w-full h-12 rounded-xl bg-[#FAE2F0] text-[#FA1EFF] font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#F5CEE6] transition-colors"
                 >
-                  <ExternalLink className="w-4 h-4" /> Bekijk op winkel webshop
+                  <ExternalLink className="w-4 h-4" /> {t("products.detail.viewWebshop")}
                 </a>
               )}
             </div>

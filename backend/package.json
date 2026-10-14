@@ -57,6 +57,7 @@
     "typescript": "^5.3.3"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "seed:demo:disable": "ts-node prisma/disable-demo-users.ts"
   }
 }

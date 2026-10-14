@@ -61,7 +61,7 @@ export const TopNav: React.FC = () => {
           <Link
             href="/cart"
             className="p-2 rounded-full bg-white/80 hover:bg-white transition-colors relative shadow-2xs"
-            aria-label="Shopping Cart"
+            aria-label={t("nav2.cart")}
           >
             <ShoppingBag className="w-5 h-5 text-[#0A182E]" />
             {itemCount > 0 && (

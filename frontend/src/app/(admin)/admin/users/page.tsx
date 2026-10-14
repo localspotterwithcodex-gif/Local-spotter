@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +13,6 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { adminApi } from "@/lib/api/admin";
-import { formatDate } from "@/lib/utils";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -19,6 +20,8 @@ import { useAdminAction } from "../_components/useAdminAction";
 const PAGE_SIZE = 20;
 
 export default function AdminUsersPage() {
+  const { t, label } = useLocale();
+  const f = useFormat();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [offset, setOffset] = useState(0);
@@ -42,13 +45,13 @@ export default function AdminUsersPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Gebruikers Beheer</h1>
-            <p className="text-xs text-[#B7B7B7]">Overzicht van alle geregistreerde consumenten en ondernemers</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.userManagement")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("adminx.users.subtitle")}</p>
           </div>
 
           <div className="w-full sm:w-64">
             <Input
-              placeholder="Zoek gebruiker..."
+              placeholder={t("adminx.users.searchPlaceholder")}
               icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -63,19 +66,19 @@ export default function AdminUsersPage() {
         ) : loading ? (
           <LoadingState />
         ) : !data || users.length === 0 ? (
-          <EmptyState title="Geen gebruikers gevonden" description="Pas je zoekopdracht aan of probeer het later opnieuw." />
+          <EmptyState title={t("adminx.users.emptyTitle")} description={t("adminx.users.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">Naam</th>
-                    <th className="p-4">E-mailadres</th>
-                    <th className="p-4">Rol</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Geregistreerd</th>
-                    <th className="p-4 text-right">Actie</th>
+                    <th className="p-4">{t("adminx.users.colName")}</th>
+                    <th className="p-4">{t("adminx.users.colEmail")}</th>
+                    <th className="p-4">{t("adminx.users.colRole")}</th>
+                    <th className="p-4">{t("common.status")}</th>
+                    <th className="p-4">{t("adminx.users.colRegistered")}</th>
+                    <th className="p-4 text-right">{t("adminx.users.colAction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
@@ -85,15 +88,15 @@ export default function AdminUsersPage() {
                       <td className="p-4 text-[#555555]">{u.email}</td>
                       <td className="p-4">
                         <Badge variant={u.role === "SUPER_ADMIN" ? "pink" : u.role === "BUSINESS_OWNER" ? "completed" : "default"}>
-                          {u.role}
+                          {label("role", u.role)}
                         </Badge>
                       </td>
                       <td className="p-4">
                         <Badge variant={u.status === "ACTIVE" ? "completed" : u.status === "SUSPENDED" ? "cancelled" : "processing"}>
-                          {u.status}
+                          {label("status", u.status)}
                         </Badge>
                       </td>
-                      <td className="p-4 text-[#B7B7B7]">{formatDate(u.createdAt)}</td>
+                      <td className="p-4 text-[#B7B7B7]">{f.date(u.createdAt)}</td>
                       <td className="p-4 text-right">
                         {u.role !== "SUPER_ADMIN" &&
                           (u.status === "SUSPENDED" ? (
@@ -105,7 +108,7 @@ export default function AdminUsersPage() {
                               onClick={() => action.run(u.id, () => adminApi.setUserStatus(u.id, "ACTIVE"))}
                               className="h-7 text-[11px]"
                             >
-                              Activeren
+                              {t("adminx.users.activate")}
                             </Button>
                           ) : (
                             <Button
@@ -116,7 +119,7 @@ export default function AdminUsersPage() {
                               onClick={() => action.run(u.id, () => adminApi.setUserStatus(u.id, "SUSPENDED"))}
                               className="h-7 text-[11px] text-[#ED4C5C]"
                             >
-                              Blokkeren
+                              {t("adminx.users.block")}
                             </Button>
                           ))}
                       </td>

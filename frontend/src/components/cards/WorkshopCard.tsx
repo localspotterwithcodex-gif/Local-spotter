@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Clock, MapPin } from "lucide-react";
 import { Workshop } from "@/types/workshop";
-import { formatCurrency, formatShortDate } from "@/lib/utils";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { Button } from "@/components/ui/Button";
 
 interface WorkshopCardProps {
@@ -13,7 +14,10 @@ interface WorkshopCardProps {
 }
 
 export const WorkshopCard: React.FC<WorkshopCardProps> = ({ workshop }) => {
-  const { month, day } = formatShortDate(workshop.date);
+  const { t } = useLocale();
+  const f = useFormat();
+  const month = f.monthShort(workshop.date);
+  const day = new Date(workshop.date).getDate().toString();
   const isSoldOut = workshop.bookedCount >= workshop.capacity;
 
   return (
@@ -72,7 +76,7 @@ export const WorkshopCard: React.FC<WorkshopCardProps> = ({ workshop }) => {
 
           <div className="flex items-center justify-between pt-1 border-t border-[#F9F9F9]">
             <span className="text-sm font-extrabold text-[#111111]">
-              {workshop.price > 0 ? formatCurrency(workshop.price) : "Gratis"}
+              {workshop.price > 0 ? f.currency(workshop.price) : t("cards.free")}
             </span>
 
             <Button
@@ -81,7 +85,7 @@ export const WorkshopCard: React.FC<WorkshopCardProps> = ({ workshop }) => {
               disabled={isSoldOut}
               className="h-8 px-3 text-xs"
             >
-              {isSoldOut ? "Volboekt" : "Buy Ticket"}
+              {isSoldOut ? t("cards.soldOut") : t("cards.buyTicket")}
             </Button>
           </div>
         </div>

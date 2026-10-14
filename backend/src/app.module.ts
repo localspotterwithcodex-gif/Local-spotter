@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { WorkshopsModule } from './workshops/workshops.module';
 import { ShopRoutesModule } from './shoproutes/shoproutes.module';
 import { FollowersModule } from './followers/followers.module';
+import { AddressesModule } from './addresses/addresses.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
@@ -41,6 +42,7 @@ import { ShopRegistrationsModule } from './shop-registrations/shop-registrations
     WorkshopsModule,
     ShopRoutesModule,
     FollowersModule,
+    AddressesModule,
     NotificationsModule,
     PaymentsModule,
     AdminModule,

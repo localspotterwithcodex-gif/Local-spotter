@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { TranslationKey } from "@/i18n/dictionaries";
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -29,15 +31,16 @@ const CITIES = [
   "Leeuwarden",
 ];
 
-const WORKSHOP_CATEGORIES = [
-  "Sieraden",
-  "Schoenen",
-  "Hoedjes",
-  "Interieuritems",
-  "Jewelrystores",
-  "Make up",
-  "Keramiek",
-  "Lederwaren",
+// Values are what the parent receives; labelKey is what the user sees.
+const WORKSHOP_CATEGORIES: { value: string; labelKey: TranslationKey }[] = [
+  { value: "Sieraden", labelKey: "catmodal.wc.Sieraden" },
+  { value: "Schoenen", labelKey: "catmodal.wc.Schoenen" },
+  { value: "Hoedjes", labelKey: "catmodal.wc.Hoedjes" },
+  { value: "Interieuritems", labelKey: "catmodal.wc.Interieuritems" },
+  { value: "Jewelrystores", labelKey: "catmodal.wc.Jewelrystores" },
+  { value: "Make up", labelKey: "catmodal.wc.Make up" },
+  { value: "Keramiek", labelKey: "catmodal.wc.Keramiek" },
+  { value: "Lederwaren", labelKey: "catmodal.wc.Lederwaren" },
 ];
 
 export const CategoryModal: React.FC<CategoryModalProps> = ({
@@ -47,6 +50,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   onSelectCategory,
   onSelectCity,
 }) => {
+  const { t } = useLocale();
   const [searchTerm, setSearchTerm] = useState("");
   const categories = useApiResource(isOpen && mode === "products" ? "product-categories" : null, () =>
     api.getProductCategories()
@@ -56,10 +60,10 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
 
   const placeholder =
     mode === "shoproutes"
-      ? "In welke stad ga je winkelen?"
+      ? t("catmodal.phCity")
       : mode === "workshops"
-      ? "Welke workshop zoek je?"
-      : "Welk product zoek je?";
+      ? t("catmodal.phWorkshop")
+      : t("catmodal.phProduct");
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200">
@@ -69,11 +73,12 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#FA1EFF]" />
             <h2 className="text-lg font-bold font-rubik text-[#111111]">
-              {mode === "shoproutes" ? "Kies een Stad" : "Populaire Categorieën"}
+              {mode === "shoproutes" ? t("catmodal.chooseCity") : t("catmodal.popular")}
             </h2>
           </div>
           <button
             onClick={onClose}
+            aria-label={t("common.close")}
             className="p-2 rounded-full hover:bg-[#EAEAEA] transition-colors"
           >
             <X className="w-5 h-5 text-[#111111]" />
@@ -95,7 +100,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           {mode === "shoproutes" ? (
             <div>
               <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
-                Steden met Shoproutes
+                {t("catmodal.citiesWithRoutes")}
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {CITIES.filter((c) =>
@@ -118,21 +123,21 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           ) : mode === "workshops" ? (
             <div>
               <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
-                Workshop Categorieën
+                {t("catmodal.workshopCategories")}
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {WORKSHOP_CATEGORIES.filter((wc) =>
-                  wc.toLowerCase().includes(searchTerm.toLowerCase())
+                  t(wc.labelKey).toLowerCase().includes(searchTerm.toLowerCase())
                 ).map((cat) => (
                   <button
-                    key={cat}
+                    key={cat.value}
                     onClick={() => {
-                      onSelectCategory?.(cat);
+                      onSelectCategory?.(cat.value);
                       onClose();
                     }}
                     className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
                   >
-                    {cat}
+                    {t(cat.labelKey)}
                   </button>
                 ))}
               </div>
@@ -140,15 +145,15 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           ) : (
             <div>
               <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
-                Product Categorieën
+                {t("catmodal.productCategories")}
               </span>
               {categories.loading ? (
-                <p className="text-xs text-[#B7B7B7]">Categorieën laden...</p>
+                <p className="text-xs text-[#B7B7B7]">{t("catmodal.loadingCategories")}</p>
               ) : categories.error ? (
                 <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#F2D9DE]/50 border border-[#ED4C5C]/30">
                   <p className="text-xs text-[#555555]">{categories.error}</p>
                   <Button variant="outline" size="sm" onClick={categories.reload}>
-                    Opnieuw proberen
+                    {t("common.retry")}
                   </Button>
                 </div>
               ) : (
@@ -176,7 +181,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         {/* Modal Footer */}
         <div className="mt-6 pt-4 border-t border-[#EAEAEA] flex justify-end">
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Sluiten
+            {t("common.close")}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 # LocalSpotter — Implementation Status
 
-Updated: 2026-10-13 (after repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅ wired to the real backend, statically verified · 🟡 wired but needs a live run / partial · 🔴 missing · ⛔ blocked on an owner decision.
+Updated: 2026-10-14 (after i18n/addresses/ratings round; earlier: 2026-10-13 repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅ wired to the real backend, statically verified · 🟡 wired but needs a live run / partial · 🔴 missing · ⛔ blocked on an owner decision.
 "Verified" below means typecheck + lint + unit tests + grep; **no flow has been exercised end-to-end against a running stack yet** (see Verification).
 
 | Area | Frontend | Backend | Notes |
@@ -8,7 +8,7 @@ Updated: 2026-10-13 (after repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅
 | Register / verify / login / logout | ✅ cookie session | ✅ HMAC OTP, attempts, rate limit | SMS has no provider (email only); dev outbox for local |
 | Forgot / reset password | ✅ real API | ✅ hashed single-use token | needs mail provider in production |
 | Role redirects, `redirectTo` | ✅ | ✅ guards | LS-007 fixed |
-| Public catalogue (home, products, shops, workshops, routes) | ✅ | ✅ (`GET /businesses` added) | product ratings/likes are 0 – backend does not track them |
+| Public catalogue (home, products, shops, workshops, routes) | ✅ | ✅ (`GET /businesses` added) | product ratings come from PUBLISHED reviews; likes/views are 0 (not tracked) |
 | Cart | ✅ server cart (consumer) | ✅ | one business per cart (D-001) |
 | Checkout → order | ✅ creates real order | ✅ | **payment not processed** (D-004) |
 | Guest checkout | ⛔ login required | ⛔ | D-002 |
@@ -18,11 +18,11 @@ Updated: 2026-10-13 (after repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅
 | Subscriptions | ✅ plans/subscription from API | 🟡 | free activation only outside production until PSP (D-004) |
 | Admin portal (dashboard, users, businesses, orders, products, reviews, subscriptions, payments, payouts) | ✅ | ✅ | payout approve sets APPROVED, not PAID |
 | Reviews / follow | ✅ | 🟡 | review needs WORKSHOP plan; follow needs WORKSHOP plan (existing backend rules); no review delete |
-| Consumer addresses | 🔴 "not available" state | 🔴 no endpoint | |
+| Consumer addresses | ✅ list/add/edit/delete/default, checkout pre-fill | ✅ `/api/v1/addresses` (consumer-only, scoped to own profile, max 10, soft delete) | tested by unit tests; not run against a live stack |
 | Shop-registration widget | ✅ → PostgreSQL | ✅ + rate limit | Mongo removed, old leads not migrated |
 | Returns | ⛔ | ⛔ | D-003 |
 | Chat, virtual store, media upload | 🔴 | 🔴 | LS-014 |
-| Localization | 🟡 10/44 pages | n/a | default language open (D-008) |
+| Localization | ✅ all portals use typed EN/NL dictionaries (`src/i18n/dict/*`), locale-aware money/dates, translated errors | n/a | default language still open (D-008); backend emails are Dutch only |
 
 ## Phase tracker
 | Phase | Status |
@@ -49,3 +49,16 @@ Updated: 2026-10-13 (after repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅
 | `prisma validate`, `npm audit`, production `db:prod:status`, manual portal click-through | **NOT RUN** (blocked here / still to do by you) |
 
 Do not treat the project as complete until the "Commands for you" in `REPAIR-CHANGELOG.md` pass on your machine and the e2e suite passes against a test database.
+
+## Round 2026-10-14
+| Item | Result |
+|---|---|
+| Feedback button | removed (component + layout use) |
+| Demo logins | seed creates `Admin`/`Admin@123`, `Business_owner`/`Owner@123`, `customer`/`Customer@123`; refuses to run without `ALLOW_DEMO_SEED=yes`; `npm run seed:demo:disable` locks them. **Not run against any database.** |
+| Email | Resend provider (`MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM`); no SMS provider, mobile sign-up disabled in the UI unless `NEXT_PUBLIC_SMS_ENABLED=true`; backend rejects mobile sign-up before creating an unverifiable account |
+| frontend `tsc --noEmit` | exit 0 |
+| frontend `eslint src` | 0 errors, 5 warnings (unchanged) |
+| frontend tests | 11 pass |
+| backend `tsc --noEmit` | exit 0 |
+| backend jest run this round | auth (+mail) 25 pass; addresses + routes 13 pass; products 10 pass. Full backend suite and e2e **not re-run** after these changes |
+| Not verified | browser click-through of EN/NL on every page; live Resend delivery; `next build`; `prisma validate`; `npm audit` |

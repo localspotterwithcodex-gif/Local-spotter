@@ -10,13 +10,17 @@ import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
-import { getErrorMessage } from "@/lib/errors";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useAuth } from "@/features/auth/AuthContext";
-import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function WorkshopDetailPage({ params }: { params: Promise<{ workshopId: string }> }) {
   const { workshopId } = use(params);
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -44,7 +48,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
       setBookedTickets((n) => n + ticketQuantity);
       setIsBooked(true);
     } catch (err) {
-      setBookingError(getErrorMessage(err, "Boeking mislukt"));
+      setBookingError(errMsg(err));
     } finally {
       setIsBooking(false);
     }
@@ -53,7 +57,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   if (isLoading) {
     return (
       <ConsumerLayout>
-        <LoadingState label="Workshop gegevens laden..." />
+        <LoadingState label={t("workshops.detail.loading")} />
       </ConsumerLayout>
     );
   }
@@ -61,7 +65,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   if (error) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Workshop niet beschikbaar" message={error} onRetry={reload} />
+        <ErrorState title={t("workshops.detail.unavailable")} message={error} onRetry={reload} />
       </ConsumerLayout>
     );
   }
@@ -69,7 +73,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   if (!workshop) {
     return (
       <ConsumerLayout>
-        <ErrorState title="Workshop niet gevonden" message="Deze workshop bestaat niet meer." />
+        <ErrorState title={t("workshops.detail.notFound")} message={t("workshops.detail.notFoundDesc")} />
       </ConsumerLayout>
     );
   }
@@ -82,7 +86,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
       <div className="space-y-6 max-w-4xl mx-auto">
         <Link href="/workshops" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar workshops
+          {t("workshops.detail.back")}
         </Link>
 
         <div className="bg-white rounded-3xl overflow-hidden border border-[#EAEAEA] shadow-2xs">
@@ -100,45 +104,45 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{workshop.title}</h1>
               <Link href={`/businesses/${workshop.businessId}`} className="inline-flex items-center gap-1 text-xs font-bold text-[#FA1EFF] mt-1 hover:underline">
-                <Store className="w-3.5 h-3.5" /> georganiseerd door {workshop.businessName}
+                <Store className="w-3.5 h-3.5" /> {t("workshops.detail.organizedBy", { name: workshop.businessName })}
               </Link>
             </div>
 
             {/* Info Badges */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">Datum</span>
+                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.date")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <CalendarIcon className="w-3.5 h-3.5 text-[#FA1EFF]" />
-                  {formatDate(workshop.date)}
+                  {f.date(workshop.date)}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">Tijd</span>
+                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.time")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <Clock className="w-3.5 h-3.5 text-[#121F3E]" />
                   {workshop.startTime} - {workshop.finishTime}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">Locatie</span>
+                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.location")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5 truncate">
                   <MapPin className="w-3.5 h-3.5 text-[#54D1CA]" />
                   {workshop.location}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">Plaatsen</span>
+                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.spots")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <Users className="w-3.5 h-3.5 text-[#790166]" />
-                  {spotsLeft} beschikbaar
+                  {t("workshops.detail.spotsLeft", { n: spotsLeft })}
                 </span>
               </div>
             </div>
 
             {/* Description */}
             <div className="space-y-2 border-t border-[#F9F9F9] pt-4">
-              <h3 className="text-sm font-bold text-[#111111]">Over deze workshop</h3>
+              <h3 className="text-sm font-bold text-[#111111]">{t("workshops.detail.about")}</h3>
               <p className="text-xs text-[#555555] leading-relaxed">{workshop.description}</p>
             </div>
 
@@ -146,15 +150,15 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
             <div className="bg-[#FAE2F0]/40 p-5 rounded-2xl border border-[#FAE2F0] space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[#B7B7B7] block">Prijs per ticket</span>
+                  <span className="text-xs text-[#B7B7B7] block">{t("workshops.detail.pricePerTicket")}</span>
                   <span className="text-xl font-extrabold text-[#111111] font-manrope">
-                    {workshop.price > 0 ? formatCurrency(workshop.price) : "Gratis"}
+                    {workshop.price > 0 ? f.currency(workshop.price) : t("cards.free")}
                   </span>
                 </div>
 
                 {!isSoldOut && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#111111]">Aantal:</span>
+                    <span className="text-xs font-bold text-[#111111]">{t("workshops.detail.quantity")}</span>
                     <select
                       value={ticketQuantity}
                       onChange={(e) => setTicketQuantity(Number(e.target.value))}
@@ -162,7 +166,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
                     >
                       {Array.from({ length: Math.min(5, spotsLeft) }).map((_, i) => (
                         <option key={i + 1} value={i + 1}>
-                          {i + 1} ticket{i > 0 ? "s" : ""}
+                          {t(i > 0 ? "workshops.detail.ticketMany" : "workshops.detail.ticketOne", { n: i + 1 })}
                         </option>
                       ))}
                     </select>
@@ -186,12 +190,12 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
               >
                 {isBooked ? (
                   <>
-                    <Check className="w-5 h-5" /> Ticket Gereserveerd!
+                    <Check className="w-5 h-5" /> {t("workshops.detail.booked")}
                   </>
                 ) : isSoldOut ? (
-                  "Helaas Volboekt"
+                  t("workshops.detail.soldOut")
                 ) : (
-                  "Buy Ticket (Reserveer Nu)"
+                  t("workshops.detail.reserve")
                 )}
               </Button>
             </div>

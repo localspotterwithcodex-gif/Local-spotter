@@ -71,13 +71,13 @@ export const OwnerSidebar: React.FC = () => {
       <div className="p-3 bg-[#FAE2F0]/60 rounded-xl border border-[#FAE2F0]">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#790166]">
-            Huidig Plan
+            {t("ownerx.sidebar.currentPlan")}
           </span>
           <span className="text-xs font-bold text-[#FA1EFF] bg-white px-2 py-0.5 rounded-full">
-            Workshop
+            {t("ownerx.sidebar.planName")}
           </span>
         </div>
-        <p className="text-xs text-[#111111] font-medium">Alle functionaliteiten actief</p>
+        <p className="text-xs text-[#111111] font-medium">{t("ownerx.sidebar.allFeatures")}</p>
       </div>
     </aside>
   );

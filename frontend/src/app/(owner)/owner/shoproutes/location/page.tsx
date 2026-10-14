@@ -12,11 +12,16 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import type { Business } from "@/types/business";
 
 function LocationForm({ business }: { business: Business }) {
   const router = useRouter();
+  const { t } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
 
   const [state, setState] = useState(business.location.province);
   const [city, setCity] = useState(business.location.city);
@@ -36,7 +41,7 @@ function LocationForm({ business }: { business: Business }) {
       setIsSaved(true);
       router.push("/owner");
     } catch (err) {
-      setError(getErrorMessage(err, "Locatie opslaan mislukt"));
+      setError(errMsg(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -47,9 +52,9 @@ function LocationForm({ business }: { business: Business }) {
 
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="border-b border-[#EAEAEA] pb-4">
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Update Shoproutes Locatie</h1>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.location.title")}</h1>
             <p className="text-xs text-[#B7B7B7]">
-              Beheer je exacte GPS en adresgegevens voor weergave op de winkelkaart en shoproutes
+              {t("ownerx.location.subtitle")}
             </p>
           </div>
 
@@ -63,13 +68,13 @@ function LocationForm({ business }: { business: Business }) {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="State / Provincie *"
+                label={t("ownerx.location.state")}
                 value={state}
                 onChange={(e) => setState(e.target.value)}
                 required
               />
               <Input
-                label="City / Stad *"
+                label={t("ownerx.location.city")}
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 required
@@ -77,7 +82,7 @@ function LocationForm({ business }: { business: Business }) {
             </div>
 
             <Input
-              label="Street & House Number *"
+              label={t("ownerx.location.street")}
               icon={<MapPin className="w-4 h-4 text-[#54D1CA]" />}
               value={street}
               onChange={(e) => setStreet(e.target.value)}
@@ -86,32 +91,37 @@ function LocationForm({ business }: { business: Business }) {
 
             {/* Interactive Map Location Pin Preview */}
             <div className="space-y-2 pt-2">
-              <label className="text-sm font-bold text-[#111111]">Kaart Locatie Preview</label>
+              <label className="text-sm font-bold text-[#111111]">{t("ownerx.location.mapPreview")}</label>
               <div className="h-56 w-full bg-[#54D1CA]/10 rounded-2xl border border-[#54D1CA]/30 flex flex-col items-center justify-center relative overflow-hidden">
                 <div className="w-12 h-12 rounded-full bg-[#54D1CA] text-white flex items-center justify-center shadow-lg mb-2 animate-bounce">
                   <MapPin className="w-7 h-7" />
                 </div>
-                <span className="text-sm font-bold text-[#111111]">Your store is here</span>
+                <span className="text-sm font-bold text-[#111111]">{t("ownerx.location.storeHere")}</span>
                 <span className="text-xs text-[#555555]">
                   {street}, {city} ({state})
                 </span>
                 <span className="text-[10px] text-[#B7B7B7] mt-1">
-                  {hasGps ? `GPS: ${business.location.lat.toFixed(4)}° N, ${business.location.lng.toFixed(4)}° E` : "GPS-coördinaten nog niet ingesteld"}
+                  {hasGps
+                    ? t("ownerx.location.gps", {
+                        lat: f.number(business.location.lat, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
+                        lng: f.number(business.location.lng, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
+                      })
+                    : t("ownerx.location.gpsNotSet")}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-[#EAEAEA]">
               <Button type="button" variant="secondary" size="lg" className="flex-1 gap-1">
-                <Edit3 className="w-4 h-4" /> WIJZIGEN
+                <Edit3 className="w-4 h-4" /> {t("ownerx.location.edit")}
               </Button>
               <Button type="submit" variant="primary" size="lg" className="flex-1 gap-1" isLoading={isSubmitting}>
                 {isSaved ? (
                   <>
-                    <Check className="w-5 h-5" /> Opslaan Succesvol!
+                    <Check className="w-5 h-5" /> {t("ownerx.location.saved")}
                   </>
                 ) : (
-                  "BEVESTIGEN"
+                  t("ownerx.location.confirm")
                 )}
               </Button>
             </div>
@@ -122,6 +132,7 @@ function LocationForm({ business }: { business: Business }) {
 }
 
 export default function ShoprouteLocationPage() {
+  const { t } = useLocale();
   const { business, loading, error, reload } = useMyBusiness();
 
   return (
@@ -129,14 +140,14 @@ export default function ShoprouteLocationPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar dashboard
+          {t("ownerx.backToDashboard")}
         </Link>
         {loading ? (
-          <LoadingState label="Winkel laden..." />
+          <LoadingState label={t("ownerx.loadingShop")} />
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : !business ? (
-          <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om je locatie in te stellen." />
+          <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forLocation")} />
         ) : (
           <LocationForm business={business} />
         )}

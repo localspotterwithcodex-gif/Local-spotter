@@ -13,12 +13,14 @@ import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { OrderStatus } from "@/types/order";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { getErrorMessage } from "@/lib/errors";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import type { TranslationKey } from "@/i18n/dictionaries";
 
 interface StatusAction {
   to: OrderStatus;
-  label: string;
+  labelKey: TranslationKey;
   variant: "primary" | "secondary" | "outline";
   icon: React.ReactNode;
 }
@@ -26,28 +28,31 @@ interface StatusAction {
 /** Mirrors the backend transition table (orders.service validateStatusTransition). */
 const ACTIONS: Partial<Record<OrderStatus, StatusAction[]>> = {
   PENDING: [
-    { to: "CONFIRMED", label: "Accepteren", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "REJECTED", label: "Afwijzen", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "CONFIRMED", labelKey: "ownerx.orders.actionAccept", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "REJECTED", labelKey: "ownerx.orders.actionReject", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
   ],
   CONFIRMED: [
-    { to: "PREPARING", label: "In Voorbereiding", variant: "primary", icon: <Package className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", label: "Annuleren", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "PREPARING", labelKey: "ownerx.orders.actionPreparing", variant: "primary", icon: <Package className="w-3.5 h-3.5 mr-1" /> },
+    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
   ],
   PREPARING: [
-    { to: "READY", label: "Markeer Klaar", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", label: "Annuleren", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "READY", labelKey: "ownerx.orders.actionReady", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
   ],
   READY: [
-    { to: "OUT_FOR_DELIVERY", label: "Markeer Onderweg", variant: "primary", icon: <Truck className="w-3.5 h-3.5 mr-1" /> },
-    { to: "DELIVERED", label: "Markeer Bezorgd", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", label: "Annuleren", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "OUT_FOR_DELIVERY", labelKey: "ownerx.orders.actionOnTheWay", variant: "primary", icon: <Truck className="w-3.5 h-3.5 mr-1" /> },
+    { to: "DELIVERED", labelKey: "ownerx.orders.actionDelivered", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
   ],
   OUT_FOR_DELIVERY: [
-    { to: "DELIVERED", label: "Markeer Bezorgd", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
+    { to: "DELIVERED", labelKey: "ownerx.orders.actionDelivered", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
   ],
 };
 
 export default function OwnerOrdersPage() {
+  const { t, label } = useLocale();
+  const f = useFormat();
+  const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const businessId = business?.id ?? null;
   const orders = useApiResource(businessId && `owner-orders:${businessId}`, () => api.getBusinessOrders(businessId!));
@@ -63,7 +68,7 @@ export default function OwnerOrdersPage() {
       await api.updateOrderStatus(orderId, nextStatus);
       orders.reload();
     } catch (err) {
-      setActionError(getErrorMessage(err, "Status bijwerken mislukt"));
+      setActionError(errMsg(err));
     } finally {
       setBusyOrderId(null);
     }
@@ -80,12 +85,12 @@ export default function OwnerOrdersPage() {
       <div className="space-y-6 max-w-5xl mx-auto">
         <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar dashboard
+          {t("ownerx.backToDashboard")}
         </Link>
 
         <div>
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Product Bestellingen (Orders)</h1>
-          <p className="text-xs text-[#B7B7B7]">Beheer binnenkomende bestellingen van jouw producten</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.orders.title")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("ownerx.orders.subtitle")}</p>
         </div>
 
         {/* Status Filter Tabs */}
@@ -100,7 +105,7 @@ export default function OwnerOrdersPage() {
                   : "bg-white text-[#111111] border border-[#EAEAEA] hover:bg-[#F9F9F9]"
               }`}
             >
-              {st === "ALL" ? "Alle Bestellingen" : st}
+              {st === "ALL" ? t("ownerx.orders.filterAll") : label("status", st)}
             </button>
           ))}
         </div>
@@ -113,13 +118,13 @@ export default function OwnerOrdersPage() {
         )}
 
         {isLoading ? (
-          <LoadingState label="Bestellingen laden..." />
+          <LoadingState label={t("ownerx.orders.loading")} />
         ) : loadError ? (
           <ErrorState message={loadError} onRetry={retry} />
         ) : !business ? (
-          <EmptyState title="Nog geen winkel" description="Maak eerst een winkel aan om bestellingen te ontvangen." />
+          <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forOrders")} />
         ) : filteredOrders.length === 0 ? (
-          <EmptyState title="Geen bestellingen" description="Er zijn geen bestellingen die voldoen aan het filter." />
+          <EmptyState title={t("ownerx.orders.emptyTitle")} description={t("ownerx.orders.emptyDesc")} />
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => (
@@ -127,7 +132,7 @@ export default function OwnerOrdersPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F9F9F9]">
                   <div>
                     <span className="text-sm font-bold text-[#111111]">{order.orderNumber}</span>
-                    <span className="text-xs text-[#B7B7B7] block">{formatDate(order.createdAt)} • Klant: {order.consumerName}</span>
+                    <span className="text-xs text-[#B7B7B7] block">{f.date(order.createdAt)} • {t("ownerx.orders.customer", { name: order.consumerName })}</span>
                   </div>
                   <Badge status={order.status} />
                 </div>
@@ -139,20 +144,20 @@ export default function OwnerOrdersPage() {
                       <span className="font-medium text-[#111111]">
                         {item.quantity}x {item.productName} {item.variantSize || item.variantColor ? `(${item.variantSize ?? item.variantColor})` : ""}
                       </span>
-                      <span className="font-bold">{formatCurrency(item.totalPrice)}</span>
+                      <span className="font-bold">{f.currency(item.totalPrice)}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Delivery Address */}
                 <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-[#555555]">
-                  <span className="font-bold text-[#111111] block mb-0.5">Bezorgadres:</span>
+                  <span className="font-bold text-[#111111] block mb-0.5">{t("ownerx.orders.deliveryAddress")}</span>
                   <p>{order.deliveryAddress.fullName} - {order.deliveryAddress.street} {order.deliveryAddress.houseNumber}, {order.deliveryAddress.city}</p>
                 </div>
 
                 {/* Status Action Buttons */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#F9F9F9]">
-                  <span className="text-sm font-extrabold text-[#111111]">Totaal: {formatCurrency(order.total)}</span>
+                  <span className="text-sm font-extrabold text-[#111111]">{t("ownerx.orders.total", { amount: f.currency(order.total) })}</span>
 
                   <div className="flex flex-wrap gap-2 justify-end">
                     {(ACTIONS[order.status] ?? []).map((action) => (
@@ -165,7 +170,7 @@ export default function OwnerOrdersPage() {
                         onClick={() => handleStatusUpdate(order.id, action.to)}
                         className="text-xs h-8"
                       >
-                        {action.icon} {action.label}
+                        {action.icon} {t(action.labelKey)}
                       </Button>
                     ))}
                   </div>

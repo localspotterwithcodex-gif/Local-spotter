@@ -127,6 +127,7 @@ export interface AdminPayout {
 
 export interface AdminPlan {
   id: string;
+  slug: string;
   name: string;
   description: string;
   monthlyPrice: number;
@@ -208,6 +209,7 @@ interface RawPayout {
 }
 interface RawPlan {
   id: string;
+  slug?: string | null;
   name: string;
   description?: string | null;
   monthlyPrice: Dec;
@@ -367,7 +369,7 @@ export const adminApi = {
   async getPlans(): Promise<AdminPlan[]> {
     const res = await apiClient.get<RawPlan[] | Envelope<RawPlan[]>>("/subscriptions/plans");
     const raw = Array.isArray(res) ? res : res.data;
-    return raw.map((p) => ({ id: p.id, name: p.name, description: p.description ?? "", monthlyPrice: num(p.monthlyPrice) }));
+    return raw.map((p) => ({ id: p.id, slug: String(p.slug ?? "").toLowerCase(), name: p.name, description: p.description ?? "", monthlyPrice: num(p.monthlyPrice) }));
   },
 
   async getPayouts(q: PageQuery & { status?: PayoutStatus } = {}): Promise<Paged<AdminPayout>> {

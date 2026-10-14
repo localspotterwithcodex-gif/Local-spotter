@@ -10,8 +10,10 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { useLocale } from "@/i18n/LocaleContext";
 
 export default function BusinessListingPage() {
+  const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const {
@@ -31,13 +33,13 @@ export default function BusinessListingPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
-            <h1 className="text-xl font-bold font-rubik text-[#111111]">Lokale Winkels (Onze Locals)</h1>
-            <p className="text-xs text-[#B7B7B7]">Ontdek bijzondere speciaalzaken en boetieks in Nederland</p>
+            <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("shops.title")}</h1>
+            <p className="text-xs text-[#B7B7B7]">{t("shops.subtitle")}</p>
           </div>
 
           <div className="w-full sm:w-72">
             <Input
-              placeholder="Zoek winkel op naam..."
+              placeholder={t("shops.search")}
               icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -47,14 +49,14 @@ export default function BusinessListingPage() {
 
         {/* City Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#B7B7B7]">Stad:</span>
+          <span className="text-xs font-bold text-[#B7B7B7]">{t("shops.city")}</span>
           <button
             onClick={() => setSelectedCity(null)}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
               selectedCity === null ? "bg-[#FA1EFF] text-white" : "bg-[#EAEAEA] text-[#111111]"
             }`}
           >
-            Alle Steden
+            {t("shops.allCities")}
           </button>
           {cities.map((city) => (
             <button
@@ -71,14 +73,14 @@ export default function BusinessListingPage() {
         </div>
 
         {isLoading ? (
-          <LoadingState label="Winkels laden..." />
+          <LoadingState label={t("shops.loading")} />
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : businesses.length === 0 ? (
           <EmptyState
-            title="Geen winkels gevonden"
-            description="Probeer een andere zoekopdracht of kies een andere stad."
-            actionLabel="Reset zoekopdracht"
+            title={t("shops.noneTitle")}
+            description={t("shops.noneDesc")}
+            actionLabel={t("shops.resetSearch")}
             onAction={() => {
               setSearchQuery("");
               setSelectedCity(null);

@@ -9,9 +9,11 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
+import { useLocale } from "@/i18n/LocaleContext";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 
 export default function ConsumerFollowingPage() {
+  const { t } = useLocale();
   const { data, error, loading: isLoading, reload } = useApiResource("my-following", () => api.getFollowedBusinesses());
   const businesses = data ?? [];
 
@@ -20,22 +22,22 @@ export default function ConsumerFollowingPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/account" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
-          Terug naar account
+          {t("account.back")}
         </Link>
 
         <div>
-          <h1 className="text-xl font-bold font-rubik text-[#111111]">Gevolgde Winkels</h1>
-          <p className="text-xs text-[#B7B7B7]">Winkels die je volgt voor updates, nieuwe producten en workshops</p>
+          <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.followedStores")}</h1>
+          <p className="text-xs text-[#B7B7B7]">{t("account.followingSubtitle")}</p>
         </div>
 
         {isLoading ? (
-          <LoadingState label="Gevolgde winkels laden..." />
+          <LoadingState label={t("account.followingLoading")} />
         ) : error ? (
-          <ErrorState title="Gevolgde winkels niet beschikbaar" message={error} onRetry={reload} />
+          <ErrorState title={t("account.followingUnavailable")} message={error} onRetry={reload} />
         ) : businesses.length === 0 ? (
           <EmptyState
-            title="Je volgt nog geen winkels"
-            description="Ontdek lokale winkels en klik op 'Volg Winkel' om updates te ontvangen."
+            title={t("account.followingEmptyTitle")}
+            description={t("account.followingEmptyDesc")}
           />
         ) : (
           <div className="grid grid-cols-1 gap-4">

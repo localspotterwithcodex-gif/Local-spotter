@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
-import { ApiError } from "@/lib/api/client";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { UserRole } from "@/types/user";
 
 // Accepts either a valid email OR a phone number (loose E.164 / NL-style),
@@ -17,6 +17,10 @@ import { UserRole } from "@/types/user";
 // numbers outright. See PROMPT.md item 2.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?[0-9()\-.\s]{7,15}$/;
+
+// Phone verification needs an SMS provider (no free production option yet), so
+// mobile sign-up is off unless the deployment explicitly enables it.
+const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === "true";
 
 function isEmail(value: string) {
   return EMAIL_REGEX.test(value.trim());
@@ -31,6 +35,7 @@ export default function SignupPage() {
   const router = useRouter();
   const { register, verifyCode, resendCode, pendingVerification } = useAuth();
   const { t } = useLocale();
+  const errMsg = useErrorMessage();
 
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -47,15 +52,19 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     if (!name || !identifier || !password) {
-      setError("Vul a.u.b. alle verplichte velden in.");
+      setError(t("authx.signup.fillRequired"));
       return;
     }
     if (!isEmail(identifier) && !isPhone(identifier)) {
-      setError("Vul een geldig e-mailadres of telefoonnummer in.");
+      setError(t("authx.signup.invalidContact"));
+      return;
+    }
+    if (!isEmail(identifier) && !SMS_ENABLED) {
+      setError(t("authx.signup.mobileUnavailable"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Wachtwoorden komen niet overeen.");
+      setError(t("authx.signup.mismatch"));
       return;
     }
     setStep("role");
@@ -75,7 +84,7 @@ export default function SignupPage() {
       });
       setStep("verify");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Registreren is mislukt. Probeer het opnieuw.");
+      setError(errMsg(err, { conflict: "authx.signup.exists", unavailable: "authx.signup.emailUnavailable", unknown: "authx.signup.failed" }));
       setStep("form");
     } finally {
       setIsSubmitting(false);
@@ -86,7 +95,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     if (code.length !== 6) {
-      setError("Voer de 6-cijferige code in.");
+      setError(t("authx.signup.enterCode"));
       return;
     }
     setIsSubmitting(true);
@@ -98,7 +107,7 @@ export default function SignupPage() {
         router.push("/products");
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ongeldige code.");
+      setError(errMsg(err, { unauthorized: "authx.signup.invalidCode", validation: "authx.signup.invalidCode", notFound: "authx.signup.invalidCode" }));
     } finally {
       setIsSubmitting(false);
     }
@@ -114,7 +123,7 @@ export default function SignupPage() {
             </div>
             <h1 className="text-2xl font-bold font-rubik text-[#111111]">{t("auth.hi")}</h1>
             <p className="text-xs text-[#B7B7B7]">
-              {step === "verify" ? "Bevestig je account" : t("auth.createAccount")}
+              {step === "verify" ? t("authx.signup.verifyTitle") : t("auth.createAccount")}
             </p>
           </div>
 
@@ -128,7 +137,7 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 label={t("auth.fullName")}
-                placeholder="Sanne de Jong"
+                placeholder={t("authx.signup.namePlaceholder")}
                 icon={<User className="w-4 h-4" />}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -138,7 +147,7 @@ export default function SignupPage() {
                 label={t("auth.emailOrMobile")}
                 type="text"
                 inputMode="email"
-                placeholder="naam@voorbeeld.nl of 06-12345678"
+                placeholder={t("authx.signup.contactPlaceholder")}
                 icon={<Mail className="w-4 h-4" />}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -171,12 +180,12 @@ export default function SignupPage() {
           {step === "verify" && (
             <form onSubmit={handleVerify} className="space-y-4">
               <p className="text-xs text-[#B7B7B7] text-center">
-                We hebben een 6-cijferige code gestuurd naar{" "}
-                <strong className="text-[#111111]">{pendingVerification?.identifier}</strong> via{" "}
-                {pendingVerification?.channel === "EMAIL" ? "e-mail" : "sms"}.
+                {t("authx.signup.codeSent")}{" "}
+                <strong className="text-[#111111]">{pendingVerification?.identifier}</strong> {t("authx.signup.via")}{" "}
+                {pendingVerification?.channel === "EMAIL" ? t("authx.signup.channelEmail") : t("authx.signup.channelSms")}.
               </p>
               <Input
-                label="Verificatiecode"
+                label={t("authx.signup.codeLabel")}
                 type="text"
                 inputMode="numeric"
                 placeholder="123456"
@@ -184,14 +193,14 @@ export default function SignupPage() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               />
               <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isSubmitting}>
-                BEVESTIGEN
+                {t("authx.signup.confirm")}
               </Button>
               <button
                 type="button"
                 onClick={() => resendCode()}
                 className="w-full text-xs font-bold text-[#FA1EFF] hover:underline text-center"
               >
-                Code opnieuw versturen
+                {t("authx.signup.resend")}
               </button>
             </form>
           )}
