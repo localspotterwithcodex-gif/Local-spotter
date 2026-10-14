@@ -22,7 +22,9 @@
     "db:test:migrate": "node scripts/with-test-db.mjs prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "seed": "ts-node prisma/seed.ts",
+    "seed:demo:disable": "ts-node prisma/disable-demo-users.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
@@ -57,7 +59,6 @@
     "typescript": "^5.3.3"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts",
-    "seed:demo:disable": "ts-node prisma/disable-demo-users.ts"
+    "seed": "ts-node prisma/seed.ts"
   }
 }
