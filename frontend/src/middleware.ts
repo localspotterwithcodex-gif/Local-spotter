@@ -26,6 +26,8 @@ const PUBLIC_PATHS = [
   "/shoproutes",
   "/workshops",
   "/terms",
+  "/privacy-policy",
+  "/data-deletion",
   "/help",
 ];
 

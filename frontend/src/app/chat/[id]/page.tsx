@@ -64,7 +64,7 @@ export default function ChatThreadPage() {
 
   return (
     <RoleLayout>
-      <div className="max-w-[428px] mx-auto flex flex-col" style={{ minHeight: "calc(100vh - 230px)" }}>
+      <div className="max-w-[428px] md:max-w-3xl mx-auto flex flex-col" style={{ minHeight: "calc(100vh - 230px)" }}>
         <div className="flex items-center gap-3 mb-3">
           <Link href="/chat" aria-label={t("manage.chat.back")} className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-[#121F3E]">
             <ArrowLeft className="w-4 h-4" />

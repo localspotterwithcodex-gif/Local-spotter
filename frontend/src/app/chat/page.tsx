@@ -20,7 +20,7 @@ export default function ChatListPage() {
 
   return (
     <RoleLayout>
-      <div className="max-w-[428px] mx-auto space-y-4">
+      <div className="max-w-[428px] md:max-w-3xl mx-auto space-y-4">
         <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("manage.chat.title")}</h1>
 
         {list.loading && (

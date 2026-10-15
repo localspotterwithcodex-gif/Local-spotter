@@ -34,7 +34,7 @@ export default function AccountPage() {
 
   return (
     <ConsumerLayout>
-      <div className="max-w-[428px] mx-auto space-y-4">
+      <div className="max-w-[428px] md:max-w-3xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-[#121F3E] text-white flex items-center justify-center font-bold text-lg">
             {user?.name?.charAt(0).toUpperCase() || "U"}
