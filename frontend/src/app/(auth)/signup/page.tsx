@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Mail, Lock, Store, ShoppingBag } from "lucide-react";
-import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SocialButtons } from "@/components/auth/SocialButtons";
+import { routeForRole } from "@/lib/auth/redirect";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
@@ -114,15 +116,12 @@ export default function SignupPage() {
   };
 
   return (
-    <ConsumerLayout>
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="w-full max-w-sm mx-auto my-8 bg-white p-6 sm:p-7 rounded-3xl border border-[#EAEAEA] shadow-md space-y-5">
-          <div className="text-center space-y-1">
-            <div className="w-12 h-12 rounded-full bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center font-bold text-xl font-rubik mx-auto mb-3">
-              LS
-            </div>
-            <h1 className="text-2xl font-bold font-rubik text-[#111111]">{t("auth.hi")}</h1>
-            <p className="text-xs text-[#B7B7B7]">
+    <AuthShell>
+      <div>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <h1 className="text-[44px] leading-none font-extrabold font-rubik text-black">{t("auth.hi")}</h1>
+            <p className="text-xs text-[#111111]">
               {step === "verify" ? t("authx.signup.verifyTitle") : t("auth.createAccount")}
             </p>
           </div>
@@ -171,7 +170,7 @@ export default function SignupPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
 
-              <Button type="submit" variant="primary" size="lg" fullWidth>
+              <Button type="submit" variant="primary" className={authButtonClass}>
                 {t("auth.signUp")}
               </Button>
             </form>
@@ -192,7 +191,7 @@ export default function SignupPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               />
-              <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isSubmitting}>
+              <Button type="submit" variant="primary" className={authButtonClass} isLoading={isSubmitting}>
                 {t("authx.signup.confirm")}
               </Button>
               <button
@@ -203,6 +202,13 @@ export default function SignupPage() {
                 {t("authx.signup.resend")}
               </button>
             </form>
+          )}
+
+          {step === "form" && (
+            <SocialButtons
+              onSuccess={(user) => router.push(routeForRole(user.role))}
+              onError={setError}
+            />
           )}
 
           <div className="text-center pt-2">
@@ -267,6 +273,6 @@ export default function SignupPage() {
           </div>
         </div>
       )}
-    </ConsumerLayout>
+    </AuthShell>
   );
 }

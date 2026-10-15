@@ -5,30 +5,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ShoppingBag, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Users, Package, Share2, MapPin, X, ImageOff } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
-import { Button } from "@/components/ui/Button";
-import { SubscriptionBadge, SubscriptionTier } from "@/components/ui/SubscriptionBadge";
+import { SegmentedSwitch } from "@/components/ui/SegmentedSwitch";
+import { ShoprouteCard } from "@/components/cards/ShoprouteCard";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { useLocale } from "@/i18n/LocaleContext";
-import type { TranslationKey } from "@/i18n/dictionaries";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
-import type { OrderStatus } from "@/types/order";
-
-const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; className: string }[] = [
-  { statuses: ["CONFIRMED", "PREPARING", "READY"], labelKey: "ownerx.dash.tileProcessing", className: "ls-status-processing" },
-  { statuses: ["DELIVERED"], labelKey: "ownerx.dash.tileCompleted", className: "ls-status-completed" },
-  { statuses: ["OUT_FOR_DELIVERY"], labelKey: "ownerx.dash.tileOnTheWay", className: "ls-status-ontheway" },
-  { statuses: ["CANCELLED", "REJECTED"], labelKey: "ownerx.dash.tileCancelled", className: "ls-status-cancelled" },
-  { statuses: ["PENDING"], labelKey: "ownerx.dash.tileNew", className: "ls-status-new col-span-2 sm:col-span-1" },
-];
 
 export default function OwnerDashboardPage() {
   const router = useRouter();
@@ -41,7 +31,9 @@ export default function OwnerDashboardPage() {
 
   const products = useApiResource(businessId && `owner-products:${businessId}`, () => api.getBusinessProducts(businessId!));
   const workshops = useApiResource(businessId && `owner-workshops:${businessId}`, () => api.getWorkshops({ businessId: businessId! }));
-  const orders = useApiResource(businessId && `owner-orders:${businessId}`, () => api.getBusinessOrders(businessId!));
+  const routes = useApiResource(businessId && `owner-routes:${businessId}`, () => api.getShoproutes());
+  const [tab, setTab] = useState<"products" | "shoproutes" | "workshops">("products");
+  const [fabOpen, setFabOpen] = useState(false);
 
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [workshopError, setWorkshopError] = useState("");
@@ -104,168 +96,222 @@ export default function OwnerDashboardPage() {
 
   const productList = products.data ?? [];
   const workshopList = workshops.data ?? [];
-  const orderList = orders.data ?? [];
+
+  const myRoutes = (routes.data ?? []).filter((r) => r.stops.some((s) => s.businessId === business.id));
+  const hasBanner = Boolean(business.heroImageUrl);
+  const stats: Array<{ icon: React.ReactNode; value: string; label: string }> = [
+    { icon: <Star className="w-5 h-5 fill-[#D4B011] text-[#D4B011]" />, value: `${business.rating} (${business.reviewCount})`, label: t("manage.shop.rating") },
+    { icon: <Users className="w-5 h-5 text-[#FA1EFF]" />, value: String(business.followerCount), label: t("manage.shop.followers") },
+    { icon: <Package className="w-5 h-5 text-[#FA1EFF]" />, value: String(productList.length), label: t("manage.shop.productsStat") },
+  ];
+  const addLinks = [
+    { href: "/owner/products/new", label: t("owner.addProduct") },
+    { href: "/owner/workshops/new", label: t("ownerx.dash.workshopBtn") },
+  ];
 
   return (
     <OwnerLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        {/* Profile Header matching Figma 383:2322 */}
-        <div className="bg-white rounded-3xl overflow-hidden border border-[#EAEAEA] shadow-2xs">
-          <div className="relative h-36 md:h-48 w-full bg-[#FAE2F0]">
-            {business.heroImageUrl && (
-              <Image src={business.heroImageUrl} alt={business.name} fill className="object-cover" />
-            )}
-            <div className="absolute top-3 right-3">
-              {business.subscriptionTier && <SubscriptionBadge tier={business.subscriptionTier as SubscriptionTier} />}
+      <div className="max-w-[640px] mx-auto">
+        {/* Banner with stats (Figma "Retailers" / shop profile) */}
+        <div className="relative h-60 -mx-4 sm:mx-0 bg-[#FAE2F0] sm:rounded-3xl overflow-hidden">
+          {hasBanner ? (
+            <Image src={business.heroImageUrl as string} alt={business.name} fill className="object-cover" sizes="640px" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-[#B7B7B7]" aria-hidden="true">
+              <ImageOff className="w-10 h-10" />
             </div>
-          </div>
-
-          <div className="p-4 md:p-6 relative pt-0">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 -mt-10 md:-mt-12 mb-3">
-              <div className="flex items-end gap-3">
-                <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden bg-white p-1 border-4 border-white shadow-md">
-                  {business.logoUrl && (
-                    <Image src={business.logoUrl} alt={business.name} fill className="object-cover rounded-xl" />
-                  )}
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold font-rubik text-[#111111]">{business.name}</h1>
-                  <span className="text-xs font-bold text-[#FA1EFF]">{business.shopType}</span>
-                </div>
+          )}
+          <Link
+            href={`/businesses/${business.id}`}
+            aria-label={business.name}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#FA1EFF] shadow"
+          >
+            <Share2 className="w-4 h-4" />
+          </Link>
+          <div className="absolute inset-x-0 bottom-0 bg-white/70 backdrop-blur-sm pb-12 pt-3 grid grid-cols-3 divide-x divide-[#B7B7B7]/60">
+            {stats.map((s) => (
+              <div key={s.label} className="flex flex-col items-center gap-0.5">
+                {s.icon}
+                <span className="text-[11px] font-bold text-[#111111]">{s.value}</span>
+                <span className="text-[10px] text-[#555555]">{s.label}</span>
               </div>
-
-              {/* Quick Actions */}
-              <div className="flex items-center gap-2">
-                <Link href="/owner/products/new">
-                  <Button variant="primary" size="sm" className="gap-1.5 text-xs">
-                    <Plus className="w-4 h-4" /> {t("owner.addProduct")}
-                  </Button>
-                </Link>
-                <Link href="/owner/workshops/new">
-                  <Button variant="secondary" size="sm" className="gap-1.5 text-xs">
-                    <Plus className="w-4 h-4" /> {t("ownerx.dash.workshopBtn")}
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Status Metrics Cards — real counts derived from this business's orders */}
-        {orders.error ? (
-          <ErrorState title={t("ownerx.dash.ordersLoadFailed")} message={orders.error} onRetry={orders.reload} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {ORDER_STATUS_TILES.map((tile) => {
-              const count = orderList.filter((o) => tile.statuses.includes(o.status)).length;
-              return (
-                <Link
-                  key={tile.labelKey}
-                  href="/owner/orders"
-                  className={`p-3.5 rounded-2xl ${tile.className} flex flex-col justify-between h-24 hover:scale-[1.02] transition-transform`}
-                >
-                  <span className="text-[11px] font-bold">{t(tile.labelKey)}</span>
-                  <span className="text-2xl font-extrabold font-rubik">{orders.loading ? "–" : count}</span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        {/* My Products Section */}
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-[#FA1EFF]" /> {t("ownerx.dash.myProducts", { n: productList.length })}
-            </h2>
-            <Link href="/owner/products/new" className="text-xs font-bold text-[#FA1EFF] hover:underline">
-              {t("ownerx.dash.newProduct")}
+        {/* Info card overlapping the banner */}
+        <div className="relative -mt-10 mx-4 sm:mx-6 bg-white rounded-2xl shadow-md p-4">
+          <div className="flex items-start gap-3">
+            <div className="relative w-14 h-14 shrink-0 rounded-full overflow-hidden bg-[#FAE2F0] flex items-center justify-center text-[#FA1EFF] font-bold font-rubik">
+              {business.logoUrl ? (
+                <Image src={business.logoUrl} alt={business.name} fill className="object-cover" sizes="56px" />
+              ) : (
+                business.name.charAt(0).toUpperCase()
+              )}
+              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#FA1EFF] border-2 border-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-bold text-[#121F3E] truncate">{business.name}</h1>
+              <p className="text-[11px] text-[#B7B7B7]">{business.shopType || business.category}</p>
+              <p className="text-[11px] text-[#555555] line-clamp-2">{business.description}</p>
+            </div>
+            <Link
+              href="/owner/settings/store"
+              aria-label={t("manage.shop.editStore")}
+              className="w-9 h-9 shrink-0 rounded-full border border-[#FA1EFF] text-[#FA1EFF] flex items-center justify-center hover:bg-[#FAE2F0]"
+            >
+              <Pencil className="w-4 h-4" />
             </Link>
           </div>
-
-          {deleteError && (
-            <div role="alert" className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">
-              {deleteError}
-            </div>
-          )}
-
-          {products.error ? (
-            <ErrorState title={t("ownerx.dash.productsLoadFailed")} message={products.error} onRetry={products.reload} />
-          ) : products.loading ? (
-            <LoadingState label={t("ownerx.dash.productsLoading")} />
-          ) : productList.length === 0 ? (
-            <EmptyState title={t("ownerx.dash.noProducts")} description={t("ownerx.dash.noProductsDesc")} />
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {productList.map((product) => (
-                <div key={product.id} className="space-y-2">
-                  <div className={product.isActive ? "" : "opacity-60"}>
-                    <ProductCard product={product} />
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-bold">
-                    <span className="text-[#B7B7B7]">
-                      {product.isActive ? t("manage.product.stockLeft", { n: product.stock }) : t("manage.product.hidden")}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Link href={`/owner/products/${product.id}/edit`} className="inline-flex items-center gap-1 text-[#790166] hover:underline">
-                        <Pencil className="w-3.5 h-3.5" /> {t("manage.product.edit")}
-                      </Link>
-                      <button
-                        type="button"
-                        disabled={deletingId === product.id}
-                        onClick={() => void handleDelete(product.id, product.name)}
-                        className="inline-flex items-center gap-1 text-[#E54666] hover:underline disabled:opacity-50"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> {t("manage.product.delete")}
-                      </button>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
+            <dt className="font-bold text-[#121F3E]">{t("manage.shop.address")}</dt>
+            <dd className="text-[#555555]">
+              {[business.location.street, business.location.city].filter(Boolean).join(", ")}
+            </dd>
+            <dt className="font-bold text-[#121F3E]">{t("manage.shop.kvk")}</dt>
+            <dd className="text-[#555555]">{business.kvkNumber}</dd>
+          </dl>
         </div>
 
-        {/* My Workshops Section */}
-        <div className="space-y-4 pt-4 border-t border-[#EAEAEA]">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#790166]" /> {t("ownerx.dash.myWorkshops", { n: workshopList.length })}
-            </h2>
-            <Link href="/owner/workshops/new" className="text-xs font-bold text-[#790166] hover:underline">
-              {t("ownerx.dash.newWorkshop")}
+        {/* Producten / Shoproutes / Workshops */}
+        <div className="px-4 sm:px-6 pt-4">
+          <SegmentedSwitch
+            options={[
+              { id: "products", label: t("nav.products") },
+              { id: "shoproutes", label: t("nav.shopRoutes") },
+              { id: "workshops", label: t("nav.workshops") },
+            ]}
+            activeId={tab}
+            onChange={(id) => setTab(id as typeof tab)}
+          />
+        </div>
+
+        <div className="px-4 sm:px-6 py-4 space-y-4">
+          {tab === "products" && (
+            <>
+              {deleteError && (
+                <div role="alert" className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">
+                  {deleteError}
+                </div>
+              )}
+              {products.error ? (
+                <ErrorState title={t("ownerx.dash.productsLoadFailed")} message={products.error} onRetry={products.reload} />
+              ) : products.loading ? (
+                <LoadingState label={t("ownerx.dash.productsLoading")} />
+              ) : productList.length === 0 ? (
+                <EmptyState title={t("ownerx.dash.noProducts")} description={t("ownerx.dash.noProductsDesc")} />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {productList.map((product) => (
+                    <div key={product.id} className="space-y-2">
+                      <div className={product.isActive ? "" : "opacity-60"}>
+                        <ProductCard product={product} />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                        <span className="text-[#B7B7B7]">
+                          {product.isActive ? t("manage.product.stockLeft", { n: product.stock }) : t("manage.product.hidden")}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <Link href={`/owner/products/${product.id}/edit`} className="inline-flex items-center gap-1 text-[#790166] hover:underline">
+                            <Pencil className="w-3.5 h-3.5" /> {t("manage.product.edit")}
+                          </Link>
+                          <button
+                            type="button"
+                            disabled={deletingId === product.id}
+                            onClick={() => void handleDelete(product.id, product.name)}
+                            className="inline-flex items-center gap-1 text-[#E54666] hover:underline disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> {t("manage.product.delete")}
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === "shoproutes" && (
+            <>
+              {routes.error ? (
+                <ErrorState message={routes.error} onRetry={routes.reload} />
+              ) : routes.loading ? (
+                <LoadingState label={t("ownerx.dash.loading")} />
+              ) : myRoutes.length === 0 ? (
+                <EmptyState title={t("manage.shop.noRoutes")} description={t("manage.shop.noRoutesDesc")} />
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {myRoutes.map((r) => (
+                    <ShoprouteCard key={r.id} route={r} />
+                  ))}
+                </div>
+              )}
+              <Link
+                href="/owner/shoproutes/location"
+                className="flex items-center justify-center gap-2 h-11 rounded-lg bg-[#FAE2F0] text-[#FA1EFF] text-xs font-bold hover:bg-[#F5CEE6]"
+              >
+                <MapPin className="w-4 h-4" /> {t("manage.shop.updateLocation")}
+              </Link>
+            </>
+          )}
+
+          {tab === "workshops" && (
+            <>
+              {workshopError && <p className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">{workshopError}</p>}
+              {workshops.error ? (
+                <ErrorState title={t("ownerx.dash.workshopsLoadFailed")} message={workshops.error} onRetry={workshops.reload} />
+              ) : workshops.loading ? (
+                <LoadingState label={t("ownerx.dash.workshopsLoading")} />
+              ) : workshopList.length === 0 ? (
+                <EmptyState title={t("ownerx.dash.noWorkshops")} description={t("ownerx.dash.noWorkshopsDesc")} />
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {workshopList.map((workshop) => (
+                    <div key={workshop.id} className="space-y-2">
+                      <WorkshopCard workshop={workshop} />
+                      {workshop.status === "CANCELLED" ? (
+                        <p className="text-[11px] font-bold text-[#E54666]">{t("manage.workshop.cancelled")}</p>
+                      ) : workshop.status === "COMPLETED" ? null : (
+                        <button
+                          type="button"
+                          disabled={cancellingId === workshop.id}
+                          onClick={() => handleCancelWorkshop(workshop.id, workshop.title)}
+                          className="text-[11px] font-bold text-[#E54666] hover:underline disabled:opacity-50"
+                        >
+                          {t("manage.workshop.cancel")}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Floating "+" (Figma): add a product or a workshop */}
+      <div className="fixed right-5 bottom-28 md:bottom-8 z-40 flex flex-col items-end gap-2">
+        {fabOpen &&
+          addLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="px-4 py-2 rounded-full bg-white text-xs font-bold text-[#790166] shadow-md hover:bg-[#FAE2F0]"
+            >
+              {l.label}
             </Link>
-          </div>
-
-          {workshopError && <p className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl">{workshopError}</p>}
-          {workshops.error ? (
-            <ErrorState title={t("ownerx.dash.workshopsLoadFailed")} message={workshops.error} onRetry={workshops.reload} />
-          ) : workshops.loading ? (
-            <LoadingState label={t("ownerx.dash.workshopsLoading")} />
-          ) : workshopList.length === 0 ? (
-            <EmptyState title={t("ownerx.dash.noWorkshops")} description={t("ownerx.dash.noWorkshopsDesc")} />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {workshopList.map((workshop) => (
-                <div key={workshop.id} className="space-y-2">
-                  <WorkshopCard workshop={workshop} />
-                  {workshop.status === "CANCELLED" ? (
-                    <p className="text-[11px] font-bold text-[#E54666]">{t("manage.workshop.cancelled")}</p>
-                  ) : workshop.status === "COMPLETED" ? null : (
-                    <button
-                      type="button"
-                      disabled={cancellingId === workshop.id}
-                      onClick={() => handleCancelWorkshop(workshop.id, workshop.title)}
-                      className="text-[11px] font-bold text-[#E54666] hover:underline disabled:opacity-50"
-                    >
-                      {t("manage.workshop.cancel")}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          ))}
+        <button
+          type="button"
+          onClick={() => setFabOpen((v) => !v)}
+          aria-label={t("manage.shop.add")}
+          aria-expanded={fabOpen}
+          className="w-12 h-12 rounded-full bg-[#EA89B1] text-white flex items-center justify-center shadow-lg hover:bg-[#D977A0]"
+        >
+          {fabOpen ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+        </button>
       </div>
     </OwnerLayout>
   );

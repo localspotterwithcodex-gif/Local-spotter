@@ -4,7 +4,7 @@ import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, CheckCircle2, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { apiClient } from "@/lib/api/client";
@@ -60,7 +60,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="max-w-md mx-auto my-8 p-6 sm:p-8 bg-white rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="w-14 h-14 rounded-full bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center mx-auto mb-2">
@@ -194,7 +194,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   const { t } = useLocale();
   return (
-    <ConsumerLayout>
+    <AuthShell>
       <Suspense fallback={
         <div className="max-w-md mx-auto my-12 p-8 bg-white rounded-3xl text-center space-y-4">
           <div className="w-8 h-8 border-4 border-[#FA1EFF] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -203,6 +203,6 @@ export default function ResetPasswordPage() {
       }>
         <ResetPasswordForm />
       </Suspense>
-    </ConsumerLayout>
+    </AuthShell>
   );
 }

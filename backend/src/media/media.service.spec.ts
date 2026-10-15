@@ -8,12 +8,16 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]);
 const user = { id: 'u1', role: UserRole.BUSINESS_OWNER } as any;
 
 describe('detectImageType', () => {
-  it('detects jpeg/png/webp by magic bytes and rejects everything else', () => {
+  it('detects common raster formats by magic bytes and rejects everything else', () => {
     expect(detectImageType(JPEG)?.mime).toBe('image/jpeg');
     expect(detectImageType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]))?.mime).toBe('image/png');
     expect(detectImageType(Buffer.from('RIFF\0\0\0\0WEBP', 'ascii'))?.mime).toBe('image/webp');
     expect(detectImageType(Buffer.from('<svg onload=alert(1)>'))).toBeNull();
-    expect(detectImageType(Buffer.from('GIF89a'))).toBeNull();
+    expect(detectImageType(Buffer.from('GIF89a'))?.mime).toBe('image/gif');
+    expect(detectImageType(Buffer.from('BM\0\0'))?.mime).toBe('image/bmp');
+    expect(detectImageType(Buffer.from('\0\0\0\x18ftypavif', 'binary'))?.mime).toBe('image/avif');
+    expect(detectImageType(Buffer.from('\0\0\0\x18ftypheic', 'binary'))?.mime).toBe('image/heic');
+    expect(detectImageType(Buffer.from('plain text'))).toBeNull();
   });
 });
 

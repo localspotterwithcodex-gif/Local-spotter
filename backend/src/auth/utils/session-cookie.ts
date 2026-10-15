@@ -18,7 +18,12 @@ export function readCookie(header: string | undefined, name: string): string | u
   return undefined;
 }
 
-/** HttpOnly + SameSite=Lax (+ Secure in production) session cookie options. */
-export function sessionCookieOptions(maxAgeMs: number, secure: boolean): CookieOptions {
-  return { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: maxAgeMs };
+/**
+ * HttpOnly + SameSite=Lax (+ Secure in production) session cookie options.
+ * Without maxAge this is a browser-session cookie: closing the browser ends the
+ * session, so opening the site again always starts at the login page. The JWT's
+ * own `exp` remains the hard upper limit.
+ */
+export function sessionCookieOptions(secure: boolean): CookieOptions {
+  return { httpOnly: true, sameSite: 'lax', secure, path: '/' };
 }

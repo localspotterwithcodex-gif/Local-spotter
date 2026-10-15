@@ -15,7 +15,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-bold text-[#111111]">
+          <label htmlFor={inputId} className="text-xs font-medium text-[#B7B7B7]">
             {label}
           </label>
         )}
@@ -25,7 +25,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             ref={ref}
             className={cn(
-              "w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal transition-all placeholder:text-[#B7B7B7] focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent",
+              "w-full h-12 bg-[#EAEAEA] text-[#111111] text-[15px] px-4 rounded-lg font-normal transition-all placeholder:text-[#B7B7B7] focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent",
               icon ? "pl-11" : "",
               error ? "border-[#ED4C5C] focus:ring-[#ED4C5C]" : "",
               className

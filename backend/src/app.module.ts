@@ -23,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
 import { ShopRegistrationsModule } from './shop-registrations/shop-registrations.module';
 import { MediaModule } from './media/media.module';
 import { FinanceModule } from './finance/finance.module';
+import { ChatModule } from './chat/chat.module';
 import { TranslationModule } from './translation/translation.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { TranslationModule } from './translation/translation.module';
     TranslationModule,
     MediaModule,
     FinanceModule,
+    ChatModule,
     PrismaModule,
     HealthModule,
     AuthModule,

@@ -3,7 +3,7 @@
 import React, { useState, use } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Star, Heart, MapPin, Phone, FileText, ShoppingBag, Calendar, Lock, Check } from "lucide-react";
+import { Star, Heart, MapPin, Phone, FileText, ShoppingBag, Calendar, Lock, Check, MessageCircle } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
@@ -54,6 +54,24 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
   const isFollowing = followOverride ?? serverFollowing;
   const followerCount = (business?.followerCount ?? 0) + (isFollowing ? 1 : 0) - (serverFollowing ? 1 : 0);
   const isLoading = businessRes.loading;
+
+  const [chatBusy, setChatBusy] = useState(false);
+  const openChat = async () => {
+    if (!business) return;
+    if (!isAuthenticated) {
+      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setChatBusy(true);
+    setFollowError(null);
+    try {
+      const { id } = await api.startConversation(business.id);
+      router.push(`/chat/${id}`);
+    } catch {
+      setFollowError(t("manage.chat.startFailed"));
+      setChatBusy(false);
+    }
+  };
 
   const toggleFollow = async () => {
     if (!business) return;
@@ -141,6 +159,11 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
 
               {/* Follow CTA */}
               <div className="flex items-center gap-3">
+                {(!isAuthenticated || isConsumer) && (
+                  <Button variant="outline" size="md" onClick={openChat} isLoading={chatBusy} className="gap-2">
+                    <MessageCircle className="w-4 h-4" /> {t("manage.chat.withShop")}
+                  </Button>
+                )}
                 <Button
                   variant={isFollowing ? "outline" : "primary"}
                   size="md"

@@ -14,6 +14,7 @@ import type { UserRole } from "@/types/user";
  * shell at best and 401/403 from every API call.
  */
 const SESSION_COOKIE = "ls_session";
+const GUEST_COOKIE = "ls_guest";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -24,6 +25,8 @@ const PUBLIC_PATHS = [
   "/businesses",
   "/shoproutes",
   "/workshops",
+  "/terms",
+  "/help",
 ];
 
 const AUTH_PAGES = ["/login", "/signup"];
@@ -64,6 +67,12 @@ export function middleware(request: NextRequest) {
   // Signed-in users have no business on the login/signup pages.
   if (claims && matches(pathname, AUTH_PAGES)) {
     return NextResponse.redirect(new URL(routeForRole(claims.role), request.url));
+  }
+
+  // The site opens on the login page; signed-in users go straight on, guests
+  // opt in explicitly ("Continue as guest" sets the ls_guest cookie).
+  if (pathname === "/" && !claims && !request.cookies.get(GUEST_COOKIE)) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (pathname === "/" || matches(pathname, PUBLIC_PATHS)) return NextResponse.next();

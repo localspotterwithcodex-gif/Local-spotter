@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { SocialLoginDto } from './dto/social-login.dto';
+import { SocialTokenVerifier } from './social/social-token.verifier';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -20,6 +22,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly socialVerifier: SocialTokenVerifier,
   ) {}
 
   /**
@@ -28,7 +31,7 @@ export class AuthController {
    */
   private startSession(res: Response, accessToken: string): void {
     const secure = this.config.get<string>('NODE_ENV') === 'production' || this.config.get<string>('COOKIE_SECURE') === 'true';
-    res.cookie(SESSION_COOKIE, accessToken, sessionCookieOptions(this.authService.sessionMaxAgeMs(accessToken), secure));
+    res.cookie(SESSION_COOKIE, accessToken, sessionCookieOptions(secure));
   }
 
   @Post('register')
@@ -48,6 +51,18 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful.', type: AuthResponseDto })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { accessToken, user } = await this.authService.login(dto);
+    this.startSession(res, accessToken);
+    return { user };
+  }
+
+  @Post('social')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 20, windowMs: 15 * 60 * 1000 })
+  @ApiOperation({ summary: 'Sign in / sign up with Google or Facebook (sets HttpOnly session cookie)' })
+  async social(@Body() dto: SocialLoginDto, @Res({ passthrough: true }) res: Response) {
+    const profile = await this.socialVerifier.verify(dto.provider, dto.token);
+    const { accessToken, user } = await this.authService.completeSocialLogin(profile, dto.role);
     this.startSession(res, accessToken);
     return { user };
   }

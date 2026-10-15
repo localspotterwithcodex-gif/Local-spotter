@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { SocialTokenVerifier } from './social/social-token.verifier';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 
 @Module({
@@ -22,7 +23,7 @@ import { RateLimitGuard } from '../common/guards/rate-limit.guard';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, RateLimitGuard],
+  providers: [AuthService, JwtStrategy, RateLimitGuard, SocialTokenVerifier],
   controllers: [AuthController],
   exports: [AuthService, JwtStrategy, PassportModule],
 })

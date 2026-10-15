@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
-import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { apiClient } from "@/lib/api/client";
@@ -35,8 +35,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <ConsumerLayout>
-      <div className="max-w-md mx-auto my-8 bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
+    <AuthShell>
+      <div className="space-y-6">
         <Link href="/login" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("authx.forgot.backToLogin")}
@@ -72,12 +72,12 @@ export default function ForgotPasswordPage() {
               required
             />
 
-            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
+            <Button type="submit" variant="primary" className={authButtonClass} isLoading={isLoading}>
               {t("authx.forgot.submit")}
             </Button>
           </form>
         )}
       </div>
-    </ConsumerLayout>
+    </AuthShell>
   );
 }

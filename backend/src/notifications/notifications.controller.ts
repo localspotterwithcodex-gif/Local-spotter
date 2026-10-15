@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -36,11 +37,11 @@ export class NotificationsController {
   })
   async getNotifications(
     @CurrentUser() user: any,
-    @Body() query?: { includeRead?: boolean },
+    @Query('includeRead') includeRead?: string,
   ) {
     return this.notificationsService.getNotifications(
       user.id,
-      query?.includeRead,
+      includeRead === 'true',
     );
   }
 

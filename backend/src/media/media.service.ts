@@ -16,7 +16,7 @@ export class MediaService {
       throw new ServiceUnavailableException('Afbeeldingen uploaden is tijdelijk niet beschikbaar');
     }
     if (!file || !file.buffer?.length) throw new BadRequestException('Geen bestand ontvangen');
-    if (file.size > MAX_IMAGE_BYTES) throw new PayloadTooLargeException('Afbeelding is groter dan 5 MB');
+    if (file.size > MAX_IMAGE_BYTES) throw new PayloadTooLargeException('Afbeelding is groter dan 10 MB');
 
     const detected = detectImageType(file.buffer);
     if (!detected) throw new BadRequestException('Alleen JPEG-, PNG- of WebP-afbeeldingen zijn toegestaan');

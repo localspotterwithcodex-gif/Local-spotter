@@ -52,6 +52,8 @@ interface AuthContextType {
   pendingVerification: PendingVerification | null;
   /** Logs in with an email, mobile number, or username (admins use username). */
   login: (identifier: string, password: string) => Promise<User>;
+  /** Signs in / up with a Google ID token or Facebook access token. `role` is only needed for a brand-new account. */
+  socialLogin: (provider: "google" | "facebook", token: string, role?: UserRole) => Promise<User>;
   register: (payload: RegisterPayload) => Promise<void>;
   verifyCode: (code: string) => Promise<User>;
   resendCode: () => Promise<void>;
@@ -87,6 +89,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (identifier: string, password: string) => {
     const res = await apiClient.post<{ user: BackendUser }>("/auth/login", { identifier, password });
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const socialLogin = useCallback(async (provider: "google" | "facebook", token: string, role?: UserRole) => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/social", { provider, token, role });
     const mapped = mapBackendUser(res.user);
     setUser(mapped);
     return mapped;
@@ -135,7 +144,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finish = () => {
       setUser(null);
       setPendingVerification(null);
-      if (typeof window !== "undefined") window.location.assign("/login");
+      if (typeof window !== "undefined") {
+        document.cookie = "ls_guest=; path=/; max-age=0";
+        window.location.assign("/login");
+      }
     };
     apiClient.post("/auth/logout").then(finish, finish);
   }, []);
@@ -149,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         pendingVerification,
         login,
+        socialLogin,
         register,
         verifyCode,
         resendCode,

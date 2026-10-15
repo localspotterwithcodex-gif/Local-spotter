@@ -7,8 +7,39 @@ import { api, type UploadedImage } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import type { TranslationKey } from "@/i18n/dictionaries";
 
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_EDGE = 2000;
+/** Browsers/OSes often report an empty MIME type for AVIF, HEIC or JFIF files, so the extension counts too. */
+const IMAGE_EXT = /\.(jpe?g|jfif|png|webp|gif|avif|heic|heif|bmp|tiff?)$/i;
+
+const looksLikeImage = (file: File) => file.type.startsWith("image/") || IMAGE_EXT.test(file.name);
+
+/**
+ * Re-encodes the photo in the browser (WebP, longest edge 2000 px) so any format
+ * the browser can decode, and any phone-sized photo, uploads quickly. If the
+ * browser cannot decode it (e.g. HEIC in Chrome) the original goes to the
+ * server, which checks the real type and lets Cloudinary convert it.
+ */
+async function prepareImage(file: File): Promise<File> {
+  if (file.type === "image/gif" || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.9));
+    if (!blob || blob.size >= file.size && scale === 1) return file;
+    const ext = blob.type === "image/webp" ? "webp" : "png";
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type });
+  } catch {
+    return file;
+  }
+}
 
 interface Props {
   value: UploadedImage[];
@@ -50,19 +81,20 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
     onBusyChange?.(true);
     try {
       for (const file of files) {
-        if (!ALLOWED_TYPES.includes(file.type)) {
+        if (!looksLikeImage(file)) {
           setErrorKey("manage.upload.errType");
-          continue;
-        }
-        if (file.size > MAX_BYTES) {
-          setErrorKey("manage.upload.errSize");
           continue;
         }
         const key = `${file.name}-${file.size}-${Date.now()}`;
         const preview = URL.createObjectURL(file);
         setPending((p) => [...p, { key, preview }]);
         try {
-          const uploaded = await api.uploadImage(file);
+          const prepared = await prepareImage(file);
+          if (prepared.size > MAX_BYTES) {
+            setErrorKey("manage.upload.errSize");
+            continue;
+          }
+          const uploaded = await api.uploadImage(prepared);
           current = [...current, uploaded];
           onChange(current);
         } catch (err) {
@@ -128,7 +160,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*,.heic,.heif,.avif,.jfif"
         multiple={max > 1}
         className="hidden"
         onChange={(e) => void handleFiles(e.target.files)}

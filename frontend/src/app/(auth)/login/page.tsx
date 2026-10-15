@@ -4,13 +4,15 @@ import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock } from "lucide-react";
-import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SocialButtons } from "@/components/auth/SocialButtons";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { routeForRole, safeRedirect } from "@/lib/auth/redirect";
+import type { User } from "@/types/user";
 
 function LoginForm() {
   const router = useRouter();
@@ -44,18 +46,17 @@ function LoginForm() {
     }
   };
 
+  const handleSocialSuccess = (user: User) => {
+    router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
+  };
+
   return (
-    <ConsumerLayout>
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="w-full max-w-sm mx-auto my-8 bg-white p-6 sm:p-7 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
-          <div className="text-center space-y-1">
-            <img
-              src="/logo.png"
-              alt="LocalSpotter"
-              className="h-14 sm:h-16 w-auto object-contain mx-auto mb-3"
-            />
-            <h1 className="text-2xl font-bold font-rubik text-[#111111]">{t("auth.hello")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("auth.signInSubtitle")}</p>
+    <AuthShell>
+      <div>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-[44px] leading-none font-extrabold font-rubik text-black">{t("auth.hello")}</h1>
+            <p className="text-xs text-[#111111]">{t("auth.signInSubtitle")}</p>
           </div>
 
           {error && (
@@ -89,12 +90,24 @@ function LoginForm() {
               </Link>
             </div>
 
-            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={isLoading}>
+            <Button type="submit" variant="primary" className={authButtonClass} isLoading={isLoading}>
               {t("auth.login")}
             </Button>
           </form>
 
-          <div className="text-center pt-2">
+          <SocialButtons onSuccess={handleSocialSuccess} onError={setError} />
+
+          <div className="text-center pt-2 space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                document.cookie = "ls_guest=1; path=/; SameSite=Lax";
+                window.location.assign("/");
+              }}
+              className="text-xs font-bold text-[#790166] hover:underline"
+            >
+              {t("manage.login.guest")}
+            </button>
             <p className="text-xs text-[#B7B7B7]">
               {t("auth.noAccount")}{" "}
               <Link href="/signup" className="font-bold text-[#FA1EFF] hover:underline">
@@ -104,7 +117,7 @@ function LoginForm() {
           </div>
         </div>
       </div>
-    </ConsumerLayout>
+    </AuthShell>
   );
 }
 

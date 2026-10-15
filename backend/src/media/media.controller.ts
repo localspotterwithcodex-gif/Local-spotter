@@ -26,7 +26,7 @@ export class MediaController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } }))
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload one image (JPEG/PNG/WebP, max 5 MB). Returns the MediaAsset id and URL.' })
+  @ApiOperation({ summary: 'Upload one image (JPEG, PNG, WebP, GIF, AVIF, HEIC, BMP or TIFF, max 10 MB). Returns the MediaAsset id and URL.' })
   upload(@UploadedFile() file: UploadedImage | undefined, @CurrentUser() user: AuthUser) {
     return this.media.uploadImage(file, user);
   }

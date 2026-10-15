@@ -199,9 +199,38 @@ export interface BusinessBalance {
   payouts: Array<{ id: string; amountCents: number; status: string; requestedAt: string; paidAt: string | null }>;
 }
 
+export interface ChatConversation {
+  id: string;
+  businessId: string;
+  businessName: string;
+  consumerName: string;
+  lastMessage: { body: string; createdAt: string; mine: boolean } | null;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+export interface ChatMessage {
+  id: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  mine: boolean;
+}
+export interface ChatThread {
+  conversation: { id: string; businessName: string; consumerName: string };
+  messages: ChatMessage[];
+}
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  linkUrl: string | null;
+  createdAt: string;
+}
+
 export const api = {
   // ---------------- MEDIA ----------------
-  /** Uploads one image (JPEG/PNG/WebP, max 5 MB) to the backend, which stores it in Cloudinary. */
+  /** Uploads one image (any common raster image, max 10 MB) to the backend, which stores it in Cloudinary. */
   async uploadImage(file: File): Promise<UploadedImage> {
     const body = new FormData();
     body.append("file", file);
@@ -512,6 +541,38 @@ export const api = {
       body: JSON.stringify({ businessId }),
     });
     return res.isFollowing;
+  },
+
+  // ---------------- CHAT ----------------
+  async startConversation(businessId: string): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>("/conversations", { businessId });
+  },
+  async getConversations(): Promise<ChatConversation[]> {
+    return apiClient.get<ChatConversation[]>("/conversations");
+  },
+  async getChatThread(conversationId: string): Promise<ChatThread> {
+    return apiClient.get<ChatThread>(`/conversations/${conversationId}/messages`);
+  },
+  async sendChatMessage(conversationId: string, body: string): Promise<ChatMessage> {
+    return apiClient.post<ChatMessage>(`/conversations/${conversationId}/messages`, { body });
+  },
+  async markChatRead(conversationId: string): Promise<void> {
+    await apiClient.post(`/conversations/${conversationId}/read`);
+  },
+  async getChatUnreadCount(): Promise<number> {
+    const res = await apiClient.get<{ unreadCount: number }>("/conversations/unread-count");
+    return res.unreadCount;
+  },
+
+  // ---------------- NOTIFICATIONS ----------------
+  async getNotifications(includeRead = false): Promise<{ notifications: AppNotification[]; unreadCount: number }> {
+    return apiClient.get(`/notifications${qs({ includeRead: includeRead ? "true" : undefined })}`);
+  },
+  async markNotificationRead(id: string): Promise<void> {
+    await apiClient.post(`/notifications/${id}/read`, { markAsRead: true });
+  },
+  async markAllNotificationsRead(): Promise<void> {
+    await apiClient.post("/notifications/read-all");
   },
 
   // ---------------- SUBSCRIPTIONS ----------------

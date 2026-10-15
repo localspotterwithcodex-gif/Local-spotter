@@ -49,6 +49,14 @@ const ACTIONS: Partial<Record<OrderStatus, StatusAction[]>> = {
   ],
 };
 
+const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; className: string }[] = [
+  { statuses: ["CONFIRMED", "PREPARING", "READY"], labelKey: "ownerx.dash.tileProcessing", className: "ls-status-processing" },
+  { statuses: ["DELIVERED"], labelKey: "ownerx.dash.tileCompleted", className: "ls-status-completed" },
+  { statuses: ["OUT_FOR_DELIVERY"], labelKey: "ownerx.dash.tileOnTheWay", className: "ls-status-ontheway" },
+  { statuses: ["CANCELLED", "REJECTED"], labelKey: "ownerx.dash.tileCancelled", className: "ls-status-cancelled" },
+  { statuses: ["PENDING"], labelKey: "ownerx.dash.tileNew", className: "ls-status-new col-span-2 sm:col-span-1" },
+];
+
 export default function OwnerOrdersPage() {
   const { t, label } = useLocale();
   const f = useFormat();
@@ -92,6 +100,20 @@ export default function OwnerOrdersPage() {
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.orders.title")}</h1>
           <p className="text-xs text-[#B7B7B7]">{t("ownerx.orders.subtitle")}</p>
         </div>
+
+        {/* Order metrics (Figma "order product"): real counts from this shop's orders */}
+        {!isLoading && !loadError && business && (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {ORDER_STATUS_TILES.map((tile) => (
+              <div key={tile.labelKey} className={`p-3.5 rounded-2xl ${tile.className} flex flex-col justify-between h-24`}>
+                <span className="text-[11px] font-bold">{t(tile.labelKey)}</span>
+                <span className="text-2xl font-extrabold font-rubik">
+                  {(orders.data ?? []).filter((o) => tile.statuses.includes(o.status)).length}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">

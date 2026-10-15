@@ -247,6 +247,82 @@ export class AuthService {
     return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
   }
 
+  /**
+   * Completes a login that a provider (Google/Facebook) already verified.
+   * - known provider account  -> log in
+   * - known verified email    -> link provider to that account, log in
+   * - otherwise               -> create account (role required, else 409 ROLE_REQUIRED)
+   * Linking a still-unverified password account clears its password, so someone
+   * who pre-registered another person's email cannot keep access to it.
+   */
+  async completeSocialLogin(
+    profile: { provider: string; providerAccountId: string; email: string | null; emailVerified: boolean; name: string | null },
+    role?: UserRole,
+  ) {
+    const include = { consumerProfile: true, businessOwnerProfile: true } as const;
+    const linked = await this.prisma.oAuthAccount.findUnique({
+      where: { provider_providerAccountId: { provider: profile.provider, providerAccountId: profile.providerAccountId } },
+      include: { user: { include } },
+    });
+
+    let user: UserWithProfiles | null = linked?.user ?? null;
+
+    if (!user) {
+      if (!profile.email || !profile.emailVerified) {
+        throw new BadRequestException('Dit account heeft geen bevestigd e-mailadres');
+      }
+      const existing = await this.prisma.user.findFirst({ where: { email: { equals: profile.email, mode: 'insensitive' } }, include });
+      if (existing) {
+        const wasPending = existing.status === UserStatus.PENDING_VERIFICATION;
+        if (existing.status === UserStatus.SUSPENDED || existing.status === UserStatus.DELETED) {
+          throw new UnauthorizedException('Account is geschorst of gedeactiveerd');
+        }
+        await this.prisma.$transaction([
+          this.prisma.oAuthAccount.create({ data: { userId: existing.id, provider: profile.provider, providerAccountId: profile.providerAccountId } }),
+          ...(wasPending
+            ? [
+                this.prisma.user.update({
+                  where: { id: existing.id },
+                  data: { status: UserStatus.ACTIVE, emailVerifiedAt: new Date(), passwordHash: null, verificationCode: null, verificationCodeExpiresAt: null },
+                }),
+              ]
+            : []),
+        ]);
+        user = wasPending ? { ...existing, status: UserStatus.ACTIVE } : existing;
+      } else {
+        if (role !== UserRole.CONSUMER && role !== UserRole.BUSINESS_OWNER) {
+          throw new ConflictException({ code: 'ROLE_REQUIRED', message: 'Kies eerst of je klant of ondernemer bent' });
+        }
+        const displayName = (profile.name || profile.email.split('@')[0]).slice(0, 80);
+        user = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: { email: profile.email, role, status: UserStatus.ACTIVE, emailVerifiedAt: new Date() },
+          });
+          await tx.oAuthAccount.create({ data: { userId: created.id, provider: profile.provider, providerAccountId: profile.providerAccountId } });
+          if (role === UserRole.CONSUMER) {
+            await tx.consumerProfile.create({ data: { userId: created.id, displayName } });
+          } else {
+            await tx.businessOwnerProfile.create({ data: { userId: created.id, displayName } });
+          }
+          return tx.user.findUniqueOrThrow({ where: { id: created.id }, include });
+        });
+      }
+    }
+
+    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.DELETED) {
+      throw new UnauthorizedException('Account is geschorst of gedeactiveerd');
+    }
+    if (user.status === UserStatus.PENDING_VERIFICATION) {
+      // Existing pending account found through an already linked provider (defensive).
+      throw new UnauthorizedException('Account is nog niet geverifieerd');
+    }
+    // Only SUPER_ADMIN-free flows: admins sign in with their password only.
+    if (user.role === UserRole.SUPER_ADMIN) throw new UnauthorizedException('Ongeldige inlogpoging');
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
+  }
+
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
