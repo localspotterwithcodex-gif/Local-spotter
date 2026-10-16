@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { api, type BusinessCategory } from "@/lib/api";
+import { api, type BusinessCategory, type NotificationPreferences, type UploadedImage } from "@/lib/api";
+import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -63,6 +64,38 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const [lat, setLat] = useState(hasGps ? String(business.location.lat) : "");
   const [lng, setLng] = useState(hasGps ? String(business.location.lng) : "");
 
+  // Shop images (logo + cover). Uploaded immediately; the asset ids are saved with the form.
+  const toImages = (id?: string, url?: string): UploadedImage[] => (id && url ? [{ id, url }] : []);
+  const [logo, setLogo] = useState<UploadedImage[]>(() => toImages(business.logoAssetId, business.logoUrl));
+  const [cover, setCover] = useState<UploadedImage[]>(() => toImages(business.coverAssetId, business.heroImageUrl));
+  const [uploadsBusy, setUploadsBusy] = useState(false);
+
+  // Notification preferences
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ notifyOrders: true, notifyReviews: true, notifyTips: true });
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [prefsDirty, setPrefsDirty] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getNotificationPreferences()
+      .then((p) => {
+        if (!cancelled) {
+          setPrefs(p);
+          setPrefsLoaded(true);
+        }
+      })
+      .catch(() => {
+        /* keep defaults; the checkboxes stay disabled so nothing wrong is saved */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const togglePref = (key: keyof NotificationPreferences, value: boolean) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+    setPrefsDirty(true);
+  };
+
   // Opening hours state
   const [hours, setHours] = useState<DayRow[]>(() => initialHours(business));
   const [hoursDirty, setHoursDirty] = useState(false);
@@ -104,7 +137,13 @@ function SettingsForm({ business, categories }: { business: Business; categories
         state: province,
         latitude: latNum,
         longitude: lngNum,
+        logoAssetId: logo[0]?.id ?? null,
+        coverAssetId: cover[0]?.id ?? null,
       });
+      if (prefsDirty && prefsLoaded) {
+        setPrefs(await api.updateNotificationPreferences(prefs));
+        setPrefsDirty(false);
+      }
       if (hoursDirty) {
         await api.updateBusinessHours(
           business.id,
@@ -189,6 +228,23 @@ function SettingsForm({ business, categories }: { business: Business; categories
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pb-2 flex items-center gap-2">
                 <Store className="w-5 h-5 text-[#FA1EFF]" /> {t("ownerx.settings.shopInfo")}
               </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <ServerImageUploader
+                  value={logo}
+                  onChange={setLogo}
+                  max={1}
+                  label={t("ownerx.settings.logo")}
+                  onBusyChange={setUploadsBusy}
+                />
+                <ServerImageUploader
+                  value={cover}
+                  onChange={setCover}
+                  max={1}
+                  label={t("ownerx.settings.cover")}
+                  onBusyChange={setUploadsBusy}
+                />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
@@ -336,13 +392,22 @@ function SettingsForm({ business, categories }: { business: Business; categories
               </h2>
 
               <div className="space-y-4">
-                {[
-                  { title: t("ownerx.settings.notifOrdersTitle"), text: t("ownerx.settings.notifOrdersText") },
-                  { title: t("ownerx.settings.notifReviewsTitle"), text: t("ownerx.settings.notifReviewsText") },
-                  { title: t("ownerx.settings.notifTipsTitle"), text: t("ownerx.settings.notifTipsText") },
-                ].map((item) => (
-                  <label key={item.title} className="flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] opacity-60">
-                    <input type="checkbox" disabled className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]" />
+                {([
+                  { key: "notifyOrders", title: t("ownerx.settings.notifOrdersTitle"), text: t("ownerx.settings.notifOrdersText") },
+                  { key: "notifyReviews", title: t("ownerx.settings.notifReviewsTitle"), text: t("ownerx.settings.notifReviewsText") },
+                  { key: "notifyTips", title: t("ownerx.settings.notifTipsTitle"), text: t("ownerx.settings.notifTipsText") },
+                ] as const).map((item) => (
+                  <label
+                    key={item.key}
+                    className={`flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] ${prefsLoaded ? "cursor-pointer" : "opacity-60"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={!prefsLoaded}
+                      checked={prefs[item.key]}
+                      onChange={(e) => togglePref(item.key, e.target.checked)}
+                      className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
+                    />
                     <div>
                       <span className="block text-xs font-bold text-[#111111]">{item.title}</span>
                       <span className="block text-[11px] text-[#B7B7B7]">{item.text}</span>
@@ -351,7 +416,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 ))}
               </div>
               <p className="text-xs text-[#B7B7B7]">
-                {t("ownerx.settings.notifUnsupported")}
+                {t("ownerx.settings.notifInfo")}
               </p>
             </div>
           )}
@@ -361,6 +426,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
               type="submit"
               variant="primary"
               isLoading={isLoading}
+              disabled={uploadsBusy}
               className="gap-2 px-8 h-12"
             >
               <Save className="w-4 h-4" /> {t("ownerx.settings.saveChanges")}

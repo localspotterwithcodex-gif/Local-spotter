@@ -29,7 +29,7 @@ export class OriginCheckGuard implements CanActivate {
 
     const origin = req.headers.origin ?? this.originFromReferer(req.headers.referer);
     if (origin && this.allowedOrigins.includes(origin.replace(/\/$/, ''))) return true;
-    throw new ForbiddenException('Cross-site request blocked');
+    throw new ForbiddenException({ statusCode: 403, message: 'Cross-site request blocked', code: 'ORIGIN_BLOCKED' });
   }
 
   private originFromReferer(referer?: string): string | undefined {

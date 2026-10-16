@@ -50,6 +50,8 @@ export interface RawBusiness {
   email?: string | null;
   kvkNumber: string;
   category?: { id: string; name: string } | null;
+  logoAssetId?: string | null;
+  coverAssetId?: string | null;
   logoAsset?: { url: string } | null;
   coverAsset?: { url: string } | null;
   state: string;
@@ -125,6 +127,8 @@ export function toBusiness(r: RawBusiness): Business {
     slug: r.slug,
     logoUrl: r.logoAsset?.url ?? undefined,
     heroImageUrl: r.coverAsset?.url ?? undefined,
+    logoAssetId: r.logoAssetId ?? undefined,
+    coverAssetId: r.coverAssetId ?? undefined,
     category: r.category?.name ?? "",
     shopType: r.category?.name ?? "",
     subscriptionTier: subscriptionActive ? (slug.toUpperCase() as Business["subscriptionTier"]) : undefined,

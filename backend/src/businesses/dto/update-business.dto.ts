@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEmail, IsNumber, IsOptional, IsString, IsUUID, ValidateIf } from 'class-validator';
 
 export class UpdateBusinessDto {
   @ApiPropertyOptional({ example: 'Boetiek Amsterdam' })
@@ -61,4 +61,14 @@ export class UpdateBusinessDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
+  @ApiPropertyOptional({ description: 'MediaAsset id of the shop logo (from POST /media/images). null removes the logo.', nullable: true })
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsUUID()
+  logoAssetId?: string | null;
+
+  @ApiPropertyOptional({ description: 'MediaAsset id of the shop cover image (from POST /media/images). null removes the cover.', nullable: true })
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsUUID()
+  coverAssetId?: string | null;
 }

@@ -16,6 +16,19 @@ const KIND_KEY: Record<ErrorKind, TranslationKey> = {
   unknown: "error.unknown",
 };
 
+/** Machine-readable `code` the backend attaches to some 403s (see ForbiddenException payloads). */
+export function errorCode(err: unknown): string | undefined {
+  if (!(err instanceof ApiError)) return undefined;
+  const b = err.body as { code?: unknown } | null;
+  return b && typeof b.code === "string" ? b.code : undefined;
+}
+
+const CODE_KEY: Record<string, TranslationKey> = {
+  ORIGIN_BLOCKED: "error.originBlocked",
+  NO_SUBSCRIPTION: "error.noSubscription",
+  NOT_SHOP_OWNER: "error.notShopOwner",
+};
+
 /** Classifies a thrown value by HTTP status so the UI can show it in the active language. */
 export function errorKind(err: unknown): ErrorKind {
   if (!(err instanceof ApiError)) return "unknown";
@@ -41,5 +54,7 @@ type Translate = (key: TranslationKey, params?: Record<string, string | number>)
  */
 export function describeError(err: unknown, t: Translate, overrides?: Partial<Record<ErrorKind, TranslationKey>>): string {
   const kind = errorKind(err);
+  const code = errorCode(err);
+  if (kind === "forbidden" && code && CODE_KEY[code]) return t(CODE_KEY[code]);
   return t(overrides?.[kind] ?? KIND_KEY[kind]);
 }

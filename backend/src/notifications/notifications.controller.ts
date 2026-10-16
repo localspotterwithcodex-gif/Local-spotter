@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   Query,
@@ -20,6 +21,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { MarkNotificationReadDto } from './dto/mark-notification-read.dto';
+import { UpdateNotificationPreferencesDto } from './dto/notification-preferences.dto';
 import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
@@ -43,6 +45,24 @@ export class NotificationsController {
       user.id,
       includeRead === 'true',
     );
+  }
+
+  @Get('preferences')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Notificatievoorkeuren van de ingelogde gebruiker' })
+  getPreferences(@CurrentUser() user: any) {
+    return this.notificationsService.getPreferences(user.id);
+  }
+
+  @Put('preferences')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Notificatievoorkeuren opslaan' })
+  updatePreferences(@CurrentUser() user: any, @Body() dto: UpdateNotificationPreferencesDto) {
+    return this.notificationsService.updatePreferences(user.id, dto);
   }
 
   @Post(':notificationId/read')

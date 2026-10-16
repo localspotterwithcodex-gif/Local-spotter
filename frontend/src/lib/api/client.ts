@@ -67,7 +67,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 const withBody = (method: string) => <T>(path: string, data?: unknown, options?: RequestOptions) =>
-  request<T>(path, { ...options, method, body: data !== undefined ? JSON.stringify(data) : undefined });
+  request<T>(path, { ...options, method, body: data === undefined ? undefined : data instanceof FormData ? data : JSON.stringify(data) });
 
 export const apiClient = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: "GET" }),

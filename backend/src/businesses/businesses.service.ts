@@ -174,10 +174,19 @@ export class BusinessesService {
         ? await this.translation.translateFields({ description: dto.description })
         : null;
 
+    for (const assetId of [dto.logoAssetId, dto.coverAssetId]) {
+      if (assetId) {
+        const asset = await this.prisma.mediaAsset.findUnique({ where: { id: assetId }, select: { id: true } });
+        if (!asset) throw new BadRequestException('Afbeelding niet gevonden, upload de afbeelding opnieuw');
+      }
+    }
+
     return this.prisma.business.update({
       where: { id },
       data: {
         name: dto.name,
+        logoAssetId: dto.logoAssetId,
+        coverAssetId: dto.coverAssetId,
         ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
@@ -292,7 +301,7 @@ export class BusinessesService {
     });
 
     if (!ownerProfile || business.ownerProfileId !== ownerProfile.id) {
-      throw new ForbiddenException('Je bent niet gemachtigd om deze winkel te bewerken');
+      throw new ForbiddenException({ statusCode: 403, message: 'Je bent niet gemachtigd om deze winkel te bewerken', code: 'NOT_SHOP_OWNER' });
     }
 
     return business;

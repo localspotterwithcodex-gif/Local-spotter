@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsService } from './reviews.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import {
@@ -66,6 +67,7 @@ describe('ReviewsService', () => {
         ReviewsService,
         { provide: PrismaService, useValue: prisma },
         { provide: SubscriptionEntitlementService, useValue: entitlementService },
+        { provide: NotificationsService, useValue: { notifyBusinessOwner: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 

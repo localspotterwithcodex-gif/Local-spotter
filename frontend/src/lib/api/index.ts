@@ -161,7 +161,17 @@ export interface CreateBusinessInput {
   longitude?: number;
 }
 /** Fields accepted by PATCH /businesses/:id (UpdateBusinessDto). */
-export type UpdateBusinessInput = Partial<CreateBusinessInput>;
+export type UpdateBusinessInput = Partial<CreateBusinessInput> & {
+  /** MediaAsset id from api.uploadImage; null removes the image. */
+  logoAssetId?: string | null;
+  coverAssetId?: string | null;
+};
+
+export interface NotificationPreferences {
+  notifyOrders: boolean;
+  notifyReviews: boolean;
+  notifyTips: boolean;
+}
 
 export interface CreateWorkshopInput {
   businessId: string;
@@ -485,6 +495,14 @@ export const api = {
   async createBusiness(input: CreateBusinessInput): Promise<Business> {
     const raw = await apiClient.post<RawBusiness>("/businesses", input);
     return toBusiness(raw);
+  },
+
+  async getNotificationPreferences(): Promise<NotificationPreferences> {
+    return apiClient.get<NotificationPreferences>("/notifications/preferences");
+  },
+
+  async updateNotificationPreferences(input: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    return apiClient.put<NotificationPreferences>("/notifications/preferences", input);
   },
 
   async updateBusiness(businessId: string, input: UpdateBusinessInput): Promise<Business> {

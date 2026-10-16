@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AllowedOrderStatusInput, UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -20,6 +21,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
+    private notifications: NotificationsService,
   ) {}
 
   // ==========================================
@@ -28,7 +30,7 @@ export class OrdersService {
   async createOrderFromCart(user: any, dto: CreateOrderDto) {
     const consumerProfile = await this.getConsumerProfile(user);
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       // 1. Fetch consumer's cart with items, products, and variants
       const cart = await tx.cart.findUnique({
         where: { consumerProfileId: consumerProfile.id },
@@ -225,6 +227,18 @@ export class OrdersService {
         },
       });
     });
+
+    if (created) {
+      // After commit; best-effort and honours the owner's notification preferences.
+      await this.notifications.notifyBusinessOwner(
+        created.businessId,
+        'ORDER',
+        'Nieuwe bestelling',
+        `Bestelling ${created.orderNumber} is geplaatst (€${Number(created.totalAmount).toFixed(2)}).`,
+        '/owner/orders',
+      );
+    }
+    return created;
   }
 
   // ==========================================

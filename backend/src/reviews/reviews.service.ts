@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ReviewStatus } from '@prisma/client';
@@ -15,6 +16,7 @@ export class ReviewsService {
   constructor(
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
+    private notifications: NotificationsService,
   ) {}
 
   async createReview(
@@ -49,6 +51,14 @@ export class ReviewsService {
         },
       },
     });
+
+    await this.notifications.notifyBusinessOwner(
+      businessId,
+      'REVIEW',
+      'Nieuwe review',
+      `Je winkel kreeg een review van ${dto.rating} ${dto.rating === 1 ? 'ster' : 'sterren'}.`,
+      '/owner',
+    );
 
     return review;
   }

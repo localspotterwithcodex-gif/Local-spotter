@@ -17,9 +17,11 @@ import { useFormat } from "@/i18n/useFormat";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import type { Business } from "@/types/business";
 
+type GeoHit = { lat: string; lon: string; display_name: string };
+
 function LocationForm({ business }: { business: Business }) {
   const router = useRouter();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const f = useFormat();
   const errMsg = useErrorMessage();
 
@@ -30,28 +32,73 @@ function LocationForm({ business }: { business: Business }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    business.location.lat !== 0 || business.location.lng !== 0 ? { lat: business.location.lat, lng: business.location.lng } : null,
-  );
+  const initialCoords =
+    business.location.lat !== 0 || business.location.lng !== 0 ? { lat: business.location.lat, lng: business.location.lng } : null;
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(initialCoords);
+  const [latText, setLatText] = useState(initialCoords ? String(initialCoords.lat) : "");
+  const [lngText, setLngText] = useState(initialCoords ? String(initialCoords.lng) : "");
+  const [candidates, setCandidates] = useState<GeoHit[]>([]);
+  const [approximate, setApproximate] = useState(false);
+  // True once the address fields differ from what the saved pin was made for.
+  const [pinStale, setPinStale] = useState(false);
   const [locating, setLocating] = useState<"" | "address" | "device">("");
   const [mapError, setMapError] = useState("");
-  const hasGps = coords !== null;
 
+  const applyCoords = (lat: number, lng: number) => {
+    setCoords({ lat, lng });
+    setLatText(String(lat));
+    setLngText(String(lng));
+    setPinStale(false);
+  };
+
+  const onAddressEdit = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setter(e.target.value);
+    setPinStale(true);
+  };
+
+  // Hand-edited coordinates move the pin.
+  const onCoordEdit = (which: "lat" | "lng", value: string) => {
+    const nextLat = which === "lat" ? value : latText;
+    const nextLng = which === "lng" ? value : lngText;
+    setLatText(nextLat);
+    setLngText(nextLng);
+    const la = Number(nextLat.replace(",", "."));
+    const ln = Number(nextLng.replace(",", "."));
+    if (nextLat.trim() && nextLng.trim() && Number.isFinite(la) && Number.isFinite(ln) && Math.abs(la) <= 90 && Math.abs(ln) <= 180) {
+      setCoords({ lat: la, lng: ln });
+      setPinStale(false);
+    }
+  };
+
+  const geocode = async (q: string): Promise<GeoHit[]> => {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=${locale}&q=${encodeURIComponent(q)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) throw new Error("geocode");
+    return (await res.json()) as GeoHit[];
+  };
+
+  /** Looks the typed address up; never edits the typed fields, and lets the owner pick the right result. */
   const findOnMap = async () => {
     setMapError("");
+    setCandidates([]);
+    setApproximate(false);
     setLocating("address");
     try {
-      const q = [street, city, state, "Nederland"].filter(Boolean).join(", ");
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error("geocode");
-      const hits = (await res.json()) as Array<{ lat: string; lon: string }>;
+      let hits = await geocode([street, city, state].filter(Boolean).join(", "));
+      let approx = false;
+      if (!hits.length && street) {
+        hits = await geocode([city, state].filter(Boolean).join(", "));
+        approx = hits.length > 0;
+      }
       if (!hits.length) {
         setMapError(t("manage.location.notFound"));
         return;
       }
-      setCoords({ lat: Number(hits[0].lat), lng: Number(hits[0].lon) });
+      setApproximate(approx);
+      setCandidates(hits);
+      applyCoords(Number(hits[0].lat), Number(hits[0].lon));
     } catch {
       setMapError(t("manage.location.lookupFailed"));
     } finally {
@@ -68,7 +115,9 @@ function LocationForm({ business }: { business: Business }) {
     setLocating("device");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        applyCoords(pos.coords.latitude, pos.coords.longitude);
+        setCandidates([]);
+        setApproximate(false);
         setLocating("");
       },
       () => {
@@ -82,6 +131,10 @@ function LocationForm({ business }: { business: Business }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (pinStale) {
+      setError(t("manage.location.staleCoords"));
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.updateBusiness(business.id, {
@@ -122,13 +175,13 @@ function LocationForm({ business }: { business: Business }) {
               <Input
                 label={t("ownerx.location.state")}
                 value={state}
-                onChange={(e) => setState(e.target.value)}
+                onChange={onAddressEdit(setState)}
                 required
               />
               <Input
                 label={t("ownerx.location.city")}
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={onAddressEdit(setCity)}
                 required
               />
             </div>
@@ -137,7 +190,7 @@ function LocationForm({ business }: { business: Business }) {
               label={t("ownerx.location.street")}
               icon={<MapPin className="w-4 h-4 text-[#54D1CA]" />}
               value={street}
-              onChange={(e) => setStreet(e.target.value)}
+              onChange={onAddressEdit(setStreet)}
               required
             />
 
@@ -166,6 +219,33 @@ function LocationForm({ business }: { business: Business }) {
                 </span>
               )}
               {mapError && <p className="text-xs font-bold text-[#E54666]">{mapError}</p>}
+              {pinStale && <p className="text-xs font-bold text-[#B7791F]">{t("manage.location.staleCoords")}</p>}
+              {approximate && <p className="text-xs font-bold text-[#B7791F]">{t("manage.location.approximate")}</p>}
+              {candidates.length > 1 && (
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-[#111111]">{t("manage.location.pickResult")}</span>
+                  <ul className="space-y-1">
+                    {candidates.map((c) => {
+                      const active = coords !== null && coords.lat === Number(c.lat) && coords.lng === Number(c.lon);
+                      return (
+                        <li key={`${c.lat}-${c.lon}`}>
+                          <button
+                            type="button"
+                            onClick={() => applyCoords(Number(c.lat), Number(c.lon))}
+                            className={`w-full text-left text-xs rounded-xl border px-3 py-2 ${active ? "border-[#54D1CA] bg-[#54D1CA]/10 font-bold" : "border-[#EAEAEA] bg-white hover:bg-[#F9F9F9]"}`}
+                          >
+                            {c.display_name}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <Input label={t("ownerx.settings.lat")} value={latText} onChange={(e) => onCoordEdit("lat", e.target.value)} />
+                <Input label={t("ownerx.settings.lng")} value={lngText} onChange={(e) => onCoordEdit("lng", e.target.value)} />
+              </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button type="button" variant="secondary" size="sm" className="flex-1 gap-1" onClick={findOnMap} isLoading={locating === "address"} disabled={!!locating}>
                   <Search className="w-4 h-4" /> {t("manage.location.findAddress")}

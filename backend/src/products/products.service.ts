@@ -33,9 +33,11 @@ export class ProductsService {
     // Enforce subscription feature entitlement
     const hasEntitlement = await this.entitlementService.hasFeature(businessId, 'PRODUCTS');
     if (!hasEntitlement) {
-      throw new ForbiddenException(
-        'Winkel heeft geen actief Webshop abonnement om producten toe te voegen',
-      );
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Winkel heeft geen actief Webshop abonnement om producten toe te voegen',
+        code: 'NO_SUBSCRIPTION',
+      });
     }
 
     if (dto.categoryId) {
@@ -487,9 +489,11 @@ export class ProductsService {
     });
 
     if (!ownerProfile || business.ownerProfileId !== ownerProfile.id) {
-      throw new ForbiddenException(
-        'Je bent niet gemachtigd om producten voor deze winkel te beheren',
-      );
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Je bent niet gemachtigd om producten voor deze winkel te beheren',
+        code: 'NOT_SHOP_OWNER',
+      });
     }
 
     return business;
@@ -514,9 +518,11 @@ export class ProductsService {
     });
 
     if (!ownerProfile || product.business.ownerProfileId !== ownerProfile.id) {
-      throw new ForbiddenException(
-        'Je bent niet gemachtigd om dit product te bewerken',
-      );
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Je bent niet gemachtigd om dit product te bewerken',
+        code: 'NOT_SHOP_OWNER',
+      });
     }
 
     return product;

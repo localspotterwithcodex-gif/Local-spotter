@@ -25,6 +25,8 @@ export interface Business {
   slug: string;
   logoUrl?: string;
   heroImageUrl?: string;
+  logoAssetId?: string;
+  coverAssetId?: string;
   category: string;
   shopType: string;
   /** Real value should come from GET /businesses/:id/subscription (backend/src/subscriptions) — see PROMPT.md items 5 & 6. */

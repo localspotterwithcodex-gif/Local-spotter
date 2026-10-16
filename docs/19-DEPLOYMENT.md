@@ -70,6 +70,7 @@ Required categories:
 - Optional: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (product/workshop photo upload; without them uploads return 503) and `DEEPL_API_KEY` (automatic EN/NL content translation; without it text is saved untranslated). Server-side only.
 - Optional (social login): backend `GOOGLE_CLIENT_ID`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`; frontend (Vercel, public) `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_FACEBOOK_APP_ID`. Buttons are hidden when the frontend ids are missing. Optional frontend `NEXT_PUBLIC_SUPPORT_EMAIL` for the Help page.
 - Migration `20261015100000_chat` must be applied (`prisma migrate deploy`) before the chat endpoints are used.
+- Migration `20261016100000_notification_preferences` must be applied before the notification-settings endpoints are used.
 - `APP_BASE_URL`.
 - `API_BASE_URL`.
 

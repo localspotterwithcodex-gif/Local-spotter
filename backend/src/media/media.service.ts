@@ -19,7 +19,7 @@ export class MediaService {
     if (file.size > MAX_IMAGE_BYTES) throw new PayloadTooLargeException('Afbeelding is groter dan 10 MB');
 
     const detected = detectImageType(file.buffer);
-    if (!detected) throw new BadRequestException('Alleen JPEG-, PNG- of WebP-afbeeldingen zijn toegestaan');
+    if (!detected) throw new BadRequestException('Dit bestand is geen ondersteunde afbeelding (JPEG, PNG, WebP, GIF, AVIF, HEIC, BMP of TIFF)');
 
     let stored;
     try {

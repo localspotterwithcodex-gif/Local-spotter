@@ -1,15 +1,79 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationPreferencesDto } from './dto/notification-preferences.dto';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  async getPreferences(userId: string) {
+    const pref = await this.prisma.notificationPreference.findUnique({ where: { userId } });
+    return {
+      notifyOrders: pref?.notifyOrders ?? true,
+      notifyReviews: pref?.notifyReviews ?? true,
+      notifyTips: pref?.notifyTips ?? true,
+    };
+  }
+
+  async updatePreferences(userId: string, dto: UpdateNotificationPreferencesDto) {
+    const data = {
+      ...(dto.notifyOrders !== undefined ? { notifyOrders: dto.notifyOrders } : {}),
+      ...(dto.notifyReviews !== undefined ? { notifyReviews: dto.notifyReviews } : {}),
+      ...(dto.notifyTips !== undefined ? { notifyTips: dto.notifyTips } : {}),
+    };
+    const pref = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: data,
+    });
+    return { notifyOrders: pref.notifyOrders, notifyReviews: pref.notifyReviews, notifyTips: pref.notifyTips };
+  }
+
+  /**
+   * Best-effort in-app notification to the owner of a business, honouring their
+   * preferences. Never throws: a failed notification must not fail an order or review.
+   */
+  async notifyBusinessOwner(
+    businessId: string,
+    kind: 'ORDER' | 'REVIEW',
+    title: string,
+    message: string,
+    linkUrl?: string,
+  ): Promise<void> {
+    try {
+      const business = await this.prisma.business.findUnique({
+        where: { id: businessId },
+        select: { ownerProfile: { select: { userId: true } } },
+      });
+      const ownerUserId = business?.ownerProfile?.userId;
+      if (!ownerUserId) return;
+      const prefs = await this.getPreferences(ownerUserId);
+      if (kind === 'ORDER' && !prefs.notifyOrders) return;
+      if (kind === 'REVIEW' && !prefs.notifyReviews) return;
+      await this.prisma.notification.create({
+        data: {
+          userId: ownerUserId,
+          type: kind === 'ORDER' ? NotificationType.ORDER : NotificationType.REVIEW,
+          title,
+          message,
+          linkUrl,
+          read: false,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Could not create ${kind} notification: ${(err as Error).message}`);
+    }
+  }
 
   async createNotification(
     userId: string,

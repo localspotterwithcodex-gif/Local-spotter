@@ -165,6 +165,7 @@ model User {
   consumerProfile     ConsumerProfile?
   businessOwnerProfile BusinessOwnerProfile?
   notifications       Notification[]
+  notificationPreference NotificationPreference?
   chatMessages        ChatMessage[]
   payments            Payment[]
   auditLogs           AuditLog[]   @relation("AuditLogActor")
@@ -752,6 +753,19 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+/// Per-user switches for which in-app notifications a shop owner receives.
+model NotificationPreference {
+  userId        String   @id @map("user_id") @db.Uuid
+  notifyOrders  Boolean  @default(true) @map("notify_orders")
+  notifyReviews Boolean  @default(true) @map("notify_reviews")
+  notifyTips    Boolean  @default(true) @map("notify_tips")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 // ==========================================

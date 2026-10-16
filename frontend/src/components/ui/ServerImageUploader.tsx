@@ -5,6 +5,7 @@ import { Loader2, Upload, X } from "lucide-react";
 import { useLocale } from "@/i18n/LocaleContext";
 import { api, type UploadedImage } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
+import { errorCode } from "@/lib/errors";
 import type { TranslationKey } from "@/i18n/dictionaries";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -66,6 +67,8 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
 
   const failureKey = (err: unknown): TranslationKey => {
     if (err instanceof ApiError) {
+      if (err.status === 403 && errorCode(err) === "ORIGIN_BLOCKED") return "error.originBlocked";
+      if (err.status === 401) return "error.unauthorized";
       if (err.status === 503) return "manage.upload.errUnavailable";
       if (err.status === 413) return "manage.upload.errSize";
       if (err.status === 400) return "manage.upload.errType";
