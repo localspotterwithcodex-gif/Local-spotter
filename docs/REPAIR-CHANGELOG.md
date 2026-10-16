@@ -192,3 +192,10 @@ Email (decision: Resend): `ResendMailProvider` in `backend/src/mail/mail.provide
 - Backend: public routes require an approved shop with a running SHOPROUTES/WORKSHOP plan (admin-created routes without a shop stay visible); public workshops require the WORKSHOP plan and ignore non-public `status` filters (drafts could leak before); `createRoute` published only when `publish === true` — inverted; now published unless `publish === false`.
 - Owner portal: `/owner/shoproutes` (create with stops, publish/unpublish, delete) and `/owner/workshops` (list, cancel, add) plus sidebar links; both show an upgrade message when the plan lacks the feature (`lib/plan-access.ts` mirrors `SubscriptionEntitlementService`). New workshop redirects to the list.
 - Tests: shoproutes (19) and workshops (21) specs pass; frontend 19 tests pass; tsc clean (backend + frontend).
+
+## V. Owner forms, live counts, plan prices
+
+- Workshop form: the backend rejects a start in the past (400) and the UI only said "not valid". The form now blocks past starts, sets `min` on the date, and shows the server's reason next to the translated message (`validationDetail`). Same detail on the route form.
+- Shop route list: deleting archives the route (soft delete) but the owner list still returned it, so a second delete gave 404 ("could not find"). The list now excludes deleted routes. The route form lists the owner's own shop first; without map coordinates it is disabled with a link to set the location (a stop needs coordinates).
+- Followers/rating: stored `followerCount`/`averageRating`/`ratingCount` hold demo-seed numbers (e.g. 145) and are not maintained. The business endpoints now compute them from real `followers` and published `reviews` rows.
+- Plan prices: Webshop €12, Shoproutes €27, Workshop €57 per month (owner's instruction, replaces 50/100/150). Seed updated; migration `20261016130000_plan_prices_12_27_57` sets them on existing databases. `20261016120000_plan_prices` is superseded but harmless.

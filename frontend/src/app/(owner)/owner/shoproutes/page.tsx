@@ -15,6 +15,7 @@ import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useOwnerAccess } from "@/features/business/useOwnerAccess";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { validationDetail } from "@/lib/errors";
 
 export default function OwnerShoproutesPage() {
   const { t } = useLocale();
@@ -37,13 +38,13 @@ export default function OwnerShoproutesPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const candidates = useMemo(
-    () =>
-      (shops.data ?? []).filter(
-        (s) => s.subscriptionTier && s.subscriptionTier !== "WEBSHOP" && (s.location.lat !== 0 || s.location.lng !== 0)
-      ),
-    [shops.data]
-  );
+  const hasCoords = (s: { location: { lat: number; lng: number } }) => s.location.lat !== 0 || s.location.lng !== 0;
+  // Own shop first (even without a map location, so the owner sees why it can't be picked yet),
+  // then other published shops on a plan that includes Shop Routes.
+  const candidates = useMemo(() => {
+    const others = (shops.data ?? []).filter((s) => s.id !== businessId && s.subscriptionTier && s.subscriptionTier !== "WEBSHOP" && hasCoords(s));
+    return business ? [business, ...others] : others;
+  }, [shops.data, business, businessId]);
 
   const toggle = (id: string) => setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
@@ -73,7 +74,8 @@ export default function OwnerShoproutesPage() {
       setNotice(t("ownerx.routes.created"));
       routes.reload();
     } catch (err) {
-      setError(errMsg(err));
+      const detail = validationDetail(err);
+      setError(detail ? `${errMsg(err)} (${detail})` : errMsg(err));
     } finally {
       setBusy(false);
     }
@@ -142,9 +144,14 @@ export default function OwnerShoproutesPage() {
             ) : (
               candidates.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 text-xs text-[#121F3E]">
-                  <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggle(s.id)} />
+                  <input type="checkbox" checked={selected.includes(s.id)} disabled={!hasCoords(s)} onChange={() => toggle(s.id)} />
                   <span className="font-bold">{s.name}</span>
                   <span className="text-[#B7B7B7]">{s.location.city}</span>
+                  {!hasCoords(s) && (
+                    <Link href="/owner/shoproutes/location" className="font-bold text-[#FA1EFF]">
+                      {t("ownerx.routes.setLocation")}
+                    </Link>
+                  )}
                 </label>
               ))
             )}

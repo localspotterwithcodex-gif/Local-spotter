@@ -58,3 +58,5 @@ export function describeError(err: unknown, t: Translate, overrides?: Partial<Re
   if (kind === "forbidden" && code && CODE_KEY[code]) return t(CODE_KEY[code]);
   return t(overrides?.[kind] ?? KIND_KEY[kind]);
 }
+
+export { validationDetail } from "./validation-detail";

@@ -4,7 +4,7 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
-import { Prisma, BusinessStatus, SubscriptionStatus, UserRole } from '@prisma/client';
+import { Prisma, BusinessStatus, SubscriptionStatus, UserRole, ReviewStatus } from '@prisma/client';
 import { QueryBusinessDto } from './dto/query-business.dto';
 import { TranslationService } from '../translation/translation.service';
 
@@ -88,7 +88,7 @@ export class BusinessesService {
         { description: { contains: query.search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.business.findMany({
+    const rows = await this.prisma.business.findMany({
       where,
       include: {
         category: true,
@@ -101,6 +101,39 @@ export class BusinessesService {
       orderBy: { createdAt: 'desc' },
       take: query.limit ?? 100,
     });
+    return this.withLiveCounts(rows);
+  }
+
+  /**
+   * Followers and rating are derived from the real `followers` / `reviews` rows.
+   * The denormalised `followerCount` / `averageRating` / `ratingCount` columns are not
+   * maintained everywhere (and hold demo-seed numbers), so they are never trusted.
+   */
+  private async withLiveCounts<T extends { id: string }>(
+    rows: T[],
+  ): Promise<(T & { followerCount: number; averageRating: number; ratingCount: number })[]> {
+    if (rows.length === 0) return [];
+    const ids = rows.map((r) => r.id);
+    const [followers, ratings] = await Promise.all([
+      this.prisma.follower.groupBy({ by: ['businessId'], where: { businessId: { in: ids } }, _count: { _all: true } }),
+      this.prisma.review.groupBy({
+        by: ['businessId'],
+        where: { businessId: { in: ids }, status: ReviewStatus.PUBLISHED },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const f = new Map(followers.map((g) => [g.businessId, g._count._all]));
+    const r = new Map(ratings.map((g) => [g.businessId, g]));
+    return rows.map((row) => {
+      const g = r.get(row.id);
+      return {
+        ...row,
+        followerCount: f.get(row.id) ?? 0,
+        averageRating: g?._avg.rating != null ? Math.round(g._avg.rating * 10) / 10 : 0,
+        ratingCount: g?._count._all ?? 0,
+      };
+    });
   }
 
   async getMyBusinesses(user: any) {
@@ -112,7 +145,7 @@ export class BusinessesService {
       return [];
     }
 
-    return this.prisma.business.findMany({
+    const rows = await this.prisma.business.findMany({
       where: { ownerProfileId: ownerProfile.id, deletedAt: null },
       include: {
         category: true,
@@ -126,6 +159,7 @@ export class BusinessesService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return this.withLiveCounts(rows);
   }
 
   async getPublicBusinessByIdOrSlug(idOrSlug: string) {
@@ -152,7 +186,8 @@ export class BusinessesService {
       throw new NotFoundException('Winkel niet gevonden');
     }
 
-    return business;
+    const [withCounts] = await this.withLiveCounts([business]);
+    return withCounts;
   }
 
   async update(id: string, user: any, dto: UpdateBusinessDto) {

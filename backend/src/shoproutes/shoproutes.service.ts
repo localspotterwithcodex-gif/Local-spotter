@@ -201,7 +201,7 @@ export class ShopRoutesService {
 
     const [routes, total] = await Promise.all([
       this.prisma.shopRoute.findMany({
-        where: { businessId },
+        where: { businessId, deletedAt: null },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -210,7 +210,7 @@ export class ShopRoutesService {
           stops: { orderBy: { sequence: 'asc' } },
         },
       }),
-      this.prisma.shopRoute.count({ where: { businessId } }),
+      this.prisma.shopRoute.count({ where: { businessId, deletedAt: null } }),
     ]);
 
     return {

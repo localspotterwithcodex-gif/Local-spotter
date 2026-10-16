@@ -16,6 +16,7 @@ import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useOwnerAccess } from "@/features/business/useOwnerAccess";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { validationDetail } from "@/lib/errors";
 
 export default function AddWorkshopPage() {
   const router = useRouter();
@@ -56,6 +57,10 @@ export default function AddWorkshopPage() {
       setError(t("ownerx.workshopNew.errorEndTime"));
       return;
     }
+    if (new Date(`${date}T${startTime}`).getTime() <= Date.now()) {
+      setError(t("ownerx.workshopNew.errorPast"));
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -74,7 +79,8 @@ export default function AddWorkshopPage() {
       });
       router.push("/owner/workshops");
     } catch (err) {
-      setError(errMsg(err));
+      const detail = validationDetail(err);
+      setError(detail ? `${errMsg(err)} (${detail})` : errMsg(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,6 +201,7 @@ export default function AddWorkshopPage() {
               <Input
                 label={t("ownerx.workshopNew.dateLabel")}
                 type="date"
+                min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
                 icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}

@@ -264,6 +264,9 @@ export const manage = defineDict({
     "ownerx.workshops.empty": "You have not added any workshops yet.",
     "ownerx.workshops.cancel": "Cancel workshop",
     "ownerx.workshops.locked": "Your current plan does not include Workshops. Choose the Workshop plan to add workshops.",
+  
+    "ownerx.workshopNew.errorPast": "The start must be in the future. Pick today's date with a later time, or a later date.",
+    "ownerx.routes.setLocation": "Set map location first",
   },
   nl: {
     "manage.upload.add": "Foto's uploaden",
@@ -514,5 +517,7 @@ export const manage = defineDict({
     "ownerx.workshops.empty": "Je hebt nog geen workshops toegevoegd.",
     "ownerx.workshops.cancel": "Workshop annuleren",
     "ownerx.workshops.locked": "Je huidige abonnement bevat geen Workshops. Kies het Workshop-abonnement om workshops toe te voegen.",
+    "ownerx.workshopNew.errorPast": "De start moet in de toekomst liggen. Kies vandaag met een latere tijd, of een latere datum.",
+    "ownerx.routes.setLocation": "Stel eerst de kaartlocatie in",
   },
 });
