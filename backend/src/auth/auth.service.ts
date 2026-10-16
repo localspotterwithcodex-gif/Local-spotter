@@ -247,6 +247,11 @@ export class AuthService {
     return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
   }
 
+  /** Removes the provider link (idempotent). The user's own account is kept until they ask for full deletion. */
+  async unlinkOAuthAccount(provider: string, providerAccountId: string): Promise<void> {
+    await this.prisma.oAuthAccount.deleteMany({ where: { provider, providerAccountId } });
+  }
+
   /**
    * Completes a login that a provider (Google/Facebook) already verified.
    * - known provider account  -> log in

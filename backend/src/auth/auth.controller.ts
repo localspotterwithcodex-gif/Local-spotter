@@ -5,6 +5,9 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { AuthService } from './auth.service';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { SocialTokenVerifier } from './social/social-token.verifier';
+import { parseFacebookSignedRequest } from './social/facebook-signed-request';
+import { randomBytes } from 'crypto';
+import { BadRequestException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -53,6 +56,26 @@ export class AuthController {
     const { accessToken, user } = await this.authService.login(dto);
     this.startSession(res, accessToken);
     return { user };
+  }
+
+  /**
+   * Facebook "Data deletion request callback". Facebook POSTs `signed_request`
+   * (form-encoded) when a user removes the app. We verify the signature, unlink
+   * the Facebook sign-in and answer with the status page + a confirmation code.
+   * The rest of the user's data is deleted on request by email (see /data-deletion).
+   */
+  @Post('facebook/data-deletion')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 30, windowMs: 15 * 60 * 1000 })
+  @ApiOperation({ summary: 'Facebook data-deletion callback (signed_request)' })
+  async facebookDataDeletion(@Body('signed_request') signedRequest: unknown) {
+    const parsed = parseFacebookSignedRequest(signedRequest, this.config.get<string>('FACEBOOK_APP_SECRET') ?? '');
+    if (!parsed) throw new BadRequestException('Invalid signed_request');
+    await this.authService.unlinkOAuthAccount('facebook', parsed.userId);
+    const base = (this.config.get<string>('FRONTEND_URL') || (this.config.get<string>('CORS_ORIGIN') ?? '').split(',')[0] || '').trim().replace(/\/$/, '');
+    const code = randomBytes(8).toString('hex');
+    return { url: `${base}/data-deletion?code=${code}`, confirmation_code: code };
   }
 
   @Post('social')
