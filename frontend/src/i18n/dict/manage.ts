@@ -227,6 +227,16 @@ export const manage = defineDict({
     "manage.location.pickResult": "Several places match. Choose the correct one:",
     "manage.location.approximate": "The exact street was not found, so the pin shows the city. Pick another result or enter the coordinates yourself.",
     "manage.location.staleCoords": "The address was changed. Press \"Find address on map\" (or enter the coordinates) so the pin matches the new address, then save.",
+  
+    "ownerx.sub.activate": "Activate this plan",
+    "ownerx.sidebar.inactive": "Not active yet",
+    "ownerx.sidebar.noPlan": "No plan chosen",
+  
+    "ownerx.visible.live": "Your shop is live — customers can find it.",
+    "ownerx.visible.view": "View as customer",
+    "ownerx.visible.pendingApproval": "Your shop is awaiting approval and is not visible to customers yet.",
+    "ownerx.visible.needsPlan": "Your shop is hidden from customers until a subscription plan is active.",
+    "ownerx.visible.activate": "Activate plan",
   },
   nl: {
     "manage.upload.add": "Foto's uploaden",
@@ -443,5 +453,13 @@ export const manage = defineDict({
     "manage.location.pickResult": "Meerdere plaatsen komen overeen. Kies de juiste:",
     "manage.location.approximate": "De exacte straat is niet gevonden, dus de pin toont de plaats. Kies een ander resultaat of vul zelf de coördinaten in.",
     "manage.location.staleCoords": "Het adres is gewijzigd. Klik op \"Adres zoeken op kaart\" (of vul de coördinaten in) zodat de pin bij het nieuwe adres past, en sla daarna op.",
+    "ownerx.sub.activate": "Activeer dit pakket",
+    "ownerx.sidebar.inactive": "Nog niet actief",
+    "ownerx.sidebar.noPlan": "Geen pakket gekozen",
+    "ownerx.visible.live": "Je winkel is live — klanten kunnen hem vinden.",
+    "ownerx.visible.view": "Bekijk als klant",
+    "ownerx.visible.pendingApproval": "Je winkel wacht op goedkeuring en is nog niet zichtbaar voor klanten.",
+    "ownerx.visible.needsPlan": "Je winkel is verborgen voor klanten tot een abonnement actief is.",
+    "ownerx.visible.activate": "Abonnement activeren",
   },
 });

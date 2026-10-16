@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { uniqueCities } from "@/lib/cities";
 import { useLocale } from "@/i18n/LocaleContext";
 
 export default function ShoproutesListingPage() {
@@ -19,7 +20,9 @@ export default function ShoproutesListingPage() {
   );
   const routes = data ?? [];
 
-  const cities = ["Delft", "Rotterdam", "Utrecht", "Amsterdam"];
+  // City chips come from the cities of routes owners have actually published.
+  const { data: allRoutes } = useApiResource("shoproutes:all", () => api.getShoproutes());
+  const cities = uniqueCities([...(allRoutes ?? []).map((r) => r.cityName), selectedCity]);
 
   return (
     <ConsumerLayout>

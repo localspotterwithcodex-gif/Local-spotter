@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { uniqueCities } from "@/lib/cities";
 import { useLocale } from "@/i18n/LocaleContext";
 
 export default function BusinessListingPage() {
@@ -26,7 +27,12 @@ export default function BusinessListingPage() {
   );
   const businesses = data ?? [];
 
-  const cities = ["Delft", "Rotterdam", "Horn", "Utrecht"];
+  // City chips come from the cities of shops owners have actually published.
+  const { data: allBusinesses } = useApiResource("businesses:all", () => api.getBusinesses());
+  const cities = uniqueCities([
+    ...(allBusinesses ?? []).map((b) => b.location.city),
+    selectedCity,
+  ]);
 
   return (
     <ConsumerLayout>
@@ -58,7 +64,7 @@ export default function BusinessListingPage() {
           >
             {t("shops.allCities")}
           </button>
-          {cities.map((city) => (
+          {cities.length > 0 && cities.map((city) => (
             <button
               key={city}
               onClick={() => setSelectedCity(city)}

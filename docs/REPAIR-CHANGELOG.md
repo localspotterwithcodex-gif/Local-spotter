@@ -170,3 +170,18 @@ Email (decision: Resend): `ResendMailProvider` in `backend/src/mail/mail.provide
 - **Shoproute location:** search no longer forces "Nederland", falls back to city + province if the street is not found, lists up to 5 matches to choose from, never rewrites the typed street/city/province, has editable latitude/longitude, and refuses to save a pin that is stale after the address was edited.
 - **Verified:** backend `tsc` clean; notifications, orders specs pass (see report for the rest); frontend `tsc` clean; 13 frontend tests pass. **Not verified:** browser behaviour, migration on a real DB, real Cloudinary upload.
 - **Steps:** `prisma migrate deploy` (new migration), Render `CORS_ORIGIN` must include `https://local-spotter-alpha.vercel.app`, `CLOUDINARY_*` must be set (else uploads return 503), redeploy both.
+
+## S. Subscription activation, plan prices/features, My Shop page (2026-10-16)
+
+- **"Your shop needs an active subscription":** adding products needs an ACTIVE subscription (spec 09). In production a chosen plan stays `INCOMPLETE` until a verified payment arrives, and no payment provider exists yet (D-004, open). Until that is decided, the owner can enable the documented pilot switch: set `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true` on Render, redeploy, then open Manage Subscription and press **Activate this plan** (the current plan's button used to be disabled, so a not-yet-active plan could not be re-selected). **This activates plans without payment**; turn it off and wire real payments before charging anyone.
+- **Plan prices:** the live plan rows were at EUR 0.00. Migration `20261016120000_plan_prices` sets Webshop 50 / Shoproutes 100 / Workshop 150 only where the price is still 0 (never overwrites a price set on purpose).
+- **Plan feature lists** rewritten from the feature matrix in `09-SUBSCRIPTION-SPEC.md` (EN/NL). Removed claims the documents do not make ("Basic statistics", "send notifications", "city maps visibility").
+- **Sidebar plan badge** now shows the real plan and state (it was hard-coded to "Workshop / All features active").
+- **My Shop page:** the Products / Shop Routes / Workshops tabs and their lists were removed as requested. Side effect: product edit/delete and workshop cancel were only reachable from those lists, so they are currently not reachable from the UI; a dedicated Products page would restore this.
+- **Not done:** real recurring payment (D-004), upgrade/downgrade proration, VAT, trial rules (open questions in 09).
+
+## T. Customer city chips and shop visibility
+
+- `/businesses` and `/shoproutes`: hardcoded city chips removed. Chips are now derived (`lib/cities.ts`, de-duplicated, sorted) from the cities of shops/routes owners have published; with no data only "All cities" shows. Each card shows its city.
+- Why owner-added shops showed "No shops found": `BusinessesService.getPublicBusinesses` returns only ACTIVE shops with an ACTIVE, unexpired subscription. Admin lists all shops regardless. This rule is unchanged. In production a plan stays INCOMPLETE until payment (D-004, undecided); for the pilot set `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true` on Render, then press "Activate" on Manage Subscription.
+- Redirects: onboarding already goes to subscription; selecting a plan that becomes ACTIVE now redirects to `/owner`; the dashboard shows a visibility banner (live + "View as customer" / pending approval / "Activate plan").

@@ -8,25 +8,25 @@ import type { TranslationKey } from "@/i18n/dictionaries";
  */
 export const PLAN_FEATURES: Record<PlanSlug, string[]> = {
   webshop: [
-    "Eigen winkelprofiel & logo",
-    "Onbeperkt producten toevoegen (max 3 foto's p/p)",
-    "Voorraadbeheer & varianten",
-    "Directe verkoop & bestelafhandeling",
-    "Basis statistieken",
+    "Bedrijfsprofiel met winkelafbeeldingen",
+    "Productaanbod met details en tot 3 foto's per product",
+    "Voorraadbeheer en varianten (maten, kleuren)",
+    "Producten verkopen en bestellingen afhandelen",
+    "Winkeladres opgeslagen (geen kaartweergave)",
   ],
   shoproutes: [
-    "Alles uit Webshop plan",
-    "Exacte GPS & winkelkaart weergave",
-    "Deelname aan lokale Shoproutes",
-    "Winkelroute navigatie voor bezoekers",
-    "Zichtbaarheid op stadskaarten",
+    "Alles uit het Webshop-pakket",
+    "Kaartweergave met GPS-coördinaten",
+    "Routebeschrijving naar je winkel",
+    "Eigen shoproutes maken",
+    "Deelnemen aan shoproutes",
   ],
   workshop: [
     "Alles uit Webshop & Shoproutes",
-    "Workshops organiseren & ticketverkoop",
-    "Volgers opbouwen & meldingen sturen",
-    "Klantbeoordelingen & foto-reviews",
-    "Reacties & community interactie",
+    "Workshops organiseren en boekingen ontvangen",
+    "Volgers",
+    "Reviews, beoordelingen, review-foto's en productreviews",
+    "Reacties en community-interactie",
   ],
 };
 

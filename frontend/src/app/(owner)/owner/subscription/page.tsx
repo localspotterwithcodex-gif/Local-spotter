@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Crown, Check, AlertCircle } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +20,7 @@ import type { PlanSlug } from "@/types/subscription";
 
 export default function OwnerSubscriptionPage() {
   const { t } = useLocale();
+  const router = useRouter();
   const f = useFormat();
   const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
@@ -43,11 +45,14 @@ export default function OwnerSubscriptionPage() {
     setNotice("");
     try {
       const updated = await api.selectPlan(businessId, slug);
-      if (updated.status !== "ACTIVE") {
-        setNotice(t("ownerx.sub.notice"));
-      }
       subRes.reload();
       reloadBusiness();
+      if (updated.status === "ACTIVE") {
+        // Shop is now live for customers: send the owner to the dashboard, which links to the public shop.
+        router.push("/owner");
+        return;
+      }
+      setNotice(t("ownerx.sub.notice"));
     } catch (err) {
       setActionError(errMsg(err));
     } finally {
@@ -223,13 +228,13 @@ export default function OwnerSubscriptionPage() {
 
                   <div className="pt-4">
                     <Button
-                      variant={isCurrent ? "secondary" : "outline"}
+                      variant={isCurrent && isActive ? "secondary" : isCurrent ? "primary" : "outline"}
                       size="sm"
                       fullWidth
-                      disabled={isCurrent || busy}
+                      disabled={(isCurrent && isActive) || busy}
                       onClick={() => handleSelect(plan.slug)}
                     >
-                      {isCurrent ? (isActive ? t("ownerx.sub.activePlan") : t("ownerx.sub.chosenPlan")) : t("ownerx.sub.switch")}
+                      {isCurrent ? (isActive ? t("ownerx.sub.activePlan") : t("ownerx.sub.activate")) : t("ownerx.sub.switch")}
                     </Button>
                   </div>
                 </div>
