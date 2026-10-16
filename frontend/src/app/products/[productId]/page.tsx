@@ -117,7 +117,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     <ConsumerLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Back Link */}
-        <Link href="/products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/products" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("products.detail.back")}
         </Link>

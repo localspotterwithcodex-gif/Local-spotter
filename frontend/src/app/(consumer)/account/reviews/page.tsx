@@ -23,7 +23,7 @@ export default function ConsumerReviewsPage() {
       <div className="max-w-4xl mx-auto my-6 space-y-6">
         {/* Top Header Bar */}
         <div className="flex items-center justify-between pb-4 border-b border-[#EAEAEA]">
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-row-reverse items-center justify-between gap-3">
             <Link
               href="/account"
               aria-label={t("account.back")}

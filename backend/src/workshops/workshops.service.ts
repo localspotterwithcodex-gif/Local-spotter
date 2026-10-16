@@ -20,6 +20,7 @@ import {
   UserRole,
   BusinessStatus,
   SubscriptionStatus,
+  SubscriptionPlanSlug,
 } from '@prisma/client';
 
 @Injectable()
@@ -114,6 +115,7 @@ export class WorkshopsService {
         subscription: {
           status: SubscriptionStatus.ACTIVE,
           currentPeriodEnd: { gt: new Date() },
+          plan: { slug: SubscriptionPlanSlug.WORKSHOP },
         },
       },
     };
@@ -137,7 +139,9 @@ export class WorkshopsService {
       ];
     }
 
-    if (query.status) {
+    // Public listing never exposes drafts/cancelled workshops: `query.status` may only narrow
+    // within the public statuses.
+    if (query.status && where.status.in.includes(query.status)) {
       where.status = query.status;
     }
 

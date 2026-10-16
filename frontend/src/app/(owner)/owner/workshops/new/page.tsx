@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api, type UploadedImage } from "@/lib/api";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
+import { useOwnerAccess } from "@/features/business/useOwnerAccess";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
@@ -21,6 +22,8 @@ export default function AddWorkshopPage() {
   const { t } = useLocale();
   const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
+
+  const access = useOwnerAccess(business?.id ?? null);
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
@@ -69,7 +72,7 @@ export default function AddWorkshopPage() {
         imageAssetId: images[0]?.id,
         imageUrl: images[0]?.url,
       });
-      router.push("/owner");
+      router.push("/owner/workshops");
     } catch (err) {
       setError(errMsg(err));
     } finally {
@@ -81,7 +84,7 @@ export default function AddWorkshopPage() {
     return (
       <OwnerLayout>
         <div className="max-w-2xl mx-auto space-y-6">
-          <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+          <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
             <ArrowLeft className="w-4 h-4" />
             {t("ownerx.backToDashboard")}
           </Link>
@@ -97,10 +100,27 @@ export default function AddWorkshopPage() {
     );
   }
 
+  if (!access.loading && !access.can("workshops")) {
+    return (
+      <OwnerLayout>
+        <div className="max-w-2xl mx-auto space-y-3">
+          <Link href="/owner/workshops" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+            <ArrowLeft className="w-4 h-4" />
+            {t("owner.myWorkshops")}
+          </Link>
+          <div className="rounded-2xl bg-[#FFF6DB] border border-[#D4B011] p-4 text-sm text-[#121F3E] space-y-2">
+            <p>{t("ownerx.workshops.locked")}</p>
+            <Link href="/owner/subscription" className="font-bold text-[#FA1EFF]">{t("ownerx.routes.upgrade")}</Link>
+          </div>
+        </div>
+      </OwnerLayout>
+    );
+  }
+
   return (
     <OwnerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>

@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateShopRouteDto, CreateRouteStopDto, UpdateShopRouteDto, UpdateRouteStopDto, QueryShopRouteDto, ReorderStopsDto } from './dto';
-import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus } from '@prisma/client';
+import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus, SubscriptionPlanSlug } from '@prisma/client';
 import { TranslationService } from '../translation/translation.service';
 
 @Injectable()
@@ -66,7 +66,8 @@ export class ShopRoutesService {
       slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    const shouldPublish = dto.publish !== true;
+    // Published immediately unless the owner explicitly asks for a draft.
+    const shouldPublish = dto.publish !== false;
     const status = shouldPublish ? RouteStatus.PUBLISHED : RouteStatus.DRAFT;
 
     const i18n = await this.translation.translateFields({ title: dto.title, description: dto.description });
@@ -98,9 +99,25 @@ export class ShopRoutesService {
     const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
+    // Public routes belong to a shop that is approved and has a running plan that includes
+    // Shoproutes (SHOPROUTES or WORKSHOP). Admin-created routes (no business) stay visible.
     const where: any = {
       status: RouteStatus.PUBLISHED,
       deletedAt: null,
+      OR: [
+        { businessId: null },
+        {
+          business: {
+            deletedAt: null,
+            status: BusinessStatus.ACTIVE,
+            subscription: {
+              status: SubscriptionStatus.ACTIVE,
+              currentPeriodEnd: { gt: new Date() },
+              plan: { slug: { in: [SubscriptionPlanSlug.SHOPROUTES, SubscriptionPlanSlug.WORKSHOP] } },
+            },
+          },
+        },
+      ],
     };
 
     if (query.city) {
@@ -112,9 +129,13 @@ export class ShopRoutesService {
     }
 
     if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { title: { contains: query.search, mode: 'insensitive' } },
+            { description: { contains: query.search, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 

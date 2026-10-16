@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthShell>
       <div className="space-y-6">
-        <Link href="/login" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/login" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("authx.forgot.backToLogin")}
         </Link>

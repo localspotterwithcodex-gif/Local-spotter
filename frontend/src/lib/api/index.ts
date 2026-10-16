@@ -190,6 +190,15 @@ export interface CreateWorkshopInput {
   imageAssetId?: string;
 }
 
+export interface CreateShoprouteInput {
+  title: string;
+  city: string;
+  description?: string;
+  /** false saves a draft; default publishes immediately. */
+  publish?: boolean;
+  stops: { businessId: string; title: string; latitude: number; longitude: number; sequence: number }[];
+}
+
 export interface BusinessBalance {
   currency: string;
   grossSalesCents: number;
@@ -532,6 +541,34 @@ export const api = {
       endTime: new Date(`${date}T${finishTime}`).toISOString(),
     });
     return toWorkshop(raw);
+  },
+
+  async getBusinessWorkshops(businessId: string): Promise<Workshop[]> {
+    const res = await apiClient.get<RawWorkshop[] | { data: RawWorkshop[] }>(
+      `/businesses/${businessId}/workshops?limit=100`
+    );
+    return unwrap(res).map(toWorkshop);
+  },
+
+  /** Owner view: includes drafts. */
+  async getBusinessShoproutes(businessId: string): Promise<Shoproute[]> {
+    const res = await apiClient.get<RawRoute[] | { data: RawRoute[] }>(
+      `/businesses/${businessId}/shop-routes?limit=100`
+    );
+    return unwrap(res).map(toShoproute);
+  },
+
+  async createShoproute(input: CreateShoprouteInput): Promise<Shoproute> {
+    const raw = await apiClient.post<RawRoute>("/shop-routes", input);
+    return toShoproute(raw);
+  },
+
+  async setShoprouteStatus(routeId: string, status: "PUBLISHED" | "DRAFT"): Promise<void> {
+    await apiClient.patch(`/shop-routes/${routeId}`, { status });
+  },
+
+  async deleteShoproute(routeId: string): Promise<void> {
+    await apiClient.delete(`/shop-routes/${routeId}`);
   },
 
   async addProductVariant(productId: string, input: { size?: string; color?: string; stock: number }): Promise<void> {

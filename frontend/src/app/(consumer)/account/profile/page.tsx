@@ -45,7 +45,7 @@ export default function ProfileEditPage() {
   return (
     <ConsumerLayout>
       <div className="max-w-md mx-auto space-y-6">
-        <Link href="/account" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("account.back")}
         </Link>

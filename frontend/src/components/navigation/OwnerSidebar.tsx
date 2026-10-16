@@ -9,6 +9,8 @@ import {
   ShoppingBag,
   Calendar,
   MapPin,
+  Route,
+  Presentation,
   CreditCard,
   Crown,
   Settings,
@@ -24,6 +26,8 @@ export const ownerSidebarLinks = (t: (key: TranslationKey) => string) => [
   { label: t("owner.addProduct"), href: "/owner/products/new", icon: PackagePlus },
   { label: t("owner.orders"), href: "/owner/orders", icon: ShoppingBag },
   { label: t("owner.workshopBookings"), href: "/owner/workshop-bookings", icon: Calendar },
+  { label: t("owner.myRoutes"), href: "/owner/shoproutes", icon: Route },
+  { label: t("owner.myWorkshops"), href: "/owner/workshops", icon: Presentation },
   { label: t("owner.shoppingRouteLocation"), href: "/owner/shoproutes/location", icon: MapPin },
   { label: t("owner.payoutsBalance"), href: "/owner/payouts", icon: CreditCard },
   { label: t("owner.manageSubscription"), href: "/owner/subscription", icon: Crown },
@@ -56,7 +60,9 @@ export const OwnerSidebar: React.FC = () => {
               const isActive =
                 link.href === "/owner"
                   ? pathname === "/owner" || pathname === "/owner/business"
-                  : pathname.startsWith(link.href);
+                  : link.href === "/owner/shoproutes"
+                    ? pathname === link.href
+                    : pathname.startsWith(link.href);
 
               return (
                 <Link

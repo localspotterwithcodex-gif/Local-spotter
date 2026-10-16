@@ -282,6 +282,20 @@ describe('ShopRoutesService', () => {
       expect(result.data).toEqual([]);
     });
 
+    it('requires an approved shop with a running plan that includes Shoproutes', async () => {
+      prisma.shopRoute.findMany.mockResolvedValue([]);
+      prisma.shopRoute.count.mockResolvedValue(0);
+
+      await service.getPublicRoutes({ search: 'x' } as any);
+      const where = prisma.shopRoute.findMany.mock.calls[0][0].where;
+      expect(where.status).toBe(RouteStatus.PUBLISHED);
+      const sub = where.OR[1].business.subscription;
+      expect(sub.status).toBe('ACTIVE');
+      expect(sub.plan.slug.in).toEqual(['SHOPROUTES', 'WORKSHOP']);
+      // search must not clobber the visibility OR
+      expect(where.AND).toHaveLength(1);
+    });
+
     it('should reject non-owner from viewing draft route', async () => {
       prisma.shopRoute.findUnique.mockResolvedValue(mockDraftRoute);
 

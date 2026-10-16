@@ -278,6 +278,16 @@ describe('WorkshopsService', () => {
       expect(result.data).toEqual([]);
     });
 
+    it('only lists workshops of shops on the WORKSHOP plan and ignores non-public status filters', async () => {
+      prisma.workshop.findMany.mockResolvedValue([]);
+      prisma.workshop.count.mockResolvedValue(0);
+
+      await service.getPublicWorkshops({ status: WorkshopStatus.DRAFT } as any);
+      const where = prisma.workshop.findMany.mock.calls[0][0].where;
+      expect(where.business.subscription.plan.slug).toBe('WORKSHOP');
+      expect(where.status).toEqual({ in: [WorkshopStatus.PUBLISHED, WorkshopStatus.FULL] });
+    });
+
     it('should filter out cancelled workshops from public listing', async () => {
       const cancelledWorkshop = { ...mockWorkshop, status: WorkshopStatus.CANCELLED };
       prisma.workshop.findMany.mockResolvedValue([]);

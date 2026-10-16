@@ -91,7 +91,7 @@ export default function OwnerOrdersPage() {
   return (
     <OwnerLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <Link href="/owner" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>

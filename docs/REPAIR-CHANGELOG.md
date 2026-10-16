@@ -185,3 +185,10 @@ Email (decision: Resend): `ResendMailProvider` in `backend/src/mail/mail.provide
 - `/businesses` and `/shoproutes`: hardcoded city chips removed. Chips are now derived (`lib/cities.ts`, de-duplicated, sorted) from the cities of shops/routes owners have published; with no data only "All cities" shows. Each card shows its city.
 - Why owner-added shops showed "No shops found": `BusinessesService.getPublicBusinesses` returns only ACTIVE shops with an ACTIVE, unexpired subscription. Admin lists all shops regardless. This rule is unchanged. In production a plan stays INCOMPLETE until payment (D-004, undecided); for the pilot set `ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true` on Render, then press "Activate" on Manage Subscription.
 - Redirects: onboarding already goes to subscription; selecting a plan that becomes ACTIVE now redirects to `/owner`; the dashboard shows a visibility banner (live + "View as customer" / pending approval / "Activate plan").
+
+## U. Shop routes and workshops by subscription
+
+- The "Jordaan Ambacht & Design Route" and "Ambachtelijk Leerbewerken Workshop" shown to customers are demo rows from `ALLOW_DEMO_SEED=yes npm run seed`, not code. Remove them with `backend/prisma/maintenance/remove-demo-routes-workshops.sql` (run by you; not a migration). Chips/lists then contain only owner-added content.
+- Backend: public routes require an approved shop with a running SHOPROUTES/WORKSHOP plan (admin-created routes without a shop stay visible); public workshops require the WORKSHOP plan and ignore non-public `status` filters (drafts could leak before); `createRoute` published only when `publish === true` — inverted; now published unless `publish === false`.
+- Owner portal: `/owner/shoproutes` (create with stops, publish/unpublish, delete) and `/owner/workshops` (list, cancel, add) plus sidebar links; both show an upgrade message when the plan lacks the feature (`lib/plan-access.ts` mirrors `SubscriptionEntitlementService`). New workshop redirects to the list.
+- Tests: shoproutes (19) and workshops (21) specs pass; frontend 19 tests pass; tsc clean (backend + frontend).
