@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Users, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -30,9 +30,14 @@ export default function AddWorkshopPage() {
   const [price, setPrice] = useState("");
   const [capacity, setCapacity] = useState("");
   const [location, setLocation] = useState("");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [finishTime, setFinishTime] = useState("");
+  type Row = { date: string; startTime: string; finishTime: string; capacity: string };
+  const emptyRow: Row = { date: "", startTime: "", finishTime: "", capacity: "" };
+  const [rows, setRows] = useState<Row[]>([emptyRow]);
+  const [deadlineHours, setDeadlineHours] = useState("48");
+  const [refundPct, setRefundPct] = useState("100");
+  const [minAge, setMinAge] = useState("");
+  const setRow = (i: number, patch: Partial<Row>) =>
+    setRows((r) => r.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -53,12 +58,25 @@ export default function AddWorkshopPage() {
       setError(t("ownerx.error.requiredFields"));
       return;
     }
-    if (finishTime <= startTime) {
-      setError(t("ownerx.workshopNew.errorEndTime"));
-      return;
+    for (const r of rows) {
+      if (!r.date || !r.startTime || !r.finishTime) {
+        setError(t("ownerx.error.requiredFields"));
+        return;
+      }
+      if (r.finishTime <= r.startTime) {
+        setError(t("ownerx.workshopNew.errorEndTime"));
+        return;
+      }
+      if (new Date(`${r.date}T${r.startTime}`).getTime() <= Date.now()) {
+        setError(t("ownerx.workshopNew.errorPast"));
+        return;
+      }
     }
-    if (new Date(`${date}T${startTime}`).getTime() <= Date.now()) {
-      setError(t("ownerx.workshopNew.errorPast"));
+    const deadlineNum = parseInt(deadlineHours, 10);
+    const refundNum = parseInt(refundPct, 10);
+    const minAgeNum = minAge ? parseInt(minAge, 10) : undefined;
+    if (Number.isNaN(deadlineNum) || deadlineNum < 0 || deadlineNum > 720 || Number.isNaN(refundNum) || refundNum < 0 || refundNum > 100) {
+      setError(t("ownerx.workshopNew.errorPolicy"));
       return;
     }
 
@@ -71,9 +89,15 @@ export default function AddWorkshopPage() {
         price: priceNum,
         capacity: capacityNum,
         location: location.trim() || undefined,
-        date,
-        startTime,
-        finishTime,
+        sessions: rows.map((r) => ({
+          date: r.date,
+          startTime: r.startTime,
+          finishTime: r.finishTime,
+          capacity: r.capacity ? parseInt(r.capacity, 10) : undefined,
+        })),
+        cancellationDeadlineHours: deadlineNum,
+        refundPercentage: refundNum,
+        minAge: minAgeNum,
         imageAssetId: images[0]?.id,
         imageUrl: images[0]?.url,
       });
@@ -196,34 +220,99 @@ export default function AddWorkshopPage() {
               required
             />
 
-            {/* Date & Time */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Input
-                label={t("ownerx.workshopNew.dateLabel")}
-                type="date"
-                min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
-                icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-              <Input
-                label={t("ownerx.workshopNew.startLabel")}
-                type="time"
-                icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
-              />
-              <Input
-                label={t("ownerx.workshopNew.finishLabel")}
-                type="time"
-                icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
-                value={finishTime}
-                onChange={(e) => setFinishTime(e.target.value)}
-                required
-              />
-            </div>
+            {/* Sessions */}
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-bold text-[#111111]">{t("ownerx.workshopNew.sessionsTitle")}</legend>
+              {rows.map((r, i) => (
+                <div key={i} className="rounded-2xl border border-[#EAEAEA] p-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <Input
+                      label={t("ownerx.workshopNew.dateLabel")}
+                      type="date"
+                      min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
+                      icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
+                      value={r.date}
+                      onChange={(e) => setRow(i, { date: e.target.value })}
+                      required
+                    />
+                    <Input
+                      label={t("ownerx.workshopNew.startLabel")}
+                      type="time"
+                      icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
+                      value={r.startTime}
+                      onChange={(e) => setRow(i, { startTime: e.target.value })}
+                      required
+                    />
+                    <Input
+                      label={t("ownerx.workshopNew.finishLabel")}
+                      type="time"
+                      icon={<Clock className="w-4 h-4 text-[#121F3E]" />}
+                      value={r.finishTime}
+                      onChange={(e) => setRow(i, { finishTime: e.target.value })}
+                      required
+                    />
+                    <Input
+                      label={t("ownerx.workshopNew.sessionSeats")}
+                      type="number"
+                      min={1}
+                      placeholder={capacity || "8"}
+                      value={r.capacity}
+                      onChange={(e) => setRow(i, { capacity: e.target.value })}
+                    />
+                  </div>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setRows((x) => x.filter((_, idx) => idx !== i))}
+                      className="flex items-center gap-1 text-xs font-bold text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> {t("ownerx.workshopNew.removeSession")}
+                    </button>
+                  )}
+                </div>
+              ))}
+              {rows.length < 30 && (
+                <button
+                  type="button"
+                  onClick={() => setRows((x) => [...x, { ...emptyRow }])}
+                  className="flex items-center gap-1 text-xs font-bold text-[#FA1EFF]"
+                >
+                  <Plus className="w-4 h-4" /> {t("ownerx.workshopNew.addSession")}
+                </button>
+              )}
+            </fieldset>
+
+            {/* Policy */}
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-bold text-[#111111]">{t("ownerx.workshopNew.policyTitle")}</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input
+                  label={t("ownerx.workshopNew.deadlineLabel")}
+                  type="number"
+                  min={0}
+                  max={720}
+                  value={deadlineHours}
+                  onChange={(e) => setDeadlineHours(e.target.value)}
+                />
+                <Input
+                  label={t("ownerx.workshopNew.refundLabel")}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={refundPct}
+                  onChange={(e) => setRefundPct(e.target.value)}
+                />
+                <Input
+                  label={t("ownerx.workshopNew.minAgeLabel")}
+                  type="number"
+                  min={0}
+                  max={99}
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)}
+                />
+              </div>
+              <p className="text-[11px] text-[#B7B7B7]">{t("ownerx.workshopNew.policyHint")}</p>
+            </fieldset>
 
             {/* Description */}
             <div className="space-y-1.5">

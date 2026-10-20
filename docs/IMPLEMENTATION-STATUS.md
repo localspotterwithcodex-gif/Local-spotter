@@ -1,5 +1,7 @@
 # LocalSpotter — Implementation Status
 
+> **Superseded (2026-10-19):** the gap-closure programme (11 phases) is finished. The tables below are historical; current status, release steps, verification evidence and limitations are in `RELEASE-GUIDE.md`; per-phase details in `REPAIR-CHANGELOG.md` (W–AF).
+
 Updated: 2026-10-14 (after i18n/addresses/ratings round; earlier: 2026-10-13 repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅ wired to the real backend, statically verified · 🟡 wired but needs a live run / partial · 🔴 missing · ⛔ blocked on an owner decision.
 "Verified" below means typecheck + lint + unit tests + grep; **no flow has been exercised end-to-end against a running stack yet** (see Verification).
 

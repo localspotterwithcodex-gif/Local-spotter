@@ -52,9 +52,13 @@ export default function OwnerSubscriptionPage() {
         router.push("/owner");
         return;
       }
-      setNotice(t("ownerx.sub.notice"));
+      // Not active yet: the plan is activated once the provider confirms the payment.
+      const intent = await api.createPaymentIntent({ purpose: "BUSINESS_SUBSCRIPTION", relatedEntityId: updated.id });
+      window.location.assign(intent.checkoutUrl ?? `/payment/return?payment=${encodeURIComponent(intent.paymentId)}`);
+      return;
     } catch (err) {
       setActionError(errMsg(err));
+      setNotice("");
     } finally {
       setBusy(false);
     }

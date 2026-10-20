@@ -12,9 +12,16 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { AllowedOrderStatusInput, UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-import { BusinessStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+import { BusinessStatus, FulfilmentMethod, NotificationType, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+import { EmployeesService } from '../employees/employees.service';
+import { PaymentsService } from '../payments/payments.service';
+import { quoteFulfilment, requiresAddress } from './fulfilment';
 
-import { getFlatShippingFee } from '../common/config/shipping';
+/** Payment states in which a store may see and process an order. */
+const PAID_STATES: PaymentStatus[] = [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED];
+
+/** Orders of a checkout that is still unpaid stay hidden from the stores (orders without a checkout predate payments). */
+const VISIBLE_TO_STORE = { OR: [{ customerOrderId: null }, { paymentStatus: { in: PAID_STATES } }] };
 
 @Injectable()
 export class OrdersService {
@@ -22,25 +29,29 @@ export class OrdersService {
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
     private notifications: NotificationsService,
+    private employees: EmployeesService,
+    private payments: PaymentsService,
   ) {}
 
   // ==========================================
   // CREATE ORDER FROM CART (CHECKOUT)
   // ==========================================
+
+  /**
+   * One checkout = one CustomerOrder (one payment) + one Order per store.
+   * Stock is reserved atomically here and released again if the payment is not
+   * completed in time (see PaymentsService.expireUnpaidCheckouts). Stores only
+   * see their order after it is paid.
+   */
   async createOrderFromCart(user: any, dto: CreateOrderDto) {
     const consumerProfile = await this.getConsumerProfile(user);
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      // 1. Fetch consumer's cart with items, products, and variants
+    return this.prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
         where: { consumerProfileId: consumerProfile.id },
         include: {
-          business: true,
           items: {
-            include: {
-              product: true,
-              variant: true,
-            },
+            include: { product: { include: { business: true } }, variant: true },
             orderBy: { createdAt: 'asc' },
           },
         },
@@ -50,141 +61,143 @@ export class OrdersService {
         throw new BadRequestException('Winkelwagen is leeg');
       }
 
-      if (!cart.businessId || !cart.business) {
-        throw new BadRequestException('Geen winkel gekoppeld aan de winkelwagen');
-      }
-
-      // 2. Validate business
-      const business = cart.business;
-      if (business.deletedAt || business.status !== BusinessStatus.ACTIVE) {
-        throw new BadRequestException('De winkel is momenteel niet actief of niet beschikbaar');
-      }
-
-      // 3. Validate subscription entitlement for business
-      const hasProductsEntitlement = await this.entitlementService.hasFeature(
-        business.id,
-        'PRODUCTS',
-      );
-      if (!hasProductsEntitlement) {
-        throw new ForbiddenException(
-          'Deze winkel heeft momenteel geen actief webshoppakket om bestellingen te accepteren',
-        );
-      }
-
-      // 4. Validate products, variants, and atomically deduct stock
-      const orderItemsData: Array<{
-        productId: string;
-        variantId: string | null;
-        productNameSnapshot: string;
-        variantSnapshot: string | null;
-        unitPrice: number;
-        quantity: number;
-        subtotalPrice: number;
-      }> = [];
-
+      // Group the cart per store.
+      const stores = new Map<string, { business: any; items: typeof cart.items }>();
       for (const item of cart.items) {
-        const product = item.product;
-
-        if (!product || product.deletedAt || !product.active) {
-          throw new BadRequestException(
-            `Product "${product?.name || item.productId}" is niet meer beschikbaar`,
-          );
-        }
-
-        let unitPrice = Number(product.price);
-        let variantSnapshot: string | null = null;
-
-        if (item.variantId) {
-          const variant = item.variant;
-          if (!variant || variant.productId !== product.id) {
-            throw new BadRequestException(
-              `Productvariant voor "${product.name}" is niet meer beschikbaar`,
-            );
-          }
-
-          if (variant.price !== null && variant.price !== undefined) {
-            unitPrice = Number(variant.price);
-          }
-
-          const variantParts = [variant.size, variant.color].filter(Boolean);
-          variantSnapshot = variantParts.length > 0 ? variantParts.join(' - ') : null;
-
-          // Atomic deduction on variant stock
-          const variantDeducted = await tx.$executeRaw`
-            UPDATE "product_variants"
-            SET "stock" = "stock" - ${item.quantity}, "updated_at" = NOW()
-            WHERE "id" = ${item.variantId}::uuid AND "stock" >= ${item.quantity}
-          `;
-
-          if (variantDeducted === 0) {
-            throw new ConflictException(
-              `Onvoldoende voorraad voor variant (${variantSnapshot}) van product "${product.name}".`,
-            );
-          }
-        } else {
-          // Atomic deduction on base product stock
-          const productDeducted = await tx.$executeRaw`
-            UPDATE "products"
-            SET "stock" = "stock" - ${item.quantity}, "updated_at" = NOW()
-            WHERE "id" = ${product.id}::uuid AND "stock" >= ${item.quantity}
-          `;
-
-          if (productDeducted === 0) {
-            throw new ConflictException(
-              `Onvoldoende voorraad voor product "${product.name}". Beschikbare voorraad is ontoereikend.`,
-            );
-          }
-        }
-
-        const itemSubtotal = unitPrice * item.quantity;
-
-        orderItemsData.push({
-          productId: product.id,
-          variantId: item.variantId,
-          productNameSnapshot: product.name,
-          variantSnapshot,
-          unitPrice,
-          quantity: item.quantity,
-          subtotalPrice: itemSubtotal,
-        });
+        const business = item.product.business;
+        const entry = stores.get(business.id) ?? { business, items: [] as typeof cart.items };
+        entry.items.push(item);
+        stores.set(business.id, entry);
       }
 
-      // 5. Calculate totals
-      const subtotalAmount = orderItemsData.reduce((acc, i) => acc + i.subtotalPrice, 0);
-      const deliveryFee = getFlatShippingFee(); // FLAT_SHIPPING_FEE (default 0)
-      const totalAmount = subtotalAmount + deliveryFee;
+      const methodByStore = new Map<string, FulfilmentMethod>();
+      for (const f of dto.fulfilments ?? []) {
+        if (!stores.has(f.businessId)) {
+          throw new BadRequestException('Leveringswijze opgegeven voor een winkel die niet in je winkelwagen zit');
+        }
+        methodByStore.set(f.businessId, f.method);
+      }
+      const methodFor = (businessId: string) => methodByStore.get(businessId) ?? FulfilmentMethod.SHIPPING;
 
-      // 6. Generate order number (e.g. LS-MMDD-XXXX)
-      const orderNumber = this.generateOrderNumber();
+      const needsAddress = [...stores.keys()].some((id) => requiresAddress(methodFor(id)));
+      if (needsAddress && !dto.deliveryAddress) {
+        throw new BadRequestException('Bezorgadres is verplicht voor verzending of bezorging');
+      }
 
-      // 7. Create Order record
-      const order = await tx.order.create({
-        data: {
-          orderNumber,
-          consumerProfileId: consumerProfile.id,
-          businessId: business.id,
-          status: OrderStatus.PENDING,
-          paymentStatus: PaymentStatus.PENDING,
-          subtotalAmount,
-          deliveryFee,
-          totalAmount,
-          currency: 'EUR',
-          deliveryStreet: dto.deliveryAddress.street,
-          deliveryHouseNumber: dto.deliveryAddress.houseNumber || null,
-          deliveryCity: dto.deliveryAddress.city,
-          deliveryPostalCode: dto.deliveryAddress.postalCode || null,
-          deliveryCountry: dto.deliveryAddress.country || 'NL',
-          deliveryNotes: dto.deliveryAddress.notes || null,
-          latitude: dto.deliveryAddress.latitude ?? null,
-          longitude: dto.deliveryAddress.longitude ?? null,
-          deliveryAddressSnapshot: dto.deliveryAddress as any,
-        },
+      const customerNumber = this.generateOrderNumber();
+      const customerOrder = await tx.customerOrder.create({
+        data: { orderNumber: customerNumber, consumerProfileId: consumerProfile.id, paymentStatus: PaymentStatus.PENDING, totalAmount: 0, currency: 'EUR' },
       });
 
-      // 8. Create OrderItem snapshot records
-      for (const item of orderItemsData) {
-        await tx.orderItem.create({
+      let grandTotal = 0;
+      const createdIds: string[] = [];
+      let index = 0;
+
+      for (const [businessId, { business, items }] of stores) {
+        index += 1;
+        if (business.deletedAt || business.status !== BusinessStatus.ACTIVE) {
+          throw new BadRequestException(`De winkel "${business.name}" is momenteel niet actief of niet beschikbaar`);
+        }
+        const hasProducts = await this.entitlementService.hasFeature(businessId, 'PRODUCTS');
+        if (!hasProducts) {
+          throw new ForbiddenException(`De winkel "${business.name}" heeft momenteel geen actief webshoppakket om bestellingen te accepteren`);
+        }
+
+        const orderItemsData: Array<{
+          productId: string;
+          variantId: string | null;
+          productNameSnapshot: string;
+          variantSnapshot: string | null;
+          unitPrice: number;
+          quantity: number;
+          subtotalPrice: number;
+        }> = [];
+
+        for (const item of items) {
+          const product = item.product;
+          if (!product || product.deletedAt || !product.active) {
+            throw new BadRequestException(`Product "${product?.name || item.productId}" is niet meer beschikbaar`);
+          }
+
+          let unitPrice = Number(product.price);
+          let variantSnapshot: string | null = null;
+
+          if (item.variantId) {
+            const variant = item.variant;
+            if (!variant || variant.productId !== product.id) {
+              throw new BadRequestException(`Productvariant voor "${product.name}" is niet meer beschikbaar`);
+            }
+            if (variant.price !== null && variant.price !== undefined) {
+              unitPrice = Number(variant.price);
+            }
+            const variantParts = [variant.size, variant.color].filter(Boolean);
+            variantSnapshot = variantParts.length > 0 ? variantParts.join(' - ') : null;
+
+            const variantDeducted = await tx.$executeRaw`
+              UPDATE "product_variants"
+              SET "stock" = "stock" - ${item.quantity}, "updated_at" = NOW()
+              WHERE "id" = ${item.variantId}::uuid AND "stock" >= ${item.quantity}
+            `;
+            if (variantDeducted === 0) {
+              throw new ConflictException(`Onvoldoende voorraad voor variant (${variantSnapshot}) van product "${product.name}".`);
+            }
+          } else {
+            const productDeducted = await tx.$executeRaw`
+              UPDATE "products"
+              SET "stock" = "stock" - ${item.quantity}, "updated_at" = NOW()
+              WHERE "id" = ${product.id}::uuid AND "stock" >= ${item.quantity}
+            `;
+            if (productDeducted === 0) {
+              throw new ConflictException(`Onvoldoende voorraad voor product "${product.name}". Beschikbare voorraad is ontoereikend.`);
+            }
+          }
+
+          orderItemsData.push({
+            productId: product.id,
+            variantId: item.variantId,
+            productNameSnapshot: product.name,
+            variantSnapshot,
+            unitPrice,
+            quantity: item.quantity,
+            subtotalPrice: Math.round(unitPrice * item.quantity * 100) / 100,
+          });
+        }
+
+        const method = methodFor(businessId);
+        const subtotalAmount = Math.round(orderItemsData.reduce((acc, i) => acc + i.subtotalPrice, 0) * 100) / 100;
+        const deliveryFee = quoteFulfilment(business, method, subtotalAmount, dto.deliveryAddress);
+        const totalAmount = Math.round((subtotalAmount + deliveryFee) * 100) / 100;
+        grandTotal += totalAmount;
+
+        const withAddress = requiresAddress(method) && dto.deliveryAddress;
+        const order = await tx.order.create({
           data: {
+            orderNumber: `${customerNumber}-${index}`,
+            customerOrderId: customerOrder.id,
+            fulfilmentMethod: method,
+            consumerProfileId: consumerProfile.id,
+            businessId,
+            status: OrderStatus.PENDING,
+            paymentStatus: PaymentStatus.PENDING,
+            subtotalAmount,
+            deliveryFee,
+            totalAmount,
+            currency: 'EUR',
+            deliveryStreet: withAddress ? dto.deliveryAddress!.street : null,
+            deliveryHouseNumber: withAddress ? dto.deliveryAddress!.houseNumber || null : null,
+            deliveryCity: withAddress ? dto.deliveryAddress!.city : null,
+            deliveryPostalCode: withAddress ? dto.deliveryAddress!.postalCode || null : null,
+            deliveryCountry: withAddress ? dto.deliveryAddress!.country || 'NL' : 'NL',
+            deliveryNotes: withAddress ? dto.deliveryAddress!.notes || null : null,
+            latitude: withAddress ? dto.deliveryAddress!.latitude ?? null : null,
+            longitude: withAddress ? dto.deliveryAddress!.longitude ?? null : null,
+            deliveryAddressSnapshot: withAddress ? (dto.deliveryAddress as any) : undefined,
+          },
+        });
+        createdIds.push(order.id);
+
+        await tx.orderItem.createMany({
+          data: orderItemsData.map((item) => ({
             orderId: order.id,
             productId: item.productId,
             productVariantId: item.variantId,
@@ -193,52 +206,30 @@ export class OrdersService {
             unitPrice: item.unitPrice,
             quantity: item.quantity,
             subtotalPrice: item.subtotalPrice,
-          },
+          })),
+        });
+
+        await tx.orderStatusEvent.create({
+          data: { orderId: order.id, fromStatus: null, toStatus: OrderStatus.PENDING, changedByUserId: user.id, reason: 'Bestelling geplaatst via winkelwagen' },
         });
       }
 
-      // 9. Create OrderStatusEvent audit entry
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId: order.id,
-          fromStatus: null,
-          toStatus: OrderStatus.PENDING,
-          changedByUserId: user.id,
-          reason: 'Bestelling geplaatst via winkelwagen',
-        },
-      });
-
-      // 10. Clear the consumer's cart items and reset business
+      await tx.customerOrder.update({ where: { id: customerOrder.id }, data: { totalAmount: Math.round(grandTotal * 100) / 100 } });
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-      await tx.cart.update({
-        where: { id: cart.id },
-        data: { businessId: null },
-      });
 
-      // 11. Return order with items and business details
-      return tx.order.findUnique({
-        where: { id: order.id },
+      return tx.customerOrder.findUnique({
+        where: { id: customerOrder.id },
         include: {
-          business: {
-            select: { id: true, name: true, slug: true, city: true, phone: true, email: true },
+          orders: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              business: { select: { id: true, name: true, slug: true, city: true, phone: true, email: true } },
+              items: true,
+            },
           },
-          items: true,
-          statusEvents: { orderBy: { createdAt: 'asc' } },
         },
       });
     });
-
-    if (created) {
-      // After commit; best-effort and honours the owner's notification preferences.
-      await this.notifications.notifyBusinessOwner(
-        created.businessId,
-        'ORDER',
-        'Nieuwe bestelling',
-        `Bestelling ${created.orderNumber} is geplaatst (€${Number(created.totalAmount).toFixed(2)}).`,
-        '/owner/orders',
-      );
-    }
-    return created;
   }
 
   // ==========================================
@@ -268,6 +259,7 @@ export class OrdersService {
           business: {
             select: { id: true, name: true, slug: true, city: true },
           },
+          customerOrder: { select: { id: true, orderNumber: true, paymentStatus: true, totalAmount: true } },
           items: true,
         },
       }),
@@ -289,7 +281,7 @@ export class OrdersService {
   // GET ORDERS FOR BUSINESS OWNER
   // ==========================================
   async getBusinessOrders(businessId: string, user: any, query: OrderQueryDto) {
-    await this.verifyBusinessOwnership(businessId, user);
+    await this.verifyBusinessAccess(businessId, user);
 
     const page = Math.max(Number(query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
@@ -297,6 +289,7 @@ export class OrdersService {
 
     const where: any = {
       businessId,
+      ...VISIBLE_TO_STORE,
     };
 
     if (query.status) {
@@ -368,6 +361,7 @@ export class OrdersService {
             phone: true,
           },
         },
+        customerOrder: { select: { id: true, orderNumber: true, paymentStatus: true, totalAmount: true } },
         items: true,
         statusEvents: { orderBy: { createdAt: 'asc' } },
       },
@@ -382,21 +376,19 @@ export class OrdersService {
       return order;
     }
 
-    if (user.role === UserRole.CONSUMER) {
-      if (order.consumerProfile.userId !== user.id) {
-        throw new ForbiddenException('Je hebt geen toegang tot deze bestelling');
-      }
+    // The ordering customer always sees their order (including its payment state).
+    if (user.role === UserRole.CONSUMER && order.consumerProfile.userId === user.id) {
       return order;
     }
 
-    if (user.role === UserRole.BUSINESS_OWNER) {
-      const ownerProfile = await this.prisma.businessOwnerProfile.findUnique({
-        where: { userId: user.id },
-      });
-      if (!ownerProfile || order.business.ownerProfileId !== ownerProfile.id) {
-        throw new ForbiddenException('Je hebt geen toegang tot deze bestelling');
+    // Shop side (owner or employee): only once the order is paid.
+    if (user.role === UserRole.CONSUMER || user.role === UserRole.BUSINESS_OWNER) {
+      if (await this.canAccessShop(user, order.businessId)) {
+        if (order.customerOrderId && !PAID_STATES.includes(order.paymentStatus)) {
+          throw new NotFoundException('Bestelling niet gevonden');
+        }
+        return order;
       }
-      return order;
     }
 
     throw new ForbiddenException('Je hebt geen toegang tot deze bestelling');
@@ -418,10 +410,8 @@ export class OrdersService {
       throw new NotFoundException('Bestelling niet gevonden');
     }
 
-    // Authorization: only owning business owner or SUPER_ADMIN
-    if (user.role !== UserRole.SUPER_ADMIN) {
-      await this.verifyBusinessOwnership(order.businessId, user);
-    }
+    // Authorization: owning business owner, an employee of the shop, or SUPER_ADMIN
+    await this.verifyBusinessAccess(order.businessId, user);
 
     // Normalize ACCEPTED -> CONFIRMED for internal lifecycle
     const targetStatus =
@@ -432,7 +422,15 @@ export class OrdersService {
     // Validate transition
     this.validateStatusTransition(order.status, targetStatus);
 
-    return this.prisma.$transaction(async (tx) => {
+    const isRelease = targetStatus === OrderStatus.CANCELLED || targetStatus === OrderStatus.REJECTED;
+    if (!isRelease && order.customerOrderId && !PAID_STATES.includes(order.paymentStatus)) {
+      throw new ConflictException('Deze bestelling is nog niet betaald en kan nog niet worden verwerkt');
+    }
+    if (targetStatus === OrderStatus.OUT_FOR_DELIVERY && order.fulfilmentMethod === FulfilmentMethod.PICKUP) {
+      throw new BadRequestException('Een bestelling om af te halen kan niet "onderweg" zijn');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
       const updateData: any = {
         status: targetStatus,
       };
@@ -475,6 +473,10 @@ export class OrdersService {
 
       return updatedOrder;
     });
+
+    const refund = isRelease ? await this.payments.refundOrder(orderId, dto.reason || `Bestelling ${targetStatus === OrderStatus.REJECTED ? 'afgewezen' : 'geannuleerd'} door de winkel`) : undefined;
+    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, targetStatus, refund?.status);
+    return refund ? { ...updated, refund } : updated;
   }
 
   // ==========================================
@@ -506,10 +508,8 @@ export class OrdersService {
     }
 
     // Role-specific cancellation policies
-    if (user.role === UserRole.CONSUMER) {
-      if (order.consumerProfile.userId !== user.id) {
-        throw new ForbiddenException('Je kunt alleen je eigen bestellingen annuleren');
-      }
+    const isOwnCustomerOrder = user.role === UserRole.CONSUMER && order.consumerProfile.userId === user.id;
+    if (isOwnCustomerOrder) {
       // Consumers can only cancel before PREPARING
       if (
         order.status !== OrderStatus.PENDING &&
@@ -519,13 +519,12 @@ export class OrdersService {
           'Bestelling is al in voorbereiding of verzonden en kan niet meer zelfstandig worden geannuleerd. Neem contact op met de winkel.',
         );
       }
-    } else if (user.role === UserRole.BUSINESS_OWNER) {
-      await this.verifyBusinessOwnership(order.businessId, user);
-    } else if (user.role !== UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException('Onbevoegd om deze bestelling te annuleren');
+    } else {
+      // Shop owner, employee or admin; anyone else (including other customers) is refused.
+      await this.verifyBusinessAccess(order.businessId, user);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const cancelled = await this.prisma.$transaction(async (tx) => {
       // 1. Restore stock
       await this.restoreOrderStock(tx, order.items);
 
@@ -555,6 +554,10 @@ export class OrdersService {
 
       return updatedOrder;
     });
+
+    const refund = await this.payments.refundOrder(orderId, dto.reason || 'Bestelling geannuleerd');
+    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, OrderStatus.CANCELLED, refund.status);
+    return { ...cancelled, refund };
   }
 
   // ==========================================
@@ -640,30 +643,60 @@ export class OrdersService {
     return profile;
   }
 
-  private async verifyBusinessOwnership(businessId: string, user: any) {
-    if (user.role === UserRole.SUPER_ADMIN) {
-      return;
-    }
+  private canAccessShop(user: any, businessId: string): Promise<boolean> {
+    return this.employees.canAccessShop(
+      { id: user.id, email: user.email ?? '', role: user.role, profileId: user.profileId ?? null } as any,
+      businessId,
+    );
+  }
 
-    const ownerProfile = await this.prisma.businessOwnerProfile.findUnique({
-      where: { userId: user.id },
-    });
-    if (!ownerProfile) {
-      throw new ForbiddenException('Geen bedrijfsprofiel gevonden');
-    }
-
-    const business = await this.prisma.business.findUnique({
-      where: { id: businessId },
-    });
+  /** Owner, admin or an active employee of the shop (orders are part of the employee scope). */
+  private async verifyBusinessAccess(businessId: string, user: any) {
+    const business = await this.prisma.business.findUnique({ where: { id: businessId } });
     if (!business || business.deletedAt) {
       throw new NotFoundException('Winkel niet gevonden');
     }
+    if (user.role === UserRole.SUPER_ADMIN) return business;
 
-    if (business.ownerProfileId !== ownerProfile.id) {
+    if (user.role === UserRole.BUSINESS_OWNER) {
+      const ownerProfile = await this.prisma.businessOwnerProfile.findUnique({ where: { userId: user.id } });
+      if (ownerProfile && business.ownerProfileId === ownerProfile.id) return business;
       throw new ForbiddenException('Je bent niet de eigenaar van deze winkel');
     }
+    if (user.role === UserRole.CONSUMER && (await this.employees.isActiveStaff(user.id, businessId))) {
+      return business;
+    }
+    throw new ForbiddenException('Je hebt geen toegang tot deze winkel');
+  }
 
-    return business;
+  /** Customer notification for a status change. Best effort; never blocks the status change. */
+  private async notifyStatus(
+    consumerProfileId: string,
+    orderNumber: string,
+    method: FulfilmentMethod,
+    status: OrderStatus,
+    refundStatus?: 'REFUNDED' | 'NOT_REQUIRED' | 'FAILED',
+  ) {
+    const pickup = method === FulfilmentMethod.PICKUP;
+    const texts: Partial<Record<OrderStatus, [string, string, boolean]>> = {
+      [OrderStatus.CONFIRMED]: ['Bestelling geaccepteerd', `De winkel heeft bestelling ${orderNumber} geaccepteerd.`, false],
+      [OrderStatus.PREPARING]: ['Bestelling in voorbereiding', `Bestelling ${orderNumber} wordt klaargemaakt.`, false],
+      [OrderStatus.READY]: [pickup ? 'Klaar om af te halen' : 'Bestelling klaar', pickup ? `Bestelling ${orderNumber} ligt klaar om af te halen.` : `Bestelling ${orderNumber} is klaar voor verzending.`, true],
+      [OrderStatus.OUT_FOR_DELIVERY]: ['Bestelling onderweg', `Bestelling ${orderNumber} is onderweg.`, true],
+      [OrderStatus.DELIVERED]: [pickup ? 'Bestelling opgehaald' : 'Bestelling afgeleverd', `Bestelling ${orderNumber} is voltooid.`, false],
+      [OrderStatus.CANCELLED]: ['Bestelling geannuleerd', `Bestelling ${orderNumber} is geannuleerd.${refundStatus === 'REFUNDED' ? ' Het bedrag wordt terugbetaald.' : refundStatus === 'FAILED' ? ' De terugbetaling wordt handmatig afgehandeld.' : ''}`, true],
+      [OrderStatus.REJECTED]: ['Bestelling afgewezen', `De winkel kan bestelling ${orderNumber} helaas niet leveren.${refundStatus === 'REFUNDED' ? ' Het bedrag wordt terugbetaald.' : refundStatus === 'FAILED' ? ' De terugbetaling wordt handmatig afgehandeld.' : ''}`, true],
+    };
+    const entry = texts[status];
+    if (!entry) return;
+    try {
+      const profile = await this.prisma.consumerProfile.findUnique({ where: { id: consumerProfileId }, select: { userId: true } });
+      if (profile) {
+        await this.notifications.notifyUser(profile.userId, NotificationType.ORDER, entry[0], entry[1], { linkUrl: '/account/orders', email: entry[2] });
+      }
+    } catch {
+      /* best effort */
+    }
   }
 
   private generateOrderNumber(): string {

@@ -1,19 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
+  MaxLength,
   ValidateNested,
   IsNumber,
   Min,
   Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { FulfilmentMethod } from '@prisma/client';
 
 export class DeliveryAddressDto {
   @ApiProperty({ example: 'Keizersgracht', description: 'Street name' })
   @IsNotEmpty({ message: 'Straatnaam is verplicht' })
   @IsString()
+  @MaxLength(200)
   street: string;
 
   @ApiPropertyOptional({ example: '421-B', description: 'House number and addition' })
@@ -58,10 +65,31 @@ export class DeliveryAddressDto {
   longitude?: number;
 }
 
+export class StoreFulfilmentDto {
+  @ApiProperty({ description: 'Store the choice applies to' })
+  @IsUUID('4')
+  businessId: string;
+
+  @ApiProperty({ enum: FulfilmentMethod })
+  @IsEnum(FulfilmentMethod)
+  method: FulfilmentMethod;
+}
+
 export class CreateOrderDto {
-  @ApiProperty({ description: 'Delivery address for order fulfillment' })
+  @ApiPropertyOptional({ description: 'Delivery address; required unless every store is picked up' })
+  @IsOptional()
   @ValidateNested()
   @Type(() => DeliveryAddressDto)
-  @IsNotEmpty({ message: 'Bezorgadres is verplicht' })
-  deliveryAddress: DeliveryAddressDto;
+  deliveryAddress?: DeliveryAddressDto;
+
+  @ApiPropertyOptional({
+    type: [StoreFulfilmentDto],
+    description: 'Per-store fulfilment method; stores that are not listed default to SHIPPING',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => StoreFulfilmentDto)
+  fulfilments?: StoreFulfilmentDto[];
 }

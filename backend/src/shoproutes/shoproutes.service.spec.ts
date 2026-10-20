@@ -94,7 +94,7 @@ describe('ShopRoutesService', () => {
         ShopRoutesService,
         { provide: PrismaService, useValue: prisma },
         { provide: SubscriptionEntitlementService, useValue: entitlementService },
-        { provide: TranslationService, useValue: { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } },
+        { provide: TranslationService, useValue: { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } },
       ],
     }).compile();
 
@@ -294,6 +294,47 @@ describe('ShopRoutesService', () => {
       expect(sub.plan.slug.in).toEqual(['SHOPROUTES', 'WORKSHOP']);
       // search must not clobber the visibility OR
       expect(where.AND).toHaveLength(1);
+    });
+
+    it('filters by theme, length and duration and lists featured routes first', async () => {
+      prisma.shopRoute.findMany.mockResolvedValue([]);
+      prisma.shopRoute.count.mockResolvedValue(0);
+      await service.getPublicRoutes({ theme: 'Ambacht', maxDistanceKm: 5, maxDurationMinutes: 90, featured: true } as any);
+      const args = prisma.shopRoute.findMany.mock.calls[0][0];
+      expect(args.where.theme).toEqual({ equals: 'Ambacht', mode: 'insensitive' });
+      expect(args.where.distanceKm).toEqual({ lte: 5 });
+      expect(args.where.durationMinutes).toEqual({ lte: 90 });
+      expect(args.where.featured).toBe(true);
+      expect(args.orderBy).toEqual([{ featured: 'desc' }, { createdAt: 'desc' }]);
+    });
+
+    it('only lets admins change featured', async () => {
+      prisma.shopRoute.findUnique.mockResolvedValue({ ...mockRoute, deletedAt: null, distanceKm: null, durationMinutes: null });
+      prisma.businessOwnerProfile.findUnique.mockResolvedValue(mockOwnerProfile);
+      prisma.business.findUnique.mockResolvedValue(mockBusiness);
+      prisma.shopRoute.update.mockResolvedValue({ id: 'route-1' });
+      await service.updateRoute('route-1', mockUserOwner, { featured: true, theme: ' Food ' } as any);
+      const data = prisma.shopRoute.update.mock.calls[0][0].data;
+      expect(data.featured).toBeUndefined();
+      expect(data.theme).toBe('Food');
+    });
+
+    it('recomputes distance and duration after adding a stop unless set manually', async () => {
+      prisma.shopRoute.findUnique
+        .mockResolvedValueOnce({ ...mockRoute, deletedAt: null })
+        .mockResolvedValueOnce({ statsManual: false });
+      prisma.businessOwnerProfile.findUnique.mockResolvedValue(mockOwnerProfile);
+      prisma.business.findUnique.mockResolvedValue(mockBusiness);
+      prisma.routeStop.count.mockResolvedValue(0);
+      prisma.routeStop.create.mockResolvedValue({ id: 's1' });
+      prisma.routeStop.findMany.mockResolvedValue([
+        { latitude: 52.0, longitude: 4.0, sequence: 0 },
+        { latitude: 52.009, longitude: 4.0, sequence: 1 },
+      ]);
+      await service.addStop('route-1', mockUserOwner, { businessId: 'bus-1', title: 'S', latitude: 52.009, longitude: 4.0, sequence: 1 });
+      const data = prisma.shopRoute.update.mock.calls.at(-1)[0].data;
+      expect(data.distanceKm).toBeGreaterThan(0.9);
+      expect(data.durationMinutes).toBeGreaterThan(0);
     });
 
     it('should reject non-owner from viewing draft route', async () => {

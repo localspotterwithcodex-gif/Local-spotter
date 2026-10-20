@@ -57,6 +57,10 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const [description, setDescription] = useState(business.description);
   const [phone, setPhone] = useState(business.phone);
   const [kvk, setKvk] = useState(business.kvkNumber);
+  const [websiteUrl, setWebsiteUrl] = useState(business.websiteUrl ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(business.instagramUrl ?? "");
+  const [facebookUrl, setFacebookUrl] = useState(business.facebookUrl ?? "");
+  const [tiktokUrl, setTiktokUrl] = useState(business.tiktokUrl ?? "");
   const [street, setStreet] = useState(business.location.street);
   const [city, setCity] = useState(business.location.city);
   const [province, setProvince] = useState(business.location.province);
@@ -68,6 +72,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const toImages = (id?: string, url?: string): UploadedImage[] => (id && url ? [{ id, url }] : []);
   const [logo, setLogo] = useState<UploadedImage[]>(() => toImages(business.logoAssetId, business.logoUrl));
   const [cover, setCover] = useState<UploadedImage[]>(() => toImages(business.coverAssetId, business.heroImageUrl));
+  const [panorama, setPanorama] = useState<UploadedImage[]>(() => toImages(business.panoramaAssetId, business.panoramaUrl));
   const [uploadsBusy, setUploadsBusy] = useState(false);
 
   // Notification preferences
@@ -124,9 +129,19 @@ function SettingsForm({ business, categories }: { business: Business; categories
       return;
     }
 
+    const links = [websiteUrl, instagramUrl, facebookUrl, tiktokUrl].map((v) => v.trim());
+    if (links.some((v) => v !== "" && !/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(v))) {
+      setError(t("ownerx.settings.errorLinks"));
+      return;
+    }
+
     setIsLoading(true);
     try {
       await api.updateBusiness(business.id, {
+        websiteUrl: links[0] || null,
+        instagramUrl: links[1] || null,
+        facebookUrl: links[2] || null,
+        tiktokUrl: links[3] || null,
         name: storeName.trim(),
         description,
         phone,
@@ -139,6 +154,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
         longitude: lngNum,
         logoAssetId: logo[0]?.id ?? null,
         coverAssetId: cover[0]?.id ?? null,
+        panoramaAssetId: panorama[0]?.id ?? null,
       });
       if (prefsDirty && prefsLoaded) {
         setPrefs(await api.updateNotificationPreferences(prefs));
@@ -246,6 +262,18 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 />
               </div>
 
+              <div className="space-y-2">
+                <ServerImageUploader
+                  value={panorama}
+                  onChange={setPanorama}
+                  max={1}
+                  maxEdge={4096}
+                  label={t("panorama.settingsLabel")}
+                  onBusyChange={setUploadsBusy}
+                />
+                <p className="text-[11px] text-[#B7B7B7]">{t("panorama.settingsHelp")}</p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label={t("ownerx.settings.shopName")}
@@ -293,6 +321,13 @@ function SettingsForm({ business, categories }: { business: Business; categories
                   onChange={(e) => setKvk(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label={t("ownerx.settings.website")} type="url" placeholder="https://" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+                <Input label="Instagram" type="url" placeholder="https://instagram.com/…" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
+                <Input label="Facebook" type="url" placeholder="https://facebook.com/…" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} />
+                <Input label="TikTok" type="url" placeholder="https://tiktok.com/@…" value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} />
               </div>
 
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pt-2 pb-2 flex items-center gap-2">

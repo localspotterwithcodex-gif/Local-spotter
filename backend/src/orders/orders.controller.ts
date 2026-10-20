@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('Orders')
@@ -40,6 +41,7 @@ export class OrdersController {
   // ==========================================
 
   @Post('orders')
+  @AllowGuest()
   @Roles(UserRole.CONSUMER)
   @ApiOperation({
     summary: 'Create order from current consumer cart (Transactional checkout)',
@@ -55,6 +57,7 @@ export class OrdersController {
   }
 
   @Get('orders')
+  @AllowGuest()
   @Roles(UserRole.CONSUMER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get list of orders for the authenticated consumer' })
   @ApiResponse({ status: 200, description: 'Paginated list of consumer orders.' })
@@ -63,6 +66,7 @@ export class OrdersController {
   }
 
   @Get('orders/:orderId')
+  @AllowGuest()
   @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get single order details by ID' })
   @ApiParam({ name: 'orderId', description: 'Order UUID' })
@@ -78,7 +82,7 @@ export class OrdersController {
   // ==========================================
 
   @Get('businesses/:businessId/orders')
-  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.CONSUMER, UserRole.SUPER_ADMIN) // CONSUMER = shop employee; the service checks membership
   @ApiOperation({ summary: 'Get orders received by a specific owned business' })
   @ApiParam({ name: 'businessId', description: 'Business UUID' })
   @ApiResponse({ status: 200, description: 'Paginated list of business orders.' })
@@ -93,7 +97,7 @@ export class OrdersController {
   }
 
   @Patch('orders/:orderId/status')
-  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.CONSUMER, UserRole.SUPER_ADMIN) // CONSUMER = shop employee; the service checks membership
   @ApiOperation({
     summary: 'Update order status with transition validation',
     description:
@@ -117,6 +121,7 @@ export class OrdersController {
   // ==========================================
 
   @Post('orders/:orderId/cancel')
+  @AllowGuest()
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
   @ApiOperation({

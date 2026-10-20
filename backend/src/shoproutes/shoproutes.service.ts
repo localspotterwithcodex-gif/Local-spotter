@@ -4,12 +4,15 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateShopRouteDto, CreateRouteStopDto, UpdateShopRouteDto, UpdateRouteStopDto, QueryShopRouteDto, ReorderStopsDto } from './dto';
 import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus, SubscriptionPlanSlug } from '@prisma/client';
 import { TranslationService } from '../translation/translation.service';
+
+import { routeStats } from '../common/geo';
 
 @Injectable()
 export class ShopRoutesService {
@@ -84,11 +87,17 @@ export class ShopRoutesService {
         description: dto.description || null,
         city: dto.city,
         status,
+        theme: dto.theme?.trim() || null,
+        coverImageUrl: dto.coverImageUrl || null,
+        ...(dto.distanceKm !== undefined || dto.durationMinutes !== undefined
+          ? { statsManual: true, distanceKm: dto.distanceKm ?? null, durationMinutes: dto.durationMinutes ?? null }
+          : {}),
       },
     });
 
     if (dto.stops && dto.stops.length > 0) {
       await this.createStops(route.id, dto.stops);
+      await this.recomputeStats(route.id);
     }
 
     return this.getRouteById(route.id);
@@ -128,6 +137,20 @@ export class ShopRoutesService {
       where.businessId = query.businessId;
     }
 
+    if (query.theme) where.theme = { equals: query.theme, mode: 'insensitive' };
+    if (query.maxDistanceKm !== undefined) where.distanceKm = { lte: query.maxDistanceKm };
+    if (query.maxDurationMinutes !== undefined) where.durationMinutes = { lte: query.maxDurationMinutes };
+    if (query.featured) where.featured = true;
+
+    const orderBy: any =
+      query.sort === 'distance'
+        ? [{ distanceKm: 'asc' }]
+        : query.sort === 'duration'
+          ? [{ durationMinutes: 'asc' }]
+          : query.sort === 'newest'
+            ? [{ createdAt: 'desc' }]
+            : [{ featured: 'desc' }, { createdAt: 'desc' }];
+
     if (query.search) {
       where.AND = [
         {
@@ -144,7 +167,7 @@ export class ShopRoutesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           business: {
             select: { id: true, name: true, slug: true, city: true, latitude: true, longitude: true },
@@ -157,6 +180,10 @@ export class ShopRoutesService {
       }),
       this.prisma.shopRoute.count({ where }),
     ]);
+
+    await this.translation.backfill(routes, ['title', 'description'], (r, b) =>
+      this.prisma.shopRoute.update({ where: { id: r.id }, data: { translations: b.translations as any, sourceLocale: b.sourceLocale } }),
+    );
 
     return {
       data: routes,
@@ -261,6 +288,17 @@ export class ShopRoutesService {
         description: dto.description !== undefined ? dto.description : undefined,
         city: dto.city !== undefined ? dto.city : undefined,
         status: dto.status,
+        theme: dto.theme !== undefined ? dto.theme.trim() || null : undefined,
+        coverImageUrl: dto.coverImageUrl,
+        // only admins may feature a route
+        featured: user.role === UserRole.SUPER_ADMIN ? dto.featured : undefined,
+        ...(dto.distanceKm !== undefined || dto.durationMinutes !== undefined
+          ? {
+              statsManual: true,
+              distanceKm: dto.distanceKm ?? (route.distanceKm as any),
+              durationMinutes: dto.durationMinutes ?? route.durationMinutes,
+            }
+          : {}),
       },
       include: {
         business: { select: { id: true, name: true, slug: true, city: true } },
@@ -346,6 +384,7 @@ export class ShopRoutesService {
       include: { business: { select: { id: true, name: true, slug: true, city: true } } },
     });
 
+    await this.recomputeStats(routeId);
     return stop;
   }
 
@@ -373,7 +412,7 @@ export class ShopRoutesService {
       throw new ForbiddenException('Het referentiebedrijf heeft geen actief Shoproutes abonnement');
     }
 
-    return this.prisma.routeStop.update({
+    const updatedStop = await this.prisma.routeStop.update({
       where: { id: stopId },
       data: {
         businessId: dto.businessId,
@@ -384,6 +423,8 @@ export class ShopRoutesService {
       },
       include: { business: { select: { id: true, name: true, slug: true, city: true } } },
     });
+    await this.recomputeStats(stop.routeId);
+    return updatedStop;
   }
 
   async removeStop(routeId: string, stopId: string, user: any) {
@@ -398,9 +439,11 @@ export class ShopRoutesService {
 
     await this.verifyRouteOwnership(stop.route, user);
 
-    return this.prisma.routeStop.delete({
+    const removed = await this.prisma.routeStop.delete({
       where: { id: stopId },
     });
+    await this.recomputeStats(stop.routeId);
+    return removed;
   }
 
   async reorderStops(routeId: string, user: any, dto: ReorderStopsDto) {
@@ -415,7 +458,7 @@ export class ShopRoutesService {
 
     await this.verifyRouteOwnership(route, user);
 
-    return this.prisma.$transaction(async (tx) => {
+    const reordered = await this.prisma.$transaction(async (tx) => {
       for (const item of dto.stops) {
         await tx.routeStop.update({
           where: { id: item.id },
@@ -429,6 +472,8 @@ export class ShopRoutesService {
         include: { business: { select: { id: true, name: true, slug: true, city: true, latitude: true, longitude: true } } },
       });
     });
+    await this.recomputeStats(routeId);
+    return reordered;
   }
 
   async getStops(routeId: string) {
@@ -547,6 +592,23 @@ export class ShopRoutesService {
     }
 
     return business;
+  }
+
+  /** Keeps distance/duration in sync with the stops, unless the owner set them by hand. */
+  private async recomputeStats(routeId: string) {
+    try {
+      const route = await this.prisma.shopRoute.findUnique({ where: { id: routeId }, select: { statsManual: true } });
+      if (!route || route.statsManual) return;
+      const stops = await this.prisma.routeStop.findMany({
+        where: { routeId },
+        select: { latitude: true, longitude: true, sequence: true },
+      });
+      const { distanceKm, durationMinutes } = routeStats(stops ?? []);
+      await this.prisma.shopRoute.update({ where: { id: routeId }, data: { distanceKm, durationMinutes } });
+    } catch (err) {
+      // The stop change itself succeeded; stale stats are corrected on the next change.
+      new Logger(ShopRoutesService.name).warn(`Could not recompute route stats for ${routeId}: ${(err as Error).message}`);
+    }
   }
 
   private async createStops(routeId: string, stops: CreateRouteStopDto[]) {

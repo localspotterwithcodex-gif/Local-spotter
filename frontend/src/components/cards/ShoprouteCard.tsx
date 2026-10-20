@@ -6,6 +6,8 @@ import Image from "next/image";
 import { MapPin, Navigation, Store } from "lucide-react";
 import { Shoproute } from "@/types/shoproute";
 import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { formatDuration } from "@/lib/maps";
 
 interface ShoprouteCardProps {
   route: Shoproute;
@@ -13,6 +15,7 @@ interface ShoprouteCardProps {
 
 export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
   const { t } = useLocale();
+  const f = useFormat();
   return (
     <Link
       href={`/shoproutes/${route.id}`}
@@ -36,6 +39,11 @@ export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
           <MapPin className="w-3.5 h-3.5 text-[#54D1CA]" />
           {route.cityName}
         </div>
+        {route.featured && (
+          <div className="absolute top-2.5 right-2.5 bg-[#FA1EFF] px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-xs">
+            {t("routes.featured")}
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -45,6 +53,18 @@ export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
         <p className="text-xs text-[#B7B7B7] line-clamp-2 leading-relaxed">
           {route.description}
         </p>
+
+        {(route.theme || route.distanceKm != null || route.durationMinutes != null) && (
+          <p className="text-[11px] font-medium text-[#555555]">
+            {[
+              route.theme,
+              route.distanceKm != null ? `${f.number(route.distanceKm, { maximumFractionDigits: 1 })} km` : null,
+              route.durationMinutes != null && route.durationMinutes > 0 ? formatDuration(route.durationMinutes) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
 
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#F9F9F9]">
           <span className="text-xs font-medium text-[#111111] flex items-center gap-1">

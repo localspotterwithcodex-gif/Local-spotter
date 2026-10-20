@@ -1,8 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { GeoQueryDto } from '../../common/dto/geo-query.dto';
 
-export class QueryProductDto {
+export const PRODUCT_SORTS = ['newest', 'price_asc', 'price_desc', 'popular', 'distance'] as const;
+export type ProductSort = (typeof PRODUCT_SORTS)[number];
+
+export class QueryProductDto extends GeoQueryDto {
   @ApiPropertyOptional({ description: 'Filter by category ID' })
   @IsOptional()
   @IsUUID('4')
@@ -36,4 +40,15 @@ export class QueryProductDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Only products that are in stock' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  inStock?: boolean;
+
+  @ApiPropertyOptional({ enum: PRODUCT_SORTS })
+  @IsOptional()
+  @IsIn(PRODUCT_SORTS as unknown as string[])
+  sort?: ProductSort;
 }

@@ -5,9 +5,9 @@
  */
 import type { Product, ProductVariant } from "@/types/product";
 import type { Business, BusinessHours } from "@/types/business";
-import type { Workshop, WorkshopBooking } from "@/types/workshop";
+import type { Workshop, WorkshopBooking, WorkshopSession } from "@/types/workshop";
 import type { RouteStop, Shoproute } from "@/types/shoproute";
-import type { Order, OrderItem, OrderStatus } from "@/types/order";
+import type { FulfilmentMethod, Order, OrderItem, OrderStatus, PaymentState } from "@/types/order";
 import type { Review } from "@/types/review";
 import type { PlanSlug, SubscriptionPlan, BusinessSubscription } from "@/types/subscription";
 
@@ -29,6 +29,14 @@ export interface RawProduct {
   active: boolean;
   shopUrl?: string | null;
   compareAtPrice?: Dec | null;
+  likeCount?: number;
+  vatRate?: number | string;
+  brand?: string | null;
+  weightGrams?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
+  viewCount?: number;
   translations?: Record<string, Record<string, string>> | null;
   sourceLocale?: string | null;
   createdAt: string;
@@ -49,9 +57,22 @@ export interface RawBusiness {
   phone?: string | null;
   email?: string | null;
   kvkNumber: string;
+  websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  tiktokUrl?: string | null;
+  pickupEnabled?: boolean;
+  shippingEnabled?: boolean;
+  localDeliveryEnabled?: boolean;
+  shippingFee?: Dec | null;
+  freeShippingThreshold?: Dec | null;
+  localDeliveryFee?: Dec | null;
+  localDeliveryRadiusKm?: Dec | null;
   category?: { id: string; name: string } | null;
   logoAssetId?: string | null;
   coverAssetId?: string | null;
+  panoramaAssetId?: string | null;
+  panoramaAsset?: { url: string } | null;
   logoAsset?: { url: string } | null;
   coverAsset?: { url: string } | null;
   state: string;
@@ -106,11 +127,17 @@ export function toProduct(r: RawProduct): Product {
     category: r.category?.name ?? "",
     stock: r.stock,
     externalUrl: r.shopUrl ?? undefined,
-    // Ratings come from published reviews; the backend does not track likes or views yet.
+    vatRate: r.vatRate === undefined || r.vatRate === null ? 21 : num(r.vatRate),
+    brand: r.brand ?? undefined,
+    weightGrams: r.weightGrams ?? undefined,
+    lengthMm: r.lengthMm ?? undefined,
+    widthMm: r.widthMm ?? undefined,
+    heightMm: r.heightMm ?? undefined,
+    // Ratings come from published reviews; likes are the number of favorites.
     rating: r.averageRating ?? 0,
     reviewCount: r.ratingCount ?? 0,
-    likeCount: 0,
-    viewCount: 0,
+    likeCount: r.likeCount ?? 0,
+    viewCount: r.viewCount ?? 0,
     variants,
     createdAt: r.createdAt,
     isActive: r.active,
@@ -129,6 +156,8 @@ export function toBusiness(r: RawBusiness): Business {
     heroImageUrl: r.coverAsset?.url ?? undefined,
     logoAssetId: r.logoAssetId ?? undefined,
     coverAssetId: r.coverAssetId ?? undefined,
+    panoramaUrl: r.panoramaAsset?.url ?? undefined,
+    panoramaAssetId: r.panoramaAssetId ?? undefined,
     category: r.category?.name ?? "",
     shopType: r.category?.name ?? "",
     subscriptionTier: subscriptionActive ? (slug.toUpperCase() as Business["subscriptionTier"]) : undefined,
@@ -136,6 +165,22 @@ export function toBusiness(r: RawBusiness): Business {
     phone: r.phone ?? "",
     email: r.email ?? undefined,
     kvkNumber: r.kvkNumber,
+    websiteUrl: r.websiteUrl ?? undefined,
+    instagramUrl: r.instagramUrl ?? undefined,
+    facebookUrl: r.facebookUrl ?? undefined,
+    tiktokUrl: r.tiktokUrl ?? undefined,
+    fulfilment:
+      r.pickupEnabled === undefined
+        ? undefined
+        : {
+            pickupEnabled: r.pickupEnabled,
+            shippingEnabled: r.shippingEnabled ?? true,
+            localDeliveryEnabled: r.localDeliveryEnabled ?? false,
+            shippingFee: r.shippingFee === null || r.shippingFee === undefined ? null : num(r.shippingFee),
+            freeShippingThreshold: r.freeShippingThreshold === null || r.freeShippingThreshold === undefined ? null : num(r.freeShippingThreshold),
+            localDeliveryFee: num(r.localDeliveryFee ?? 0),
+            localDeliveryRadiusKm: r.localDeliveryRadiusKm === null || r.localDeliveryRadiusKm === undefined ? null : num(r.localDeliveryRadiusKm),
+          },
     location: {
       lat: num(r.latitude),
       lng: num(r.longitude),
@@ -178,11 +223,41 @@ export interface RawWorkshop {
   status: string;
   createdAt: string;
   business?: { id: string; name: string } | null;
+  sessions?: RawWorkshopSession[];
+  cancellationDeadlineHours?: number;
+  refundPercentage?: number;
+  minAge?: number | null;
+}
+
+export interface RawWorkshopSession {
+  id: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  bookedCount: number;
+  remainingSeats?: number;
+  status: string;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+export function toWorkshopSession(r: RawWorkshopSession): WorkshopSession {
+  const start = new Date(r.startTime);
+  const end = new Date(r.endTime);
+  return {
+    id: r.id,
+    date: ymd(start),
+    startTime: hm(start),
+    finishTime: hm(end),
+    startsAt: r.startTime,
+    capacity: r.capacity,
+    bookedCount: r.bookedCount,
+    remaining: Math.max(r.remainingSeats ?? r.capacity - r.bookedCount, 0),
+    status: (["OPEN", "FULL", "CANCELLED", "COMPLETED"].includes(r.status) ? r.status : "OPEN") as WorkshopSession["status"],
+  };
+}
 
 export function toWorkshop(r: RawWorkshop): Workshop {
   const start = new Date(r.startTime);
@@ -203,6 +278,10 @@ export function toWorkshop(r: RawWorkshop): Workshop {
     finishTime: hm(end),
     status: r.status === "FULL" ? "PUBLISHED" : (r.status as Workshop["status"]),
     createdAt: r.createdAt,
+    sessions: (r.sessions ?? []).map(toWorkshopSession),
+    cancellationDeadlineHours: r.cancellationDeadlineHours ?? 48,
+    refundPercentage: r.refundPercentage ?? 100,
+    minAge: r.minAge ?? undefined,
   };
 }
 
@@ -241,6 +320,11 @@ export interface RawRoute {
   city: string;
   description?: string | null;
   status: string;
+  theme?: string | null;
+  coverImageUrl?: string | null;
+  distanceKm?: Dec | null;
+  durationMinutes?: number | null;
+  featured?: boolean;
   createdAt: string;
   stops?: {
     id: string;
@@ -270,6 +354,11 @@ export function toShoproute(r: RawRoute): Shoproute {
     title: r.title,
     cityName: r.city,
     description: r.description ?? "",
+    imageUrl: r.coverImageUrl ?? undefined,
+    theme: r.theme ?? undefined,
+    distanceKm: r.distanceKm === null || r.distanceKm === undefined ? undefined : num(r.distanceKm),
+    durationMinutes: r.durationMinutes ?? undefined,
+    featured: !!r.featured,
     shopCount: stops.length,
     stops,
     status: r.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT",
@@ -286,13 +375,17 @@ export interface RawOrder {
   subtotalAmount: Dec;
   deliveryFee: Dec;
   totalAmount: Dec;
-  deliveryStreet: string;
+  fulfilmentMethod?: string | null;
+  paymentStatus?: string | null;
+  customerOrder?: { id: string; orderNumber: string; paymentStatus: string } | null;
+  deliveryStreet?: string | null;
   deliveryHouseNumber?: string | null;
-  deliveryCity: string;
+  deliveryCity?: string | null;
   deliveryPostalCode?: string | null;
-  deliveryCountry: string;
+  deliveryCountry?: string | null;
   createdAt: string;
   updatedAt: string;
+  deliveredAt?: string | null;
   business?: { id: string; name: string } | null;
   consumerProfile?: { id: string; displayName?: string | null; firstName?: string | null; lastName?: string | null; phone?: string | null } | null;
   items?: {
@@ -333,14 +426,20 @@ export function toOrder(r: RawOrder): Order {
     deliveryAddress: {
       fullName: name,
       phone: cp?.phone ?? "",
-      street: r.deliveryStreet,
+      street: r.deliveryStreet ?? "",
       houseNumber: r.deliveryHouseNumber ?? "",
-      city: r.deliveryCity,
+      city: r.deliveryCity ?? "",
       postalCode: r.deliveryPostalCode ?? "",
-      country: r.deliveryCountry,
+      country: r.deliveryCountry ?? "",
     },
+    fulfilmentMethod: (r.fulfilmentMethod as FulfilmentMethod) ?? "SHIPPING",
+    paymentStatus: (r.paymentStatus as PaymentState) ?? "PENDING",
+    customerOrder: r.customerOrder
+      ? { id: r.customerOrder.id, orderNumber: r.customerOrder.orderNumber, paymentStatus: r.customerOrder.paymentStatus as PaymentState }
+      : undefined,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    deliveredAt: r.deliveredAt ?? undefined,
   };
 }
 

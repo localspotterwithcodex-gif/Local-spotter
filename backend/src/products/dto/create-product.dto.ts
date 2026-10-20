@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Min, IsIn, IsInt, Max, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateProductDto {
@@ -46,4 +46,48 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional({ example: 21, description: 'VAT percentage included in the price (0, 9 or 21)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([0, 9, 21], { message: 'BTW-percentage moet 0, 9 of 21 zijn' })
+  vatRate?: number;
+
+  @ApiPropertyOptional({ example: 'Studio Leer' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  brand?: string;
+
+  @ApiPropertyOptional({ example: 850, description: 'Weight in grams' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  weightGrams?: number;
+
+  @ApiPropertyOptional({ example: 300, description: 'Length in millimetres' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  lengthMm?: number;
+
+  @ApiPropertyOptional({ example: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  widthMm?: number;
+
+  @ApiPropertyOptional({ example: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  heightMm?: number;
 }

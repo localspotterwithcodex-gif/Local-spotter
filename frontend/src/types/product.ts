@@ -29,6 +29,13 @@ export interface Product {
   category: string;
   stock: number;
   externalUrl?: string;
+  /** VAT percentage included in the price. */
+  vatRate: number;
+  brand?: string;
+  weightGrams?: number;
+  lengthMm?: number;
+  widthMm?: number;
+  heightMm?: number;
   rating: number;
   reviewCount: number;
   likeCount: number;

@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('Payments')
@@ -39,6 +40,7 @@ export class PaymentsController {
   // ==========================================
 
   @Post('payments/intent')
+  @AllowGuest()
   @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER)
   @ApiOperation({
     summary: 'Create payment intent for an order, workshop booking or business subscription',
@@ -62,6 +64,7 @@ export class PaymentsController {
   // ==========================================
 
   @Get('payments/:paymentId')
+  @AllowGuest()
   @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get payment status by ID' })
   @ApiParam({ name: 'paymentId', description: 'Payment UUID' })

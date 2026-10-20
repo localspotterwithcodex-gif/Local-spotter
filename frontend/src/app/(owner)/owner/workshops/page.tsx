@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Plus, XCircle } from "lucide-react";
+import { Plus, XCircle, Users } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -79,8 +79,17 @@ export default function OwnerWorkshopsPage() {
                   <p className="text-[11px] text-[#555555]">
                     {w.date} · {w.startTime}–{w.finishTime} · {w.bookedCount}/{w.capacity}
                   </p>
-                  <p className="text-[11px] text-[#B7B7B7]">{w.status}</p>
+                  <p className="text-[11px] text-[#B7B7B7]">
+                    {w.status}
+                    {w.sessions.length > 1 ? ` · ${t("ownerx.workshops.sessionsCount", { n: w.sessions.length })}` : ""}
+                  </p>
                 </div>
+                <Link
+                  href={`/owner/workshops/${w.id}/participants`}
+                  className="ml-auto flex items-center gap-1 text-xs font-bold text-[#FA1EFF] shrink-0"
+                >
+                  <Users className="w-4 h-4" /> {t("ownerx.workshops.participants")}
+                </Link>
                 {w.status !== "CANCELLED" && w.status !== "COMPLETED" && (
                   <button type="button" className="p-2 text-red-600 shrink-0" aria-label={t("ownerx.workshops.cancel")} onClick={() => cancel(w.id)}>
                     <XCircle className="w-4 h-4" />

@@ -16,6 +16,7 @@ import { VerifyCodeDto, ResendCodeDto } from './dto/verify-code.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
 
@@ -121,6 +122,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowGuest()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get profile information for authenticated user' })

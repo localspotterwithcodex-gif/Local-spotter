@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { ReviewStatus } from '@prisma/client';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { ReviewStatus, RouteStatus } from '@prisma/client';
 
 export class ModerateProductDto {
   @ApiProperty({ example: false })
@@ -62,4 +62,16 @@ export class AdminReviewQueryDto {
   @IsOptional()
   @IsString()
   offset?: string;
+}
+
+export class ModerateRouteDto {
+  @ApiPropertyOptional({ enum: RouteStatus })
+  @IsOptional()
+  @IsEnum(RouteStatus, { message: 'Ongeldige routestatus' })
+  status?: RouteStatus;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  featured?: boolean;
 }

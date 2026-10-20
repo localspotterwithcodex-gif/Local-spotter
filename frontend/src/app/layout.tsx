@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { CartProvider } from "@/features/cart/CartContext";
+import { FavoritesProvider } from "@/features/favorites/FavoritesContext";
 import { LocaleProvider } from "@/i18n/LocaleContext";
 import { getInitialLocale, getServerT } from "@/i18n/server-locale";
 import "./globals.css";
@@ -21,7 +22,9 @@ export default async function RootLayout({
       <body>
         <LocaleProvider initialLocale={locale}>
           <AuthProvider>
-            <CartProvider>{children}</CartProvider>
+            <CartProvider>
+              <FavoritesProvider>{children}</FavoritesProvider>
+            </CartProvider>
           </AuthProvider>
         </LocaleProvider>
       </body>

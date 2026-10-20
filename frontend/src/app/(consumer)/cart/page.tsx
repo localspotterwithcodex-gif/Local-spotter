@@ -15,7 +15,7 @@ import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 
 export default function CartPage() {
-  const { items, subtotal, deliveryFee, isLoading, isUpdating, error, reload, updateQuantity: setQuantity, removeItem } = useCart();
+  const { items, subtotal, isLoading, isUpdating, error, reload, updateQuantity: setQuantity, removeItem } = useCart();
   const { t } = useLocale();
   const f = useFormat();
   const errMsg = useErrorMessage();
@@ -36,9 +36,7 @@ export default function CartPage() {
     void run(() => setQuantity(id, current.quantity + delta));
   };
 
-  const total = subtotal + deliveryFee;
-
-  return (
+    return (
     <ConsumerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
@@ -143,11 +141,11 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between text-xs text-[#555555]">
                 <span>{t("cart.delivery")}</span>
-                <span className="font-bold text-[#111111]">{f.currency(deliveryFee)}</span>
+                <span className="font-bold text-[#111111]">{t("cart.deliveryAtCheckout")}</span>
               </div>
               <div className="flex justify-between text-base font-extrabold text-[#111111] pt-2 border-t border-[#F9F9F9]">
                 <span>{t("cart.totalInclVat")}</span>
-                <span className="text-[#FA1EFF]">{f.currency(total)}</span>
+                <span className="text-[#FA1EFF]">{f.currency(subtotal)}</span>
               </div>
 
               <Link href="/checkout" className="block pt-2">

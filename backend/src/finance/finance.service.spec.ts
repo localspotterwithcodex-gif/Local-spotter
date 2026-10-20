@@ -12,15 +12,21 @@ function make(overrides: any = {}) {
     businessLedgerEntry: {
       groupBy: jest.fn().mockResolvedValue([
         { type: 'SALE', _sum: { amountCents: 50000 } },
-        { type: 'REFUND', _sum: { amountCents: -5000 } },
+        { type: 'COMMISSION', _sum: { amountCents: -2500 } },
+        { type: 'COMMISSION_REVERSAL', _sum: { amountCents: 250 } },
+        { type: 'REFUND', _sum: { amountCents: -4000 } },
+        { type: 'REFUND_PENDING', _sum: { amountCents: -1000 } },
+        { type: 'PAYOUT', _sum: { amountCents: -10000 } },
       ]),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { amountCents: 20000 } }),
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue({ availableAt: new Date('2026-12-01') }),
     },
     payout: {
       findMany: jest.fn().mockResolvedValue([
-        { id: 'p-1', amount: '100.00', status: 'PAID', requestedAt: new Date(), paidAt: new Date() },
-        { id: 'p-2', amount: '50.50', status: 'PENDING', requestedAt: new Date(), paidAt: null },
-        { id: 'p-3', amount: '999', status: 'REJECTED', requestedAt: new Date(), paidAt: null },
+        { id: 'p-1', amount: '100.00', status: 'PAID', requestedAt: new Date(), paidAt: new Date(), periodKey: '2026-W40' },
+        { id: 'p-2', amount: '50.50', status: 'PENDING', requestedAt: new Date(), paidAt: null, periodKey: '2026-W41' },
+        { id: 'p-3', amount: '999', status: 'REJECTED', requestedAt: new Date(), paidAt: null, periodKey: null },
       ]),
     },
     ...overrides,
@@ -29,21 +35,35 @@ function make(overrides: any = {}) {
 }
 
 describe('FinanceService.getBalance', () => {
-  it('derives gross, refunds, net, paid-out, pending and available from the ledger and payouts', async () => {
+  it('derives gross, refunds, commission, net, on-hold and available from the ledger', async () => {
     const { svc } = make();
     const out = await svc.getBalance('b1', owner);
     expect(out.grossSalesCents).toBe(50000);
     expect(out.refundsCents).toBe(5000);
-    expect(out.netSalesCents).toBe(45000);
+    expect(out.commissionCents).toBe(2250); // charged 2500, 250 reversed
+    expect(out.netSalesCents).toBe(50000 - 5000 - 2250);
+    expect(out.payoutsCents).toBe(10000);
+    // total balance = 42750 - 10000; 20000 of it is released, the rest is still on hold
+    expect(out.availableCents).toBe(20000);
+    expect(out.onHoldCents).toBe(32750 - 20000);
+    expect(out.nextReleaseAt).toEqual(new Date('2026-12-01'));
     expect(out.paidOutCents).toBe(10000);
-    expect(out.pendingPayoutCents).toBe(5050);
-    expect(out.availableCents).toBe(45000 - 10000 - 5050); // rejected payout ignored
+    expect(out.pendingPayoutCents).toBe(5050); // rejected payouts are ignored
   });
 
-  it('never reports a negative available balance', async () => {
+  it('only counts released entries as available', async () => {
     const { svc, prisma } = make();
-    prisma.businessLedgerEntry.groupBy.mockResolvedValue([{ type: 'SALE', _sum: { amountCents: 100 } }]);
-    expect((await svc.getBalance('b1', owner)).availableCents).toBe(0);
+    await svc.getBalance('b1', owner);
+    const where = prisma.businessLedgerEntry.aggregate.mock.calls[0][0].where;
+    expect(where.OR).toEqual([{ availableAt: null }, { availableAt: { lte: expect.any(Date) } }]);
+  });
+
+  it('never reports a negative available balance or negative on-hold', async () => {
+    const { svc, prisma } = make();
+    prisma.businessLedgerEntry.aggregate.mockResolvedValue({ _sum: { amountCents: -700 } });
+    const out = await svc.getBalance('b1', owner);
+    expect(out.availableCents).toBe(0);
+    expect(out.onHoldCents).toBeGreaterThanOrEqual(0);
   });
 
   it('refuses another owner and unknown businesses, allows admins', async () => {

@@ -74,3 +74,46 @@ describe('resolveLocale', () => {
     expect(resolveLocale({})).toBeUndefined();
   });
 });
+
+describe('TranslationService.backfill', () => {
+  const okProvider = (): TranslationProvider => ({
+    isConfigured: () => true,
+    translate: jest.fn().mockImplementation(async (texts: string[], target: string) => ({
+      texts: texts.map((t) => `${target}:${t}`),
+      detectedSource: 'nl',
+    })),
+  });
+
+  it('translates and stores rows that were saved without translations, leaving translated rows alone', async () => {
+    const svc = new TranslationService(okProvider());
+    const rows: any[] = [
+      { id: 'a', name: 'Leren tas', translations: null },
+      { id: 'b', name: 'Done', translations: { en: { name: 'Done' }, nl: { name: 'Klaar' } } },
+    ];
+    const persist = jest.fn().mockResolvedValue(undefined);
+    await svc.backfill(rows, ['name'], persist);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(rows[0].translations.en.name).toBe('en:Leren tas');
+    expect(rows[0].sourceLocale).toBe('nl');
+  });
+
+  it('does nothing when the provider is not configured', async () => {
+    const svc = new TranslationService({ isConfigured: () => false, translate: jest.fn() });
+    const persist = jest.fn();
+    await svc.backfill([{ id: 'a', name: 'x', translations: null }] as any[], ['name'], persist);
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('backs off after a provider failure and reports the error in status()', async () => {
+    const translate = jest.fn().mockRejectedValue(new Error('DeepL responded 456'));
+    const svc = new TranslationService({ isConfigured: () => true, translate });
+    const persist = jest.fn();
+    const rows: any[] = [{ id: 'a', name: 'x', translations: null }, { id: 'b', name: 'y', translations: null }];
+    await svc.backfill(rows, ['name'], persist);
+    const calls = translate.mock.calls.length;
+    await svc.backfill(rows, ['name'], persist); // within the cool-down: no new provider calls
+    expect(translate.mock.calls.length).toBe(calls);
+    expect(persist).not.toHaveBeenCalled();
+    expect(svc.status()).toMatchObject({ configured: true, lastError: 'DeepL responded 456' });
+  });
+});

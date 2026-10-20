@@ -1,92 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Truck, XCircle, Package, AlertCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { api } from "@/lib/api";
-import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
-import { OrderStatus } from "@/types/order";
+import { ShopOrdersBoard } from "@/features/orders/ShopOrdersBoard";
 import { useLocale } from "@/i18n/LocaleContext";
-import { useFormat } from "@/i18n/useFormat";
-import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
-import type { TranslationKey } from "@/i18n/dictionaries";
-
-interface StatusAction {
-  to: OrderStatus;
-  labelKey: TranslationKey;
-  variant: "primary" | "secondary" | "outline";
-  icon: React.ReactNode;
-}
-
-/** Mirrors the backend transition table (orders.service validateStatusTransition). */
-const ACTIONS: Partial<Record<OrderStatus, StatusAction[]>> = {
-  PENDING: [
-    { to: "CONFIRMED", labelKey: "ownerx.orders.actionAccept", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "REJECTED", labelKey: "ownerx.orders.actionReject", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
-  ],
-  CONFIRMED: [
-    { to: "PREPARING", labelKey: "ownerx.orders.actionPreparing", variant: "primary", icon: <Package className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
-  ],
-  PREPARING: [
-    { to: "READY", labelKey: "ownerx.orders.actionReady", variant: "primary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
-  ],
-  READY: [
-    { to: "OUT_FOR_DELIVERY", labelKey: "ownerx.orders.actionOnTheWay", variant: "primary", icon: <Truck className="w-3.5 h-3.5 mr-1" /> },
-    { to: "DELIVERED", labelKey: "ownerx.orders.actionDelivered", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-    { to: "CANCELLED", labelKey: "common.cancel", variant: "outline", icon: <XCircle className="w-3.5 h-3.5 mr-1" /> },
-  ],
-  OUT_FOR_DELIVERY: [
-    { to: "DELIVERED", labelKey: "ownerx.orders.actionDelivered", variant: "secondary", icon: <CheckCircle className="w-3.5 h-3.5 mr-1" /> },
-  ],
-};
-
-const ORDER_STATUS_TILES: { statuses: OrderStatus[]; labelKey: TranslationKey; className: string }[] = [
-  { statuses: ["CONFIRMED", "PREPARING", "READY"], labelKey: "ownerx.dash.tileProcessing", className: "ls-status-processing" },
-  { statuses: ["DELIVERED"], labelKey: "ownerx.dash.tileCompleted", className: "ls-status-completed" },
-  { statuses: ["OUT_FOR_DELIVERY"], labelKey: "ownerx.dash.tileOnTheWay", className: "ls-status-ontheway" },
-  { statuses: ["CANCELLED", "REJECTED"], labelKey: "ownerx.dash.tileCancelled", className: "ls-status-cancelled" },
-  { statuses: ["PENDING"], labelKey: "ownerx.dash.tileNew", className: "ls-status-new col-span-2 sm:col-span-1" },
-];
 
 export default function OwnerOrdersPage() {
-  const { t, label } = useLocale();
-  const f = useFormat();
-  const errMsg = useErrorMessage();
-  const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
-  const businessId = business?.id ?? null;
-  const orders = useApiResource(businessId && `owner-orders:${businessId}`, () => api.getBusinessOrders(businessId!));
-
-  const [activeFilter, setActiveFilter] = useState<string>("ALL");
-  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState("");
-
-  const handleStatusUpdate = async (orderId: string, nextStatus: OrderStatus) => {
-    setActionError("");
-    setBusyOrderId(orderId);
-    try {
-      await api.updateOrderStatus(orderId, nextStatus);
-      orders.reload();
-    } catch (err) {
-      setActionError(errMsg(err));
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const isLoading = businessLoading || orders.loading;
-  const loadError = businessError ?? orders.error;
-  const retry = businessError ? reloadBusiness : orders.reload;
-
-  const filteredOrders = (orders.data ?? []).filter((o) => activeFilter === "ALL" || o.status === activeFilter);
+  const { t } = useLocale();
+  const { business, loading, error, reload } = useMyBusiness();
 
   return (
     <OwnerLayout>
@@ -101,105 +28,14 @@ export default function OwnerOrdersPage() {
           <p className="text-xs text-[#B7B7B7]">{t("ownerx.orders.subtitle")}</p>
         </div>
 
-        {/* Order metrics (Figma "order product"): real counts from this shop's orders */}
-        {!isLoading && !loadError && business && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {ORDER_STATUS_TILES.map((tile) => (
-              <div key={tile.labelKey} className={`p-3.5 rounded-2xl ${tile.className} flex flex-col justify-between h-24`}>
-                <span className="text-[11px] font-bold">{t(tile.labelKey)}</span>
-                <span className="text-2xl font-extrabold font-rubik">
-                  {(orders.data ?? []).filter((o) => tile.statuses.includes(o.status)).length}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {["ALL", "PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REJECTED"].map((st) => (
-            <button
-              key={st}
-              onClick={() => setActiveFilter(st)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                activeFilter === st
-                  ? "bg-[#FA1EFF] text-white"
-                  : "bg-white text-[#111111] border border-[#EAEAEA] hover:bg-[#F9F9F9]"
-              }`}
-            >
-              {st === "ALL" ? t("ownerx.orders.filterAll") : label("status", st)}
-            </button>
-          ))}
-        </div>
-
-        {actionError && (
-          <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {actionError}
-          </div>
-        )}
-
-        {isLoading ? (
+        {loading ? (
           <LoadingState label={t("ownerx.orders.loading")} />
-        ) : loadError ? (
-          <ErrorState message={loadError} onRetry={retry} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={reload} />
         ) : !business ? (
           <EmptyState title={t("ownerx.noShop.title")} description={t("ownerx.noShop.forOrders")} />
-        ) : filteredOrders.length === 0 ? (
-          <EmptyState title={t("ownerx.orders.emptyTitle")} description={t("ownerx.orders.emptyDesc")} />
         ) : (
-          <div className="space-y-4">
-            {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F9F9F9]">
-                  <div>
-                    <span className="text-sm font-bold text-[#111111]">{order.orderNumber}</span>
-                    <span className="text-xs text-[#B7B7B7] block">{f.date(order.createdAt)} • {t("ownerx.orders.customer", { name: order.consumerName })}</span>
-                  </div>
-                  <Badge status={order.status} />
-                </div>
-
-                {/* Items List */}
-                <div className="space-y-2">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center text-xs">
-                      <span className="font-medium text-[#111111]">
-                        {item.quantity}x {item.productName} {item.variantSize || item.variantColor ? `(${item.variantSize ?? item.variantColor})` : ""}
-                      </span>
-                      <span className="font-bold">{f.currency(item.totalPrice)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Delivery Address */}
-                <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-[#555555]">
-                  <span className="font-bold text-[#111111] block mb-0.5">{t("ownerx.orders.deliveryAddress")}</span>
-                  <p>{order.deliveryAddress.fullName} - {order.deliveryAddress.street} {order.deliveryAddress.houseNumber}, {order.deliveryAddress.city}</p>
-                </div>
-
-                {/* Status Action Buttons */}
-                <div className="flex items-center justify-between pt-2 border-t border-[#F9F9F9]">
-                  <span className="text-sm font-extrabold text-[#111111]">{t("ownerx.orders.total", { amount: f.currency(order.total) })}</span>
-
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {(ACTIONS[order.status] ?? []).map((action) => (
-                      <Button
-                        key={action.to}
-                        variant={action.variant}
-                        size="sm"
-                        isLoading={busyOrderId === order.id}
-                        disabled={busyOrderId !== null}
-                        onClick={() => handleStatusUpdate(order.id, action.to)}
-                        className="text-xs h-8"
-                      >
-                        {action.icon} {t(action.labelKey)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ShopOrdersBoard businessId={business.id} />
         )}
       </div>
     </OwnerLayout>

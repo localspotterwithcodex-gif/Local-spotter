@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Search, Store, MapPin, Crown, CreditCard, Languages, Bell, FileText, LifeBuoy, ChevronRight, type LucideIcon } from "lucide-react";
+import { Search, Store, MapPin, Crown, CreditCard, Languages, Bell, FileText, LifeBuoy, Users, Truck, ShieldCheck, ChevronRight, type LucideIcon } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -27,8 +27,11 @@ export default function OwnerSettingsHubPage() {
     { key: "store", label: t("manage.settings.store"), href: "/owner/settings/store", icon: Store, tint: "bg-[#CFE6FA] text-[#2F7FD6]" },
     { key: "location", label: t("manage.settings.location"), href: "/owner/shoproutes/location", icon: MapPin, tint: "bg-[#FBD9D3] text-[#E5533D]" },
     { key: "subscription", label: t("manage.settings.subscription"), href: "/owner/subscription", icon: Crown, tint: "bg-[#FCEFC3] text-[#D4A011]" },
+    { key: "fulfilment", label: t("fulfilmentSettings.title"), href: "/owner/settings/fulfilment", icon: Truck, tint: "bg-[#CFF1F1] text-[#1E9AA0]" },
+    { key: "team", label: t("team.title"), href: "/owner/settings/team", icon: Users, tint: "bg-[#DDE4FA] text-[#4D5BD6]" },
     { key: "payouts", label: t("manage.settings.payouts"), href: "/owner/payouts", icon: CreditCard, tint: "bg-[#D5F2E3] text-[#2E9E6B]" },
     { key: "notifications", label: t("manage.settings.notifications"), href: "/notifications", icon: Bell, tint: "bg-[#FAE2F0] text-[#FA1EFF]" },
+    { key: "privacy", label: t("privacySettings.title"), href: "/privacy-settings", icon: ShieldCheck, tint: "bg-[#D5F2E3] text-[#2E9E6B]" },
     { key: "terms", label: t("manage.settings.terms"), href: "/terms", icon: FileText, tint: "bg-[#E4E4E4] text-[#121F3E]" },
     { key: "help", label: t("manage.settings.help"), href: "/help", icon: LifeBuoy, tint: "bg-[#CFF1F1] text-[#1E9AA0]" },
     { key: "language", label: t("manage.settings.language"), icon: Languages, tint: "bg-[#DDE4FA] text-[#4D5BD6]" },

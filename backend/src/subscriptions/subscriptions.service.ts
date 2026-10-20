@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SelectSubscriptionPlanDto } from './dto/select-subscription-plan.dto';
 import { UserRole, SubscriptionStatus, PaymentProvider } from '@prisma/client';
+import { PAYMENT_GATEWAY, PaymentGateway } from '../payments/payment-gateway';
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(SubscriptionsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @Inject(PAYMENT_GATEWAY) private gateway: PaymentGateway,
+  ) {}
 
   async getPlans() {
     return this.prisma.subscriptionPlan.findMany({
@@ -25,21 +31,25 @@ export class SubscriptionsService {
       throw new NotFoundException('Geselecteerd abonnement is niet beschikbaar');
     }
 
-    const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-    // No payment provider is integrated yet (decision D-004). Outside production the
-    // plan activates immediately so the app can be developed end to end. In production
-    // a selected plan stays INCOMPLETE (no entitlements, shop not publicly listed)
-    // until a verified payment activates it, unless an operator explicitly opts in
-    // with ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION=true (e.g. invoiced pilot customers).
-    const activateNow =
-      process.env.NODE_ENV !== 'production' || process.env.ALLOW_UNPAID_SUBSCRIPTION_ACTIVATION === 'true';
-    const initialStatus = activateNow ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INCOMPLETE;
-
     const existingSub = await this.prisma.businessSubscription.findUnique({
       where: { businessId },
     });
+
+    const now = new Date();
+    // Selecting the plan you already have and pay for changes nothing.
+    if (existingSub && existingSub.planId === plan.id && existingSub.status === SubscriptionStatus.ACTIVE && existingSub.currentPeriodEnd > now) {
+      return this.prisma.businessSubscription.findUnique({ where: { businessId }, include: { plan: true } });
+    }
+
+    // A plan only becomes ACTIVE through a verified payment (PaymentsService sets the
+    // paid period). The one exception is local development without a payment provider
+    // configured, so the app can still be worked on end to end; production never skips payment.
+    const devActivation = process.env.NODE_ENV !== 'production' && !this.gateway.isConfigured();
+    if (devActivation) {
+      this.logger.warn('No payment provider configured: activating the subscription without payment (development only)');
+    }
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    const initialStatus = devActivation ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INCOMPLETE;
 
     if (existingSub) {
       return this.prisma.businessSubscription.update({
@@ -61,7 +71,7 @@ export class SubscriptionsService {
         status: initialStatus,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-        provider: PaymentProvider.MANUAL,
+        provider: devActivation ? PaymentProvider.MANUAL : PaymentProvider.MOLLIE,
       },
       include: { plan: true },
     });

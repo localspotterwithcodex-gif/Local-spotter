@@ -34,6 +34,34 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     errors.push('MAIL_TRANSPORT=resend is required in production (otherwise signup and password reset return 503)');
   }
 
+  const mollieKey = typeof config.MOLLIE_API_KEY === 'string' ? config.MOLLIE_API_KEY.trim() : '';
+  if (mollieKey) {
+    if (!/^(live|test)_[A-Za-z0-9]{20,}$/.test(mollieKey)) {
+      errors.push('MOLLIE_API_KEY must be a Mollie live_ or test_ API key');
+    }
+    if (isProd && !/^https:\/\//i.test(String(config.API_PUBLIC_URL ?? ''))) {
+      errors.push('API_PUBLIC_URL (public https URL of this API, used for the Mollie webhook) is required when MOLLIE_API_KEY is set in production');
+    }
+    if (isProd && !config.FRONTEND_URL) {
+      errors.push('FRONTEND_URL is required when MOLLIE_API_KEY is set in production (customers return there after paying)');
+    }
+  }
+
+  const encryptionKey = typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
+  if (encryptionKey && Buffer.from(encryptionKey, 'base64').length !== 32) {
+    errors.push('ENCRYPTION_KEY must be base64 of exactly 32 bytes (node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))")');
+  }
+  const intVar = (name: string, min: number, max: number) => {
+    const raw = config[name];
+    if (raw === undefined || raw === '') return;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < min || n > max) errors.push(`${name} must be an integer between ${min} and ${max}`);
+  };
+  intVar('COMMISSION_DEFAULT_BPS', 0, 5000);
+  intVar('PAYOUT_HOLD_DAYS', 0, 90);
+  intVar('PAYOUT_MIN_CENTS', 0, 10000000);
+  intVar('RETURN_WINDOW_DAYS', 1, 90);
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n - ${errors.join('\n - ')}`);
   }

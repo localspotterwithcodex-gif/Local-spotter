@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useCart } from "@/features/cart/CartContext";
+import { useFavorites } from "@/features/favorites/FavoritesContext";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = use(params);
@@ -27,10 +28,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
   const { isAuthenticated, role } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { canFavorite, isFavorite, toggle: toggleFavorite } = useFavorites();
 
   const { data: product, error, loading: isLoading, reload } = useApiResource(`product:${productId}`, () =>
     api.getProductById(productId)
   );
+  // Count one view per product per browser tab session (the backend also de-duplicates and ignores the owner).
+  const viewedId = product?.id;
+  useEffect(() => {
+    if (!viewedId) return;
+    try {
+      const key = `viewed:${viewedId}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* storage unavailable: let the backend de-duplicate */
+    }
+    api.recordProductView(viewedId).catch(() => undefined);
+  }, [viewedId]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   // null = nothing chosen yet; the first variant is used as the default.
   const [pickedSize, setPickedSize] = useState<ProductSize | null>(null);
@@ -46,11 +61,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
 
   const handleAddToCart = async () => {
     if (!product) return;
-    if (!isAuthenticated) {
-      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
-      return;
-    }
-    if (role !== "CONSUMER") {
+    // Visitors who are not signed in keep the cart in their browser; it moves into the account cart at checkout/login.
+    if (isAuthenticated && role !== "CONSUMER") {
       setAddError(t("products.detail.onlyConsumers"));
       return;
     }
@@ -66,11 +78,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
       }
       variantId = match.id;
     }
+    const variantLabel = variantId ? [selectedSize, selectedColor].filter(Boolean).join(" / ") || undefined : undefined;
+    const unitPrice = (variantId ? variants.find((v) => v.id === variantId)?.price : undefined) ?? product.price;
 
     setIsAdding(true);
     setAddError(null);
     try {
-      await addItem({ businessId: product.businessId, productId: product.id, variantId, quantity });
+      await addItem({
+        businessId: product.businessId,
+        productId: product.id,
+        variantId,
+        quantity,
+        snapshot: { name: product.name, image: product.images[0] ?? "", price: unitPrice, businessName: product.businessName, variantLabel },
+      });
       setIsAdded(true);
       window.setTimeout(() => setIsAdded(false), 2500);
     } catch (err) {
@@ -177,10 +197,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   <span className="font-bold text-[#111111]">{product.rating}</span>
                   <span className="text-[#B7B7B7]">({t("products.detail.reviews", { n: product.reviewCount })})</span>
                 </div>
-                <div className="flex items-center gap-1 text-[#B7B7B7]">
-                  <Heart className="w-3.5 h-3.5 text-[#ED4C5C]" />
+                <button
+                  type="button"
+                  aria-pressed={isFavorite("product", product.id)}
+                  aria-label={isFavorite("product", product.id) ? t("favorites.remove") : t("favorites.add")}
+                  onClick={async () => {
+                    if (!canFavorite) {
+                      router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
+                      return;
+                    }
+                    await toggleFavorite("product", product.id);
+                    reload(); // the like count comes from the server
+                  }}
+                  className="flex items-center gap-1 text-[#B7B7B7] hover:text-[#111111]"
+                >
+                  <Heart className={`w-3.5 h-3.5 text-[#ED4C5C] ${isFavorite("product", product.id) ? "fill-[#ED4C5C]" : ""}`} />
                   <span>{t("products.detail.likes", { n: product.likeCount })}</span>
-                </div>
+                </button>
               </div>
 
               {/* Price Block (EUR) */}
@@ -296,6 +329,29 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   </>
                 )}
               </Button>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-[#F1F1F1] pt-3 text-xs">
+                {product.brand && (
+                  <>
+                    <dt className="text-[#B7B7B7]">{t("ownerx.product.brandLabel")}</dt>
+                    <dd className="font-bold text-[#111111]">{product.brand}</dd>
+                  </>
+                )}
+                <dt className="text-[#B7B7B7]">{t("products.detail.vat")}</dt>
+                <dd className="font-bold text-[#111111]">{t("products.detail.vatIncluded", { n: product.vatRate })}</dd>
+                {product.weightGrams != null && (
+                  <>
+                    <dt className="text-[#B7B7B7]">{t("ownerx.product.weightLabel")}</dt>
+                    <dd className="font-bold text-[#111111]">{f.number(product.weightGrams)} g</dd>
+                  </>
+                )}
+                {product.lengthMm != null && product.widthMm != null && product.heightMm != null && (
+                  <>
+                    <dt className="text-[#B7B7B7]">{t("products.detail.dimensions")}</dt>
+                    <dd className="font-bold text-[#111111]">{product.lengthMm} × {product.widthMm} × {product.heightMm} mm</dd>
+                  </>
+                )}
+              </dl>
 
               {product.externalUrl && (
                 <a

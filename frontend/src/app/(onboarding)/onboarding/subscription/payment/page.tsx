@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, AlertCircle } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -26,8 +26,6 @@ function SubscriptionPaymentContent() {
   const plansRes = useApiResource("subscription-plans", () => api.getSubscriptionPlans());
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const plan = plansRes.data?.find((p) => p.slug === planSlug);
-  const [paymentMethod, setPaymentMethod] = useState<"ideal" | "paypal" | "tikkie">("ideal");
-  const [selectedBank, setSelectedBank] = useState("ING");
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
 
@@ -75,13 +73,21 @@ function SubscriptionPaymentContent() {
     setError("");
     setIsProcessing(true);
     try {
-      // No payment provider is connected yet: this registers the chosen plan.
-      // The backend activates it only when payment is not required (non-production).
-      await api.selectPlan(business.id, plan.slug);
-      router.push("/onboarding/success");
+      const sub = await api.selectPlan(business.id, plan.slug);
+      if (sub.status === "ACTIVE") {
+        // Only happens outside production when no payment provider is configured.
+        router.push("/onboarding/success");
+        return;
+      }
+      // The plan is activated by the server once the payment is confirmed by the provider.
+      const intent = await api.createPaymentIntent({ purpose: "BUSINESS_SUBSCRIPTION", relatedEntityId: sub.id });
+      if (intent.checkoutUrl) {
+        window.location.assign(intent.checkoutUrl);
+        return;
+      }
+      router.push(`/payment/return?payment=${encodeURIComponent(intent.paymentId)}`);
     } catch (err) {
       setError(errMsg(err));
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -120,98 +126,8 @@ function SubscriptionPaymentContent() {
           </div>
         </div>
 
-        {/* Dutch Payment Methods Selection */}
-        <div className="space-y-3">
-          <label className="text-sm font-bold text-[#111111] block">{t("onb.pay.selectMethod")}</label>
-
-          {/* iDEAL */}
-          <div
-            onClick={() => setPaymentMethod("ideal")}
-            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-              paymentMethod === "ideal"
-                ? "border-[#FA1EFF] bg-[#FAE2F0]/30 shadow-xs"
-                : "border-[#EAEAEA] bg-[#F9F9F9]"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#CC0066] text-white font-bold text-xs flex items-center justify-center">
-                iDEAL
-              </div>
-              <div>
-                <span className="block text-sm font-bold text-[#111111]">iDEAL</span>
-                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.idealDesc")}</span>
-              </div>
-            </div>
-            {paymentMethod === "ideal" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
-          </div>
-
-          {/* Bank selector if iDEAL is chosen */}
-          {paymentMethod === "ideal" && (
-            <div className="pl-4 pr-2 py-2 bg-[#F9F9F9] rounded-xl border border-[#EAEAEA]">
-              <label className="text-xs font-bold text-[#111111] block mb-1">{t("onb.pay.chooseBank")}</label>
-              <select
-                value={selectedBank}
-                onChange={(e) => setSelectedBank(e.target.value)}
-                className="w-full h-10 bg-white border border-[#EAEAEA] rounded-xl text-xs font-bold px-3 focus:outline-none focus:ring-2 focus:ring-[#FA1EFF]"
-              >
-                <option value="ING">ING Bank</option>
-                <option value="Rabobank">Rabobank</option>
-                <option value="ABN AMRO">ABN AMRO</option>
-                <option value="ASN Bank">ASN Bank</option>
-                <option value="Triodos">Triodos Bank</option>
-                <option value="SNS">SNS Bank</option>
-                <option value="Bunq">Bunq</option>
-              </select>
-            </div>
-          )}
-
-          {/* PayPal */}
-          <div
-            onClick={() => setPaymentMethod("paypal")}
-            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-              paymentMethod === "paypal"
-                ? "border-[#FA1EFF] bg-[#FAE2F0]/30 shadow-xs"
-                : "border-[#EAEAEA] bg-[#F9F9F9]"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#003087] text-white font-bold text-xs flex items-center justify-center">
-                PP
-              </div>
-              <div>
-                <span className="block text-sm font-bold text-[#111111]">PayPal</span>
-                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.paypalDesc")}</span>
-              </div>
-            </div>
-            {paymentMethod === "paypal" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
-          </div>
-
-          {/* Tikkie */}
-          <div
-            onClick={() => setPaymentMethod("tikkie")}
-            className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-              paymentMethod === "tikkie"
-                ? "border-[#FA1EFF] bg-[#FAE2F0]/30 shadow-xs"
-                : "border-[#EAEAEA] bg-[#F9F9F9]"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#30B54A] text-white font-bold text-xs flex items-center justify-center">
-                T
-              </div>
-              <div>
-                <span className="block text-sm font-bold text-[#111111]">Tikkie Zakelijk</span>
-                <span className="block text-[11px] text-[#B7B7B7]">{t("onb.pay.tikkieDesc")}</span>
-              </div>
-            </div>
-            {paymentMethod === "tikkie" && <CheckCircle2 className="w-5 h-5 text-[#FA1EFF]" />}
-          </div>
-        </div>
-
-        {/* Honest payment status note (no payment provider connected yet, decision D-004) */}
-        <p className="text-[11px] text-[#B7B7B7] text-center">
-          {t("onb.pay.notAvailable")}
-        </p>
+        {/* Secure hosted checkout of the payment provider (iDEAL, card, ...) */}
+        <p className="text-[11px] text-[#B7B7B7] text-center">{t("onb.pay.hostedNotice")}</p>
 
         {error && (
           <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">

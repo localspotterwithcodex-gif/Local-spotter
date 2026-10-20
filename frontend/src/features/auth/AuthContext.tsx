@@ -13,6 +13,7 @@ interface BackendUser {
   status: "ACTIVE" | "PENDING_VERIFICATION" | "SUSPENDED" | "DELETED";
   displayName?: string;
   profileId?: string;
+  isGuest?: boolean;
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ function mapBackendUser(u: BackendUser): User {
     username: u.username,
     phone: u.mobile,
     role: u.role,
+    isGuest: u.isGuest === true,
     createdAt: u.createdAt,
   };
 }
@@ -36,6 +38,7 @@ interface RegisterPayload {
   displayName: string;
   firstName?: string;
   lastName?: string;
+  acceptTerms: boolean;
 }
 
 interface PendingVerification {
@@ -55,6 +58,12 @@ interface AuthContextType {
   /** Signs in / up with a Google ID token or Facebook access token. `role` is only needed for a brand-new account. */
   socialLogin: (provider: "google" | "facebook", token: string, role?: UserRole) => Promise<User>;
   register: (payload: RegisterPayload) => Promise<void>;
+  /** Starts a password-less guest session for checkout (after the visitor accepted the terms). */
+  startGuest: (payload: { name: string; email: string; phone?: string; acceptTerms: boolean }) => Promise<User>;
+  /** Opens a guest session from the token of an emailed order link. */
+  openGuestLink: (token: string) => Promise<User>;
+  /** Re-reads the signed-in user (e.g. after a guest created a real account). */
+  reloadUser: () => Promise<User | null>;
   verifyCode: (code: string) => Promise<User>;
   resendCode: () => Promise<void>;
   logout: () => void;
@@ -115,6 +124,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  const startGuest = useCallback(async (payload: { name: string; email: string; phone?: string; acceptTerms: boolean }) => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/guest", payload);
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const openGuestLink = useCallback(async (token: string) => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/guest/session", { token });
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const reloadUser = useCallback(async () => {
+    try {
+      const me = await apiClient.get<BackendUser>("/auth/me");
+      const mapped = mapBackendUser(me);
+      setUser(mapped);
+      return mapped;
+    } catch {
+      setUser(null);
+      return null;
+    }
+  }, []);
+
   const verifyCode = useCallback(
     async (code: string) => {
       if (!pendingVerification) {
@@ -163,6 +198,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         socialLogin,
         register,
+        startGuest,
+        openGuestLink,
+        reloadUser,
         verifyCode,
         resendCode,
         logout,

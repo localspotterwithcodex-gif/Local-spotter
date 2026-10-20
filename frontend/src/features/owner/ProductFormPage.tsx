@@ -59,6 +59,12 @@ function ProductForm({ business, product }: FormProps) {
   const [description, setDescription] = useState(product?.sourceDescription ?? "");
   const [externalUrl, setExternalUrl] = useState(product?.externalUrl ?? "");
   const [active, setActive] = useState(product?.isActive ?? true);
+  const [vatRate, setVatRate] = useState(String(product?.vatRate ?? 21));
+  const [brand, setBrand] = useState(product?.brand ?? "");
+  const [weightGrams, setWeightGrams] = useState(product?.weightGrams != null ? String(product.weightGrams) : "");
+  const [lengthMm, setLengthMm] = useState(product?.lengthMm != null ? String(product.lengthMm) : "");
+  const [widthMm, setWidthMm] = useState(product?.widthMm != null ? String(product.widthMm) : "");
+  const [heightMm, setHeightMm] = useState(product?.heightMm != null ? String(product.heightMm) : "");
   const [sizes, setSizes] = useState<ProductSize[]>(
     () => Array.from(new Set((product?.variants ?? []).map((v) => v.size).filter((s): s is ProductSize => !!s)))
   );
@@ -91,6 +97,20 @@ function ProductForm({ business, product }: FormProps) {
       return;
     }
 
+    const intOrUndef = (v: string) => (v.trim() === "" ? undefined : Number.parseInt(v, 10));
+    const specs = {
+      vatRate: Number(vatRate),
+      brand: brand.trim() || undefined,
+      weightGrams: intOrUndef(weightGrams),
+      lengthMm: intOrUndef(lengthMm),
+      widthMm: intOrUndef(widthMm),
+      heightMm: intOrUndef(heightMm),
+    };
+    if ([specs.weightGrams, specs.lengthMm, specs.widthMm, specs.heightMm].some((n) => n !== undefined && (Number.isNaN(n) || n < 0))) {
+      setError(t("ownerx.product.errorSpecs"));
+      return;
+    }
+
     setIsSubmitting(true);
     let savedId: string | null = product?.id ?? null;
     try {
@@ -104,6 +124,7 @@ function ProductForm({ business, product }: FormProps) {
           description: description.trim() || undefined,
           shopUrl: externalUrl.trim() || undefined,
           images,
+          ...specs,
         });
         savedId = created.id;
         for (const v of wantedVariants(sizes, colors)) {
@@ -119,6 +140,9 @@ function ProductForm({ business, product }: FormProps) {
           categoryId: resolvedCategoryId || undefined,
           shopUrl: externalUrl.trim() || undefined,
           active,
+          ...specs,
+          // an emptied brand must clear the stored one
+          brand: brand.trim(),
         });
 
         // photos: remove the ones taken out, add the new ones
@@ -263,6 +287,30 @@ function ProductForm({ business, product }: FormProps) {
               </span>
             )}
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input label={t("ownerx.product.brandLabel")} value={brand} maxLength={120} onChange={(e) => setBrand(e.target.value)} />
+          <div className="space-y-1.5">
+            <label htmlFor="product-vat" className="text-sm font-bold text-[#111111]">{t("ownerx.product.vatLabel")}</label>
+            <select
+              id="product-vat"
+              value={vatRate}
+              onChange={(e) => setVatRate(e.target.value)}
+              className="w-full h-12 bg-[#EAEAEA] text-[#111111] text-base px-4 rounded-xl font-normal focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent"
+            >
+              <option value="21">21%</option>
+              <option value="9">9%</option>
+              <option value="0">0%</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Input label={t("ownerx.product.weightLabel")} type="number" min={0} value={weightGrams} onChange={(e) => setWeightGrams(e.target.value)} />
+          <Input label={t("ownerx.product.lengthLabel")} type="number" min={0} value={lengthMm} onChange={(e) => setLengthMm(e.target.value)} />
+          <Input label={t("ownerx.product.widthLabel")} type="number" min={0} value={widthMm} onChange={(e) => setWidthMm(e.target.value)} />
+          <Input label={t("ownerx.product.heightLabel")} type="number" min={0} value={heightMm} onChange={(e) => setHeightMm(e.target.value)} />
         </div>
 
         <div className="space-y-2">

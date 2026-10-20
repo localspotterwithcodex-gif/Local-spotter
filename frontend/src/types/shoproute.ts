@@ -16,6 +16,10 @@ export interface Shoproute {
   cityName: string;
   description: string;
   imageUrl?: string;
+  theme?: string;
+  distanceKm?: number;
+  durationMinutes?: number;
+  featured: boolean;
   shopCount: number;
   stops: RouteStop[];
   status: "PUBLISHED" | "DRAFT";

@@ -1,3 +1,27 @@
+export interface WorkshopSession {
+  id: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  finishTime: string; // HH:MM
+  startsAt: string; // ISO
+  capacity: number;
+  bookedCount: number;
+  remaining: number;
+  status: "OPEN" | "FULL" | "CANCELLED" | "COMPLETED";
+}
+
+export interface WorkshopParticipant {
+  bookingId: string;
+  name: string;
+  phone: string | null;
+  tickets: number;
+  total: number;
+  status: string;
+  sessionId: string | null;
+  sessionStart: string | null;
+  bookedAt: string;
+}
+
 export interface Workshop {
   id: string;
   businessId: string;
@@ -14,6 +38,10 @@ export interface Workshop {
   finishTime: string; // HH:MM
   status: "PUBLISHED" | "DRAFT" | "CANCELLED" | "COMPLETED";
   createdAt: string;
+  sessions: WorkshopSession[];
+  cancellationDeadlineHours: number;
+  refundPercentage: number;
+  minAge?: number;
 }
 
 export interface WorkshopBooking {

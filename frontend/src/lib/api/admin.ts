@@ -4,7 +4,8 @@
  * The backend wraps payloads as `{ data: ... }`; mappers here convert the raw
  * Prisma JSON (Decimal strings, ISO dates) into small view-model types.
  */
-import { apiClient, qs } from "./client";
+import { apiClient, ApiError, qs } from "./client";
+import type { ReturnRequest } from "./index";
 import { num } from "./mappers";
 import type { OrderStatus } from "@/types/order";
 
@@ -77,6 +78,27 @@ export interface AdminProduct {
   imageUrl: string;
 }
 
+export interface AdminRoute {
+  id: string;
+  title: string;
+  city: string;
+  businessName: string;
+  status: string;
+  featured: boolean;
+  stopCount: number;
+  distanceKm?: number;
+}
+
+export interface AdminWorkshop {
+  id: string;
+  title: string;
+  businessName: string;
+  status: string;
+  startTime: string;
+  capacity: number;
+  bookedCount: number;
+}
+
 export interface AdminReview {
   id: string;
   consumerName: string;
@@ -119,10 +141,23 @@ export interface AdminSubscription {
 export interface AdminPayout {
   id: string;
   businessName: string;
-  iban: string;
+  accountHolder: string;
+  /** Weekly run key (e.g. 2026-W43); empty for older payouts. */
+  periodKey: string | null;
+  providerReference: string | null;
+  adminNotes: string | null;
   amount: number;
   status: PayoutStatus;
   createdAt: string;
+}
+
+export interface AdminPlanCommission {
+  id: string;
+  name: string;
+  slug: string;
+  monthlyPrice: number;
+  commissionBps: number | null;
+  active: boolean;
 }
 
 export interface AdminPlan {
@@ -203,7 +238,10 @@ interface RawPayout {
   id: string;
   amount: Dec;
   status: PayoutStatus;
-  iban?: string | null;
+  accountHolder?: string | null;
+  periodKey?: string | null;
+  providerReference?: string | null;
+  adminNotes?: string | null;
   createdAt: string;
   business?: { name: string } | null;
 }
@@ -292,11 +330,45 @@ const toSubscription = (r: RawSubscription): AdminSubscription => ({
 const toPayout = (r: RawPayout): AdminPayout => ({
   id: r.id,
   businessName: r.business?.name ?? DASH,
-  iban: r.iban ?? DASH,
+  accountHolder: r.accountHolder ?? DASH,
+  periodKey: r.periodKey ?? null,
+  providerReference: r.providerReference ?? null,
+  adminNotes: r.adminNotes ?? null,
   amount: num(r.amount),
   status: r.status,
   createdAt: r.createdAt,
 });
+
+export type CategoryKind = "business" | "product";
+export interface AdminCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  active: boolean;
+  sortOrder: number;
+  usage: number;
+}
+export interface TranslationStatus {
+  configured: boolean;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+}
+
+export interface AdminChatReport {
+  id: string;
+  status: "OPEN" | "RESOLVED" | "DISMISSED";
+  reason: "SPAM" | "HARASSMENT" | "FRAUD" | "INAPPROPRIATE" | "OTHER";
+  details: string | null;
+  messageSnapshot: string | null;
+  createdAt: string;
+  reporterEmail: string | null;
+  businessName: string;
+  consumerName: string;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+}
 
 export const adminApi = {
   async getDashboard(range?: { startDate?: string; endDate?: string }): Promise<AdminDashboard> {
@@ -332,6 +404,65 @@ export const adminApi = {
   },
   async setProductActive(id: string, active: boolean): Promise<void> {
     await apiClient.patch(`/admin/products/${id}/moderation`, { active });
+  },
+
+  async getRoutes(q: PageQuery & { search?: string } = {}): Promise<Paged<AdminRoute>> {
+    type RawAdminRoute = { id: string; title: string; city: string; status: string; featured: boolean; distanceKm?: number | string | null; business?: { name: string } | null; _count?: { stops: number } };
+    const res = await apiClient.get<Envelope<{ routes: RawAdminRoute[]; meta: PageMeta }>>(
+      `/admin/shop-routes${qs({ search: q.search, limit: q.limit, offset: q.offset })}`
+    );
+    return paged(res.data.routes, res.data.meta, (r) => ({
+      id: r.id,
+      title: r.title,
+      city: r.city,
+      businessName: r.business?.name ?? "—",
+      status: r.status,
+      featured: r.featured,
+      stopCount: r._count?.stops ?? 0,
+      distanceKm: r.distanceKm == null ? undefined : Number(r.distanceKm),
+    }));
+  },
+  async moderateRoute(id: string, input: { status?: "PUBLISHED" | "DRAFT" | "ARCHIVED"; featured?: boolean }): Promise<void> {
+    await apiClient.patch(`/admin/shop-routes/${id}/moderation`, input);
+  },
+
+  async getChatReports(status: "OPEN" | "RESOLVED" | "DISMISSED" = "OPEN"): Promise<AdminChatReport[]> {
+    return apiClient.get<AdminChatReport[]>(`/admin/chat-reports${qs({ status })}`);
+  },
+  async resolveChatReport(id: string, status: "RESOLVED" | "DISMISSED", note?: string): Promise<void> {
+    await apiClient.post(`/admin/chat-reports/${id}/resolve`, { status, note: note?.trim() || undefined });
+  },
+
+  async getCategories(kind: CategoryKind): Promise<AdminCategory[]> {
+    return apiClient.get<AdminCategory[]>(`/admin/categories/${kind}`);
+  },
+  async createCategory(kind: CategoryKind, input: { name: string; description?: string; sortOrder?: number }): Promise<void> {
+    await apiClient.post(`/admin/categories/${kind}`, input);
+  },
+  async updateCategory(kind: CategoryKind, id: string, input: { name?: string; description?: string; sortOrder?: number; active?: boolean }): Promise<void> {
+    await apiClient.patch(`/admin/categories/${kind}/${id}`, input);
+  },
+  async deleteCategory(kind: CategoryKind, id: string): Promise<void> {
+    await apiClient.delete(`/admin/categories/${kind}/${id}`);
+  },
+  async getTranslationStatus(): Promise<TranslationStatus> {
+    return apiClient.get<TranslationStatus>(`/admin/translation/status`);
+  },
+
+  async getWorkshops(q: PageQuery & { search?: string } = {}): Promise<Paged<AdminWorkshop>> {
+    type RawAdminWorkshop = { id: string; title: string; status: string; startTime: string; capacity: number; bookedCount: number; business?: { name: string } | null };
+    const res = await apiClient.get<Envelope<{ workshops: RawAdminWorkshop[]; meta: PageMeta }>>(
+      `/admin/workshops${qs({ search: q.search, limit: q.limit, offset: q.offset })}`
+    );
+    return paged(res.data.workshops, res.data.meta, (w) => ({
+      id: w.id,
+      title: w.title,
+      businessName: w.business?.name ?? "—",
+      status: w.status,
+      startTime: w.startTime,
+      capacity: w.capacity,
+      bookedCount: w.bookedCount,
+    }));
   },
 
   async getReviews(q: PageQuery & { status?: ReviewStatus } = {}): Promise<Paged<AdminReview>> {
@@ -381,7 +512,31 @@ export const adminApi = {
   async approvePayout(id: string): Promise<void> {
     await apiClient.patch(`/admin/payouts/${id}/approve`);
   },
-  async rejectPayout(id: string, reason: string): Promise<void> {
-    await apiClient.patch(`/admin/payouts/${id}/reject`, { reason });
+  async rejectPayout(id: string, reason: string, status: "REJECTED" | "FAILED" = "REJECTED"): Promise<void> {
+    await apiClient.patch(`/admin/payouts/${id}/reject`, { status, reason });
+  },
+  async markPayoutPaid(id: string, providerReference: string): Promise<void> {
+    await apiClient.patch(`/admin/payouts/${id}/paid`, { providerReference });
+  },
+  async runPayouts(): Promise<{ periodKey: string; created: number; alreadyExists: number; belowMinimum: number; failed: number }> {
+    return apiClient.post("/admin/payouts/run");
+  },
+  /** CSV with the IBANs of open payouts for the bank batch (audited server-side). */
+  async exportPayoutsCsv(): Promise<string> {
+    const res = await fetch("/api/v1/admin/payouts/export", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" } });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new ApiError((body && body.message) || res.statusText || "Request failed", res.status, body);
+    }
+    return res.text();
+  },
+  async getPlanCommissions(): Promise<{ defaultBps: number; plans: AdminPlanCommission[] }> {
+    return apiClient.get("/admin/plans");
+  },
+  async setPlanCommission(planId: string, commissionBps: number | null): Promise<void> {
+    await apiClient.patch(`/admin/plans/${planId}/commission`, { commissionBps });
+  },
+  async getReturns(status?: string): Promise<ReturnRequest[]> {
+    return apiClient.get(`/admin/returns${qs({ status })}`);
   },
 };

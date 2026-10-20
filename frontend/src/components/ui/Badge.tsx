@@ -3,21 +3,24 @@
 import React from "react";
 import { useLocale } from "@/i18n/LocaleContext";
 import { cn } from "@/lib/utils";
-import { OrderStatus } from "@/types/order";
+import type { FulfilmentMethod, OrderStatus } from "@/types/order";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: "processing" | "completed" | "ontheway" | "cancelled" | "new" | "default" | "pink";
   status?: OrderStatus;
+  /** A pickup order that is READY reads "Ready for pickup". */
+  fulfilment?: FulfilmentMethod;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
   className,
   variant,
   status,
+  fulfilment,
   children,
   ...props
 }) => {
-  const { label } = useLocale();
+  const { label, t } = useLocale();
   let computedVariant = variant || "default";
 
   if (status) {
@@ -60,7 +63,7 @@ export const Badge: React.FC<BadgeProps> = ({
       )}
       {...props}
     >
-      {children || (status ? label("status", status) : null)}
+      {children || (status ? (status === "READY" && fulfilment === "PICKUP" ? t("status.READY_PICKUP") : label("status", status)) : null)}
     </span>
   );
 };

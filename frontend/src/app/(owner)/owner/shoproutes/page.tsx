@@ -9,16 +9,18 @@ import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { api } from "@/lib/api";
+import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
+import { api, type UploadedImage } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useOwnerAccess } from "@/features/business/useOwnerAccess";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { validationDetail } from "@/lib/errors";
+import { geocodeFirst } from "@/lib/geocode";
 
 export default function OwnerShoproutesPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const errMsg = useErrorMessage();
   const { business, loading: businessLoading, error: businessError, reload: reloadBusiness } = useMyBusiness();
   const businessId = business?.id ?? null;
@@ -33,6 +35,9 @@ export default function OwnerShoproutesPage() {
   const [city, setCity] = useState("");
   const [description, setDescription] = useState("");
   const [publish, setPublish] = useState(true);
+  const [theme, setTheme] = useState("");
+  const [cover, setCover] = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -57,19 +62,37 @@ export default function OwnerShoproutesPage() {
       setError(t("ownerx.error.requiredFields"));
       return;
     }
-    if (selected.length === 0) {
-      setError(t("ownerx.routes.noStops"));
-      return;
-    }
-    const stops = selected.map((id, i) => {
-      const shop = candidates.find((s) => s.id === id)!;
-      return { businessId: id, title: shop.name, latitude: shop.location.lat, longitude: shop.location.lng, sequence: i };
-    });
+    let ids = selected;
+    let ownCoords: { lat: number; lng: number } | null = null;
     setBusy(true);
     try {
-      await api.createShoproute({ title: title.trim(), city: routeCity, description: description.trim() || undefined, publish, stops });
+      // Nothing ticked and the own shop has no map position yet: place it from its address, then use it as the stop.
+      if (ids.length === 0 && business && !hasCoords(business)) {
+        const l = business.location;
+        ownCoords = await geocodeFirst(
+          [[`${l.street} ${l.houseNumber ?? ""}`.trim(), l.postalCode, l.city].filter(Boolean).join(", "), [l.street, l.city].filter(Boolean).join(", "), l.city],
+          locale
+        );
+        if (ownCoords) {
+          await api.updateBusiness(business.id, { latitude: ownCoords.lat, longitude: ownCoords.lng });
+          reloadBusiness();
+          ids = [business.id];
+        }
+      }
+      if (ids.length === 0) {
+        setError(business && !hasCoords(business) ? t("ownerx.routes.geoFail") : t("ownerx.routes.noStops"));
+        return;
+      }
+      const stops = ids.map((id, i) => {
+        const shop = candidates.find((s) => s.id === id)!;
+        const c = id === business?.id && ownCoords ? ownCoords : { lat: shop.location.lat, lng: shop.location.lng };
+        return { businessId: id, title: shop.name, latitude: c.lat, longitude: c.lng, sequence: i };
+      });
+      await api.createShoproute({ title: title.trim(), city: routeCity, description: description.trim() || undefined, publish, stops, theme: theme.trim() || undefined, coverImageUrl: cover[0]?.url });
       setTitle("");
       setDescription("");
+      setTheme("");
+      setCover([]);
       setSelected([]);
       setNotice(t("ownerx.routes.created"));
       routes.reload();
@@ -135,6 +158,9 @@ export default function OwnerShoproutesPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+          <Input placeholder={t("ownerx.routes.themeLabel")} value={theme} maxLength={60} onChange={(e) => setTheme(e.target.value)} />
+          <ServerImageUploader label={t("ownerx.routes.coverLabel")} value={cover} onChange={setCover} max={1} onBusyChange={setUploading} />
+          <p className="text-[11px] text-[#B7B7B7]">{t("ownerx.routes.statsHint")}</p>
           <fieldset className="space-y-1">
             <legend className="text-xs font-bold text-[#555555] mb-1">{t("ownerx.routes.stops")}</legend>
             {shops.loading ? (
@@ -160,7 +186,7 @@ export default function OwnerShoproutesPage() {
             <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
             {t("ownerx.routes.publish")}
           </label>
-          <Button type="submit" isLoading={busy} disabled={busy} fullWidth>
+          <Button type="submit" isLoading={busy} disabled={busy || uploading} fullWidth>
             <Plus className="w-4 h-4 mr-1" /> {t("ownerx.routes.create")}
           </Button>
         </form>

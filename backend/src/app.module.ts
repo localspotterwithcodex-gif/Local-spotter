@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { WorkshopsModule } from './workshops/workshops.module';
 import { ShopRoutesModule } from './shoproutes/shoproutes.module';
 import { FollowersModule } from './followers/followers.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -23,8 +24,12 @@ import { AdminModule } from './admin/admin.module';
 import { ShopRegistrationsModule } from './shop-registrations/shop-registrations.module';
 import { MediaModule } from './media/media.module';
 import { FinanceModule } from './finance/finance.module';
+import { ReturnsModule } from './returns/returns.module';
 import { ChatModule } from './chat/chat.module';
+import { EmployeesModule } from './employees/employees.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { TranslationModule } from './translation/translation.module';
+import { GuestModule } from './guest/guest.module';
 
 @Module({
   imports: [
@@ -37,7 +42,11 @@ import { TranslationModule } from './translation/translation.module';
     TranslationModule,
     MediaModule,
     FinanceModule,
+    ReturnsModule,
     ChatModule,
+    EmployeesModule,
+    PrivacyModule,
+    GuestModule,
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -50,6 +59,7 @@ import { TranslationModule } from './translation/translation.module';
     WorkshopsModule,
     ShopRoutesModule,
     FollowersModule,
+    FavoritesModule,
     AddressesModule,
     NotificationsModule,
     PaymentsModule,

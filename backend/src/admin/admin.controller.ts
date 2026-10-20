@@ -1,16 +1,17 @@
-import { Controller, Get, Patch, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminUserQueryDto } from './dto/admin-user-query.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateBusinessStatusDto } from '../businesses/dto/update-business-status.dto';
-import { AdminProductQueryDto, ModerateProductDto, AdminReviewQueryDto, ModerateReviewDto, ModerateCommentDto, ResolveReportDto } from './dto/moderation.dto';
+import { AdminProductQueryDto, ModerateProductDto, AdminReviewQueryDto, ModerateReviewDto, ModerateCommentDto, ResolveReportDto, ModerateRouteDto } from './dto/moderation.dto';
 import { AdminOrderQueryDto, AdminPaymentQueryDto, AdminSubscriptionQueryDto, UpdateOrderStatusDto } from './dto/admin-entity.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { TranslationService } from '../translation/translation.service';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -18,7 +19,16 @@ import { UserRole } from '@prisma/client';
 @Roles(UserRole.SUPER_ADMIN)
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly translation: TranslationService,
+  ) {}
+
+  @Get('translation/status')
+  @ApiOperation({ summary: 'Automatic translation (DeepL) status: configured, last success/failure, last error' })
+  translationStatus() {
+    return this.translation.status();
+  }
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get platform dashboard metrics' })
@@ -156,6 +166,24 @@ export class AdminController {
     @Body() dto: ModerateProductDto,
   ) {
     return this.adminService.moderateProduct(productId, dto.active);
+  }
+
+  @Get('shop-routes')
+  @ApiOperation({ summary: 'List all shop routes (all statuses) for moderation' })
+  async getShopRoutes(@Query() query: AdminProductQueryDto) {
+    return this.adminService.getShopRoutes(query);
+  }
+
+  @Patch('shop-routes/:routeId/moderation')
+  @ApiOperation({ summary: 'Publish, archive or feature a shop route' })
+  async moderateShopRoute(@Param('routeId') routeId: string, @Body() dto: ModerateRouteDto, @Req() req: any) {
+    return this.adminService.moderateShopRoute(routeId, dto, req?.user?.id);
+  }
+
+  @Get('workshops')
+  @ApiOperation({ summary: 'List all workshops (all statuses)' })
+  async getWorkshops(@Query() query: AdminProductQueryDto) {
+    return this.adminService.getWorkshops(query);
   }
 
   @Get('reviews')
@@ -305,15 +333,6 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'Payout not found.' })
   async approvePayout(@Param('payoutId') payoutId: string) {
     return this.adminService.approvePayout(payoutId);
-  }
-
-  @Patch('payouts/:payoutId/reject')
-  @ApiOperation({ summary: 'Reject a payout' })
-  @ApiParam({ name: 'payoutId', description: 'Payout UUID' })
-  @ApiResponse({ status: 200, description: 'Payout rejected.' })
-  @ApiResponse({ status: 404, description: 'Payout not found.' })
-  async rejectPayout(@Param('payoutId') payoutId: string, @Body() dto: { reason: string }) {
-    return this.adminService.rejectPayout(payoutId, dto.reason);
   }
 
   @Get('businesses/:businessId/ledger')

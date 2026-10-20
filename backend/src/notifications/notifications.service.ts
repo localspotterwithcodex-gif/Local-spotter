@@ -1,6 +1,8 @@
 import {
+  Inject,
   Injectable,
   Logger,
+  Optional,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -8,13 +10,19 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationPreferencesDto } from './dto/notification-preferences.dto';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, SubscriptionStatus } from '@prisma/client';
+import { MAIL_PROVIDER, MailProvider } from '../mail/mail.provider';
+import { GuestLinkService } from '../guest/guest-link.service';
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() @Inject(MAIL_PROVIDER) private mail?: MailProvider,
+    @Optional() private guests?: GuestLinkService,
+  ) {}
 
   async getPreferences(userId: string) {
     const pref = await this.prisma.notificationPreference.findUnique({ where: { userId } });
@@ -73,6 +81,82 @@ export class NotificationsService {
     } catch (err) {
       this.logger.warn(`Could not create ${kind} notification: ${(err as Error).message}`);
     }
+  }
+
+  /**
+   * Best-effort in-app notification (and optional email) to any user. Never throws:
+   * a failed notification must not fail the booking/cancellation that caused it.
+   */
+  async notifyUser(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    options: { linkUrl?: string; email?: boolean } = {},
+  ): Promise<void> {
+    try {
+      await this.prisma.notification.create({
+        data: { userId, type, title, message, linkUrl: options.linkUrl, read: false },
+      });
+    } catch (err) {
+      this.logger.warn(`Could not create ${type} notification: ${(err as Error).message}`);
+    }
+    if (!options.email || !this.mail || !this.mail.isConfigured() || !this.mail.supports('EMAIL')) return;
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, guestEmail: true, isGuest: true } });
+      // Guests have no login: mail goes to their contact address and carries a personal order link.
+      const to = user?.email ?? user?.guestEmail;
+      if (!to) return;
+      let text = message;
+      if (user?.isGuest && this.guests) {
+        const link = await this.guests.orderLinkFor(userId);
+        if (link) text += `\n\nBekijk je bestelling via je persoonlijke link (7 dagen geldig):\n${link}`;
+      }
+      await this.mail.send({ to, channel: 'EMAIL', subject: title, text });
+    } catch (err) {
+      this.logger.warn(`Could not email ${type} notification: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Reminds owners whose subscription period ends within `days` days (once per period).
+   * Called by the scheduled job endpoint; best effort per subscription.
+   */
+  async sendSubscriptionExpiryReminders(now = new Date(), days = 7): Promise<{ reminded: number }> {
+    const horizon = new Date(now.getTime() + days * 86_400_000);
+    const candidates = await this.prisma.businessSubscription.findMany({
+      where: { status: SubscriptionStatus.ACTIVE, currentPeriodEnd: { gt: now, lte: horizon } },
+      take: 500,
+      select: {
+        id: true,
+        currentPeriodEnd: true,
+        expiryReminderForEnd: true,
+        autoRenew: true,
+        business: { select: { name: true, ownerProfile: { select: { userId: true } } } },
+        plan: { select: { name: true } },
+      },
+    });
+    let reminded = 0;
+    for (const sub of candidates) {
+      const already = sub.expiryReminderForEnd && sub.expiryReminderForEnd.getTime() === sub.currentPeriodEnd.getTime();
+      const userId = sub.business?.ownerProfile?.userId;
+      if (already || !userId) continue;
+      // Claim first so a retry never double-sends.
+      const claim = await this.prisma.businessSubscription.updateMany({
+        where: { id: sub.id, OR: [{ expiryReminderForEnd: null }, { expiryReminderForEnd: { not: sub.currentPeriodEnd } }] },
+        data: { expiryReminderForEnd: sub.currentPeriodEnd },
+      });
+      if (claim.count !== 1) continue;
+      await this.notifyUser(
+        userId,
+        NotificationType.SUBSCRIPTION,
+        `Je abonnement ${sub.plan.name} loopt bijna af`,
+        `Het abonnement van ${sub.business.name} eindigt op ${sub.currentPeriodEnd.toISOString().slice(0, 10)}. Verleng op tijd zodat je winkel zichtbaar blijft.`,
+        { linkUrl: '/owner/subscription', email: true },
+      );
+      reminded++;
+    }
+    return { reminded };
   }
 
   async createNotification(

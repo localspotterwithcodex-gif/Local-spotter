@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsUUID, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, Max } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class QueryShopRouteDto {
   @ApiPropertyOptional({ description: 'Page number' })
@@ -32,4 +32,35 @@ export class QueryShopRouteDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by theme (case-insensitive exact match)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  theme?: string;
+
+  @ApiPropertyOptional({ description: 'Maximum route length in km' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxDistanceKm?: number;
+
+  @ApiPropertyOptional({ description: 'Maximum duration in minutes' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxDurationMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Only featured routes' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  featured?: boolean;
+
+  @ApiPropertyOptional({ enum: ['featured', 'newest', 'distance', 'duration'] })
+  @IsOptional()
+  @IsIn(['featured', 'newest', 'distance', 'duration'])
+  sort?: 'featured' | 'newest' | 'distance' | 'duration';
 }

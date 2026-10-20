@@ -5,15 +5,15 @@
  */
 import { apiClient, ApiError, qs } from "./client";
 import {
-  RawBooking, RawBusiness, RawOrder, RawPlan, RawProduct, RawReview, RawRoute, RawSubscription, RawWorkshop,
-  toBooking, toBusiness, toOrder, toPlan, toProduct, toReview, toShoproute, toSubscription, toWorkshop,
+  RawBooking, RawBusiness, RawOrder, RawPlan, RawProduct, RawReview, RawRoute, RawSubscription, RawWorkshop, RawWorkshopSession,
+  toBooking, toBusiness, toOrder, toPlan, toProduct, toReview, toShoproute, toSubscription, toWorkshop, toWorkshopSession,
 } from "./mappers";
 import { PLAN_FEATURES } from "@/content/plan-features";
 import type { Product, ProductCategory } from "@/types/product";
 import type { Business } from "@/types/business";
-import type { Workshop, WorkshopBooking } from "@/types/workshop";
+import type { Workshop, WorkshopBooking, WorkshopParticipant, WorkshopSession } from "@/types/workshop";
 import type { Shoproute } from "@/types/shoproute";
-import type { Order, OrderStatus } from "@/types/order";
+import type { FulfilmentMethod, Order, OrderStatus, PaymentState } from "@/types/order";
 import type { Review } from "@/types/review";
 import type { BusinessSubscription, PlanSlug, SubscriptionPlan } from "@/types/subscription";
 
@@ -38,28 +38,80 @@ export interface CartLine {
   total: number;
   variantLabel?: string;
 }
-export interface ServerCart {
-  id: string | null;
-  business: { id: string; name: string } | null;
+export interface FulfilmentOptions {
+  pickup: { enabled: boolean; fee: number };
+  shipping: { enabled: boolean; fee: number; freeAbove: number | null };
+  localDelivery: { enabled: boolean; fee: number; radiusKm: number | null };
+}
+export interface CartGroup {
+  business: { id: string; name: string; city?: string };
   items: CartLine[];
   subtotal: number;
+  fulfilmentOptions: FulfilmentOptions;
+}
+export interface ServerCart {
+  id: string | null;
+  /** First store of the cart (kept for older screens). */
+  business: { id: string; name: string } | null;
+  items: CartLine[];
+  groups: CartGroup[];
+  subtotal: number;
   deliveryFee: number;
+}
+interface RawCartItem {
+  id: string;
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  product: { name: string; images?: { mediaAsset?: { url: string } | null }[] };
+  variant?: { size?: string | null; color?: string | null } | null;
 }
 interface RawCart {
   id: string | null;
   business: { id: string; name: string } | null;
-  items: {
-    id: string;
-    productId: string;
-    variantId?: string | null;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-    product: { name: string; images?: { mediaAsset?: { url: string } | null }[] };
-    variant?: { size?: string | null; color?: string | null } | null;
+  items: RawCartItem[];
+  groups?: {
+    business: { id: string; name: string; city?: string };
+    items: RawCartItem[];
+    subtotal: number;
+    fulfilmentOptions: FulfilmentOptions;
   }[];
   subtotal: number;
   deliveryFee: number;
+}
+
+export interface PaymentIntent {
+  paymentId: string;
+  purpose: "BUSINESS_SUBSCRIPTION" | "PRODUCT_ORDER" | "WORKSHOP_BOOKING";
+  status: PaymentState;
+  amount: number;
+  currency: string;
+  /** Hosted checkout of the payment provider; null if the payment is already settled. */
+  checkoutUrl: string | null;
+}
+export interface PaymentInfo {
+  id: string;
+  purpose: PaymentIntent["purpose"];
+  status: PaymentState;
+  amount: number | string;
+  currency: string;
+  orderId?: string | null;
+  customerOrderId?: string | null;
+  workshopBookingId?: string | null;
+  businessSubscriptionId?: string | null;
+  checkoutUrl?: string | null;
+}
+export interface CreateOrderInput {
+  deliveryAddress?: DeliveryAddressInput;
+  fulfilments: { businessId: string; method: FulfilmentMethod }[];
+}
+export interface CheckoutOrder {
+  id: string;
+  orderNumber: string;
+  totalAmount: number;
+  orders: Order[];
 }
 
 export interface ConsumerProfileInfo {
@@ -135,6 +187,12 @@ export interface CreateProductInput {
   shopUrl?: string;
   active?: boolean;
   images?: UploadedImage[];
+  vatRate?: number;
+  brand?: string;
+  weightGrams?: number;
+  lengthMm?: number;
+  widthMm?: number;
+  heightMm?: number;
 }
 
 export type UpdateProductInput = Partial<Omit<CreateProductInput, "images">>;
@@ -165,12 +223,35 @@ export type UpdateBusinessInput = Partial<CreateBusinessInput> & {
   /** MediaAsset id from api.uploadImage; null removes the image. */
   logoAssetId?: string | null;
   coverAssetId?: string | null;
+  panoramaAssetId?: string | null;
+  /** http(s) URLs; null clears the link. */
+  websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  facebookUrl?: string | null;
+  tiktokUrl?: string | null;
+  pickupEnabled?: boolean;
+  shippingEnabled?: boolean;
+  localDeliveryEnabled?: boolean;
+  shippingFee?: number | null;
+  freeShippingThreshold?: number | null;
+  localDeliveryFee?: number;
+  localDeliveryRadiusKm?: number | null;
 };
 
 export interface NotificationPreferences {
   notifyOrders: boolean;
   notifyReviews: boolean;
   notifyTips: boolean;
+}
+
+export interface WorkshopSessionInput {
+  /** YYYY-MM-DD (local) */
+  date: string;
+  /** HH:MM (local) */
+  startTime: string;
+  /** HH:MM (local) */
+  finishTime: string;
+  capacity?: number;
 }
 
 export interface CreateWorkshopInput {
@@ -180,12 +261,11 @@ export interface CreateWorkshopInput {
   price: number;
   capacity: number;
   location?: string;
-  /** YYYY-MM-DD (local) */
-  date: string;
-  /** HH:MM (local) */
-  startTime: string;
-  /** HH:MM (local) */
-  finishTime: string;
+  /** At least one session; each has its own seats (defaults to `capacity`). */
+  sessions: WorkshopSessionInput[];
+  cancellationDeadlineHours?: number;
+  refundPercentage?: number;
+  minAge?: number;
   imageUrl?: string;
   imageAssetId?: string;
 }
@@ -196,6 +276,8 @@ export interface CreateShoprouteInput {
   description?: string;
   /** false saves a draft; default publishes immediately. */
   publish?: boolean;
+  theme?: string;
+  coverImageUrl?: string;
   stops: { businessId: string; title: string; latitude: number; longitude: number; sequence: number }[];
 }
 
@@ -203,19 +285,76 @@ export interface BusinessBalance {
   currency: string;
   grossSalesCents: number;
   refundsCents: number;
+  /** Platform commission kept (after refund reversals). */
+  commissionCents: number;
   netSalesCents: number;
   paidOutCents: number;
   pendingPayoutCents: number;
+  /** Net sales still inside the hold period. */
+  onHoldCents: number;
   availableCents: number;
+  nextReleaseAt: string | null;
   recentEntries: Array<{
     id: string;
     type: string;
     amountCents: number;
     createdAt: string;
+    availableAt: string | null;
     orderNumber: string | null;
     workshopTitle: string | null;
   }>;
-  payouts: Array<{ id: string; amountCents: number; status: string; requestedAt: string; paidAt: string | null }>;
+  payouts: Array<{ id: string; amountCents: number; status: string; requestedAt: string; paidAt: string | null; periodKey: string | null }>;
+}
+
+export interface PayoutAccount {
+  configured: boolean;
+  accountHolderName: string | null;
+  /** Never the full IBAN. */
+  ibanMasked: string | null;
+}
+
+export type ReturnStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "RECEIVED" | "REFUNDED" | "CANCELLED";
+
+export interface ReturnRequest {
+  id: string;
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  businessId: string;
+  businessName: string;
+  customerName: string;
+  status: ReturnStatus;
+  reason: string;
+  merchantNote: string | null;
+  refundStatus: "PENDING" | "REFUNDED" | "NOT_REQUIRED" | "FAILED" | null;
+  refundAmountCents: number | null;
+  restocked: boolean;
+  requestedAt: string;
+  decidedAt: string | null;
+  receivedAt: string | null;
+  refundedAt: string | null;
+  items: Array<{ orderItemId: string; quantity: number; name: string; variant: string | null; unitPriceCents: number }>;
+}
+
+export interface CreateReturnInput {
+  orderId: string;
+  reason: string;
+  items: Array<{ orderItemId: string; quantity: number }>;
+}
+
+export interface Employee {
+  id: string;
+  email: string;
+  role: "MANAGER" | "STAFF";
+  status: "INVITED" | "ACTIVE";
+  inviteExpiresAt: string | null;
+  acceptedAt: string | null;
+}
+export interface StaffShop {
+  businessId: string;
+  businessName: string;
+  city: string | null;
+  role: "MANAGER" | "STAFF";
 }
 
 export interface ChatConversation {
@@ -223,19 +362,22 @@ export interface ChatConversation {
   businessId: string;
   businessName: string;
   consumerName: string;
-  lastMessage: { body: string; createdAt: string; mine: boolean } | null;
+  lastMessage: { body: string; hasAttachment?: boolean; createdAt: string; mine: boolean } | null;
   lastMessageAt: string;
   unreadCount: number;
+  blocked?: boolean;
 }
 export interface ChatMessage {
   id: string;
   body: string;
+  attachmentUrl?: string | null;
   createdAt: string;
   readAt: string | null;
   mine: boolean;
 }
+export type ChatReportReason = "SPAM" | "HARASSMENT" | "FRAUD" | "INAPPROPRIATE" | "OTHER";
 export interface ChatThread {
-  conversation: { id: string; businessName: string; consumerName: string };
+  conversation: { id: string; businessName: string; consumerName: string; viewerSide?: "consumer" | "business"; blocked?: boolean; blockedByMe?: boolean };
   messages: ChatMessage[];
 }
 export interface AppNotification {
@@ -247,9 +389,24 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface ProductSearchParams {
+  category?: string;
+  query?: string;
+  businessId?: string;
+  limit?: number;
+  city?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  sort?: "newest" | "price_asc" | "price_desc" | "popular" | "distance";
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+}
+
 export const api = {
   // ---------------- MEDIA ----------------
-  /** Uploads one image (any common raster image, max 10 MB) to the backend, which stores it in Cloudinary. */
+  /** Uploads one image (any common raster image, max 5 MB) to the backend, which stores it in Cloudinary. */
   async uploadImage(file: File): Promise<UploadedImage> {
     const body = new FormData();
     body.append("file", file);
@@ -261,7 +418,7 @@ export const api = {
     return apiClient.get<ProductCategory[]>("/products/categories");
   },
 
-  async getProducts(params?: { category?: string; query?: string; businessId?: string; limit?: number }): Promise<Product[]> {
+  async getProducts(params?: ProductSearchParams): Promise<Product[]> {
     let categoryId: string | undefined;
     if (params?.category) {
       const cats = await this.getProductCategories();
@@ -270,10 +427,15 @@ export const api = {
       if (!categoryId) return []; // unknown category → nothing matches
     }
     const res = await apiClient.get<RawProduct[]>(
-      `/products${qs({ categoryId, search: params?.query, businessId: params?.businessId })}`
+      `/products${qs({ categoryId, search: params?.query, businessId: params?.businessId, city: params?.city, minPrice: params?.minPrice, maxPrice: params?.maxPrice, inStock: params?.inStock ? "true" : undefined, sort: params?.sort, lat: params?.lat, lng: params?.lng, radiusKm: params?.radiusKm })}`
     );
     const list = res.map(toProduct);
     return params?.limit ? list.slice(0, params.limit) : list;
+  },
+
+  /** Fire-and-forget: counts one view of the product page (the backend de-duplicates). */
+  async recordProductView(productId: string): Promise<{ viewCount: number; counted: boolean }> {
+    return apiClient.post(`/products/${productId}/view`, {});
   },
 
   async getProductById(id: string): Promise<Product | null> {
@@ -327,9 +489,9 @@ export const api = {
   },
 
   // ---------------- BUSINESSES ----------------
-  async getBusinesses(params?: { query?: string; city?: string; limit?: number }): Promise<Business[]> {
+  async getBusinesses(params?: { query?: string; city?: string; limit?: number; sort?: string; lat?: number; lng?: number; radiusKm?: number }): Promise<Business[]> {
     const res = await apiClient.get<RawBusiness[]>(
-      `/businesses${qs({ search: params?.query, city: params?.city, limit: params?.limit })}`
+      `/businesses${qs({ search: params?.query, city: params?.city, limit: params?.limit, sort: params?.sort, lat: params?.lat, lng: params?.lng, radiusKm: params?.radiusKm })}`
     );
     return res.map(toBusiness);
   },
@@ -359,9 +521,17 @@ export const api = {
     return raw ? toWorkshop(raw) : null;
   },
 
-  async bookWorkshop(workshopId: string, quantity: number): Promise<WorkshopBooking> {
-    const raw = await apiClient.post<RawBooking>(`/workshops/${workshopId}/bookings`, { quantity });
-    return toBooking(raw);
+  async bookWorkshop(
+    workshopId: string,
+    quantity: number,
+    opts?: { sessionId?: string; acceptMinAge?: boolean }
+  ): Promise<WorkshopBooking & { requiresPayment: boolean }> {
+    const raw = await apiClient.post<RawBooking & { requiresPayment?: boolean }>(`/workshops/${workshopId}/bookings`, {
+      quantity,
+      ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+      ...(opts?.acceptMinAge ? { acceptMinAge: true } : {}),
+    });
+    return { ...toBooking(raw), requiresPayment: raw.requiresPayment === true };
   },
 
   async getMyWorkshopBookings(): Promise<WorkshopBooking[]> {
@@ -377,9 +547,16 @@ export const api = {
   },
 
   // ---------------- SHOP ROUTES ----------------
-  async getShoproutes(params?: { city?: string; limit?: number }): Promise<Shoproute[]> {
+  async getShoproutes(params?: {
+    city?: string;
+    limit?: number;
+    theme?: string;
+    maxDistanceKm?: number;
+    maxDurationMinutes?: number;
+    sort?: "featured" | "newest" | "distance" | "duration";
+  }): Promise<Shoproute[]> {
     const res = await apiClient.get<RawRoute[] | { data: RawRoute[] }>(
-      `/shop-routes${qs({ city: params?.city, limit: params?.limit })}`
+      `/shop-routes${qs({ city: params?.city, limit: params?.limit, theme: params?.theme, maxDistanceKm: params?.maxDistanceKm, maxDurationMinutes: params?.maxDurationMinutes, sort: params?.sort })}`
     );
     return unwrap(res).map(toShoproute);
   },
@@ -392,21 +569,28 @@ export const api = {
   // ---------------- CART ----------------
   async getCart(): Promise<ServerCart> {
     const raw = await apiClient.get<RawCart>("/cart");
+    const toLine = (i: RawCartItem): CartLine => ({
+      id: i.id,
+      productId: i.productId,
+      variantId: i.variantId ?? undefined,
+      productName: i.product.name,
+      imageUrl: i.product.images?.[0]?.mediaAsset?.url,
+      unitPrice: i.unitPrice,
+      quantity: i.quantity,
+      total: i.total,
+      variantLabel: [i.variant?.size, i.variant?.color].filter(Boolean).join(" / ") || undefined,
+    });
     return {
       id: raw.id,
       business: raw.business,
       subtotal: raw.subtotal,
       deliveryFee: raw.deliveryFee,
-      items: raw.items.map((i) => ({
-        id: i.id,
-        productId: i.productId,
-        variantId: i.variantId ?? undefined,
-        productName: i.product.name,
-        imageUrl: i.product.images?.[0]?.mediaAsset?.url,
-        unitPrice: i.unitPrice,
-        quantity: i.quantity,
-        total: i.total,
-        variantLabel: [i.variant?.size, i.variant?.color].filter(Boolean).join(" / ") || undefined,
+      items: raw.items.map(toLine),
+      groups: (raw.groups ?? []).map((g) => ({
+        business: g.business,
+        items: g.items.map(toLine),
+        subtotal: g.subtotal,
+        fulfilmentOptions: g.fulfilmentOptions,
       })),
     };
   },
@@ -426,11 +610,34 @@ export const api = {
   deleteAddress: (id: string) => apiClient.delete<{ deleted: true }>(`/addresses/${id}`),
 
   // ---------------- ORDERS ----------------
-  /** Creates the order from the server-side cart; totals are computed by the backend. */
-  async createOrder(deliveryAddress: DeliveryAddressInput): Promise<Order> {
-    const raw = await apiClient.post<RawOrder>("/orders", { deliveryAddress });
-    return toOrder(raw);
+  /**
+   * Creates the checkout from the server-side cart (one order per store); totals and
+   * fulfilment fees are computed by the backend. Nothing is paid yet: call createPaymentIntent next.
+   */
+  async createOrder(input: CreateOrderInput): Promise<CheckoutOrder> {
+    const raw = await apiClient.post<{
+      id: string;
+      orderNumber: string;
+      totalAmount: number | string;
+      orders: RawOrder[];
+    }>("/orders", input);
+    return {
+      id: raw.id,
+      orderNumber: raw.orderNumber,
+      totalAmount: Number(raw.totalAmount),
+      orders: raw.orders.map(toOrder),
+    };
   },
+
+  async cancelOrder(orderId: string, reason?: string): Promise<void> {
+    await apiClient.post(`/orders/${orderId}/cancel`, reason ? { reason } : {});
+  },
+
+  // ---------------- PAYMENTS ----------------
+  /** Starts (or resumes) a hosted payment. Redirect the browser to `checkoutUrl`. */
+  createPaymentIntent: (input: { purpose: PaymentIntent["purpose"]; relatedEntityId: string; method?: "IDEAL" | "CARD" | "PAYPAL" | "BANK_TRANSFER" }) =>
+    apiClient.post<PaymentIntent>("/payments/intent", input),
+  getPayment: (paymentId: string) => apiClient.get<PaymentInfo>(`/payments/${paymentId}`),
 
   async getMyOrders(): Promise<Order[]> {
     const res = await apiClient.get<RawOrder[] | { data: RawOrder[] }>("/orders?limit=100");
@@ -451,6 +658,12 @@ export const api = {
     const raw = await apiClient.patch<RawOrder>(`/orders/${orderId}/status`, { status });
     return toOrder(raw);
   },
+
+  // ---------------- GUEST CHECKOUT ----------------
+  requestGuestOrderLink: (email: string, orderNumber: string) =>
+    apiClient.post<{ message: string }>("/auth/guest/order-link", { email, orderNumber }),
+  startGuestClaim: () => apiClient.post<{ message: string }>("/auth/guest/claim/start", {}),
+  completeGuestClaim: (code: string, password: string) => apiClient.post<{ user: { id: string } }>("/auth/guest/claim/complete", { code, password }),
 
   // ---------------- REVIEWS ----------------
   async getBusinessReviews(businessId: string): Promise<Review[]> {
@@ -501,6 +714,36 @@ export const api = {
     return apiClient.get<BusinessBalance>(`/businesses/${businessId}/balance`);
   },
 
+  async getPayoutAccount(businessId: string): Promise<PayoutAccount> {
+    return apiClient.get<PayoutAccount>(`/businesses/${businessId}/payout-account`);
+  },
+  async savePayoutAccount(businessId: string, input: { accountHolderName: string; iban: string }): Promise<PayoutAccount> {
+    return apiClient.put<PayoutAccount>(`/businesses/${businessId}/payout-account`, input);
+  },
+
+  // ---- returns ----
+  async createReturn(input: CreateReturnInput): Promise<ReturnRequest> {
+    return apiClient.post<ReturnRequest>("/returns", input);
+  },
+  async getMyReturns(orderId?: string): Promise<ReturnRequest[]> {
+    return apiClient.get<ReturnRequest[]>(`/returns${qs({ orderId })}`);
+  },
+  async cancelReturn(id: string): Promise<ReturnRequest> {
+    return apiClient.post<ReturnRequest>(`/returns/${id}/cancel`);
+  },
+  async getShopReturns(businessId: string, status?: ReturnStatus): Promise<ReturnRequest[]> {
+    return apiClient.get<ReturnRequest[]>(`/businesses/${businessId}/returns${qs({ status })}`);
+  },
+  async decideReturn(id: string, decision: "APPROVE" | "REJECT", note?: string): Promise<ReturnRequest> {
+    return apiClient.patch<ReturnRequest>(`/returns/${id}/decision`, { decision, note });
+  },
+  async receiveReturn(id: string, restock: boolean): Promise<ReturnRequest> {
+    return apiClient.post<ReturnRequest>(`/returns/${id}/received`, { restock });
+  },
+  async retryReturnRefund(id: string): Promise<ReturnRequest> {
+    return apiClient.post<ReturnRequest>(`/returns/${id}/retry-refund`);
+  },
+
   async createBusiness(input: CreateBusinessInput): Promise<Business> {
     const raw = await apiClient.post<RawBusiness>("/businesses", input);
     return toBusiness(raw);
@@ -534,13 +777,40 @@ export const api = {
   },
 
   async createWorkshop(input: CreateWorkshopInput): Promise<Workshop> {
-    const { date, startTime, finishTime, ...rest } = input;
+    const { sessions, ...rest } = input;
     const raw = await apiClient.post<RawWorkshop>("/workshops", {
       ...rest,
-      startTime: new Date(`${date}T${startTime}`).toISOString(),
-      endTime: new Date(`${date}T${finishTime}`).toISOString(),
+      sessions: sessions.map((s) => ({
+        startTime: new Date(`${s.date}T${s.startTime}`).toISOString(),
+        endTime: new Date(`${s.date}T${s.finishTime}`).toISOString(),
+        ...(s.capacity ? { capacity: s.capacity } : {}),
+      })),
     });
     return toWorkshop(raw);
+  },
+
+  async getWorkshopParticipants(
+    workshopId: string,
+    sessionId?: string
+  ): Promise<{ title: string; minAge?: number; data: WorkshopParticipant[] }> {
+    const res = await apiClient.get<{
+      workshop: { title: string; minAge?: number | null };
+      data: WorkshopParticipant[];
+    }>(`/workshops/${workshopId}/participants${qs({ sessionId })}`);
+    return { title: res.workshop.title, minAge: res.workshop.minAge ?? undefined, data: res.data };
+  },
+
+  async cancelWorkshopSession(workshopId: string, sessionId: string): Promise<void> {
+    await apiClient.post(`/workshops/${workshopId}/sessions/${sessionId}/cancel`, {});
+  },
+
+  async addWorkshopSession(workshopId: string, s: WorkshopSessionInput): Promise<WorkshopSession> {
+    const raw = await apiClient.post<RawWorkshopSession>(`/workshops/${workshopId}/sessions`, {
+      startTime: new Date(`${s.date}T${s.startTime}`).toISOString(),
+      endTime: new Date(`${s.date}T${s.finishTime}`).toISOString(),
+      ...(s.capacity ? { capacity: s.capacity } : {}),
+    });
+    return toWorkshopSession(raw);
   },
 
   async getBusinessWorkshops(businessId: string): Promise<Workshop[]> {
@@ -598,12 +868,29 @@ export const api = {
     return res.isFollowing;
   },
 
+  // ---------------- FAVORITES ----------------
+  async getFavoriteIds(): Promise<{ productIds: string[]; businessIds: string[] }> {
+    return apiClient.get("/favorites/ids");
+  },
+
+  async setFavorite(target: "product" | "business", id: string, on: boolean): Promise<void> {
+    const path = `/favorites/${target === "product" ? "products" : "businesses"}/${id}`;
+    if (on) await apiClient.put(path, {});
+    else await apiClient.delete(path);
+  },
+
+  async getFavorites(): Promise<{ products: Product[]; businesses: Business[] }> {
+    const res = await apiClient.get<{ products: RawProduct[]; businesses: RawBusiness[] }>("/favorites");
+    return { products: res.products.map(toProduct), businesses: res.businesses.map(toBusiness) };
+  },
+
   // ---------------- CHAT ----------------
   async startConversation(businessId: string): Promise<{ id: string }> {
     return apiClient.post<{ id: string }>("/conversations", { businessId });
   },
-  async getConversations(): Promise<ChatConversation[]> {
-    return apiClient.get<ChatConversation[]>("/conversations");
+  /** Own conversations; with `shopId` the inbox of a shop the user owns or works for. */
+  async getConversations(shopId?: string): Promise<ChatConversation[]> {
+    return apiClient.get<ChatConversation[]>(`/conversations${qs({ businessId: shopId })}`);
   },
   async getChatThread(conversationId: string): Promise<ChatThread> {
     return apiClient.get<ChatThread>(`/conversations/${conversationId}/messages`);
@@ -611,12 +898,49 @@ export const api = {
   async sendChatMessage(conversationId: string, body: string): Promise<ChatMessage> {
     return apiClient.post<ChatMessage>(`/conversations/${conversationId}/messages`, { body });
   },
+  async sendChatImage(conversationId: string, file: File, body?: string): Promise<ChatMessage> {
+    const form = new FormData();
+    form.append("file", file);
+    if (body?.trim()) form.append("body", body.trim());
+    return apiClient.post<ChatMessage>(`/conversations/${conversationId}/attachments`, form);
+  },
+  async setChatBlocked(conversationId: string, blocked: boolean): Promise<void> {
+    await apiClient.put(`/conversations/${conversationId}/block`, { blocked });
+  },
+  async reportChat(
+    conversationId: string,
+    input: { messageId?: string; reason: ChatReportReason; details?: string }
+  ): Promise<void> {
+    await apiClient.post(`/conversations/${conversationId}/reports`, input);
+  },
   async markChatRead(conversationId: string): Promise<void> {
     await apiClient.post(`/conversations/${conversationId}/read`);
   },
   async getChatUnreadCount(): Promise<number> {
     const res = await apiClient.get<{ unreadCount: number }>("/conversations/unread-count");
     return res.unreadCount;
+  },
+
+  // ---------------- EMPLOYEES ----------------
+  async getEmployees(businessId: string): Promise<Employee[]> {
+    return apiClient.get<Employee[]>(`/businesses/${businessId}/employees`);
+  },
+  async inviteEmployee(businessId: string, email: string, role: "MANAGER" | "STAFF"): Promise<void> {
+    await apiClient.post(`/businesses/${businessId}/employees`, { email, role });
+  },
+  async revokeEmployee(businessId: string, employeeId: string): Promise<void> {
+    await apiClient.delete(`/businesses/${businessId}/employees/${employeeId}`);
+  },
+  async acceptEmployeeInvite(token: string): Promise<{ businessId: string; businessName: string }> {
+    return apiClient.post(`/staff/accept`, { token });
+  },
+  async getStaffShops(): Promise<StaffShop[]> {
+    return apiClient.get<StaffShop[]>(`/staff/shops`);
+  },
+
+  // ---------------- PRIVACY ----------------
+  async deleteMyAccount(confirm: string, password?: string): Promise<void> {
+    await apiClient.post(`/account/delete`, { confirm, ...(password ? { password } : {}) });
   },
 
   // ---------------- NOTIFICATIONS ----------------

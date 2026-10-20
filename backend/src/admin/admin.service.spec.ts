@@ -14,7 +14,9 @@ describe('AdminService', () => {
       businessSubscription: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       order: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       product: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-      workshop: { count: jest.fn() },
+      workshop: { count: jest.fn(), findMany: jest.fn() },
+      shopRoute: { findMany: jest.fn(), count: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
       workshopBooking: { count: jest.fn() },
       review: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       payment: { aggregate: jest.fn(), count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
@@ -750,19 +752,15 @@ describe('AdminService', () => {
       expect(prisma.payout.update).not.toHaveBeenCalled();
     });
 
+    it('refuses to approve a payout that is already paid or rejected', async () => {
+      prisma.payout.findUnique.mockResolvedValue({ id: 'pout-1', status: 'PAID' });
+      await expect(service.approvePayout('pout-1')).rejects.toThrow('cannot be approved');
+      expect(prisma.payout.update).not.toHaveBeenCalled();
+    });
+
     it('should throw NotFoundException for nonexistent payout', async () => {
       prisma.payout.findUnique.mockResolvedValue(null);
       await expect(service.approvePayout('nonexistent')).rejects.toThrow('Payout not found');
-    });
-  });
-
-  describe('rejectPayout', () => {
-    it('should reject a payout', async () => {
-      prisma.payout.findUnique.mockResolvedValue({ id: 'pout-1', status: 'PENDING' });
-      prisma.payout.update.mockResolvedValue({ id: 'pout-1', status: 'REJECTED' });
-
-      const result = await service.rejectPayout('pout-1', 'Insufficient funds');
-      expect(result.data.status).toBe('REJECTED');
     });
   });
 
@@ -776,6 +774,26 @@ describe('AdminService', () => {
       const result = await service.getBusinessLedger('biz-1');
 
       expect(result.data.ledgerEntries.length).toBe(1);
+    });
+  });
+
+  describe('shop route moderation', () => {
+    it('features and unpublishes a route and writes an audit log', async () => {
+      prisma.shopRoute.findFirst.mockResolvedValue({ id: 'r1' });
+      prisma.shopRoute.update.mockResolvedValue({ id: 'r1', featured: true });
+      await service.moderateShopRoute('r1', { featured: true, status: 'ARCHIVED' as any }, 'admin-1');
+      expect(prisma.shopRoute.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { status: 'ARCHIVED', featured: true } });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: 'ADMIN_MODERATE_ROUTE', targetId: 'r1' }) }));
+    });
+    it('404s for an unknown route', async () => {
+      prisma.shopRoute.findFirst.mockResolvedValue(null);
+      await expect(service.moderateShopRoute('x', { featured: true })).rejects.toThrow('Route not found');
+    });
+    it('lists routes with paging meta', async () => {
+      prisma.shopRoute.findMany.mockResolvedValue([{ id: 'r1' }]);
+      prisma.shopRoute.count.mockResolvedValue(1);
+      const res = await service.getShopRoutes({ limit: '10' });
+      expect(res.data.meta).toEqual({ total: 1, page: 1, limit: 10 });
     });
   });
 });

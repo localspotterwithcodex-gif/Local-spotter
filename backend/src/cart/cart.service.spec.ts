@@ -4,7 +4,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -106,34 +105,32 @@ describe('CartService', () => {
       expect(result.subtotal).toBe(0);
     });
 
-    it('should calculate item totals and subtotal correctly', async () => {
+    it('should calculate item totals and subtotal correctly, grouped per store', async () => {
       prisma.consumerProfile.findUnique.mockResolvedValue(mockConsumerProfile);
+      const store = (id: string) => ({
+        id, name: `Shop ${id}`, slug: id, city: 'Amsterdam', latitude: null, longitude: null,
+        pickupEnabled: true, shippingEnabled: true, localDeliveryEnabled: false,
+        shippingFee: 4.95, freeShippingThreshold: null, localDeliveryFee: 0, localDeliveryRadiusKm: null,
+      });
       prisma.cart.findUnique.mockResolvedValue({
         id: 'cart-1',
         consumerProfileId: mockConsumerProfile.id,
-        business: mockBusiness,
         items: [
-          {
-            id: 'item-1',
-            quantity: 2,
-            product: { price: 4.5, images: [] },
-            variant: null,
-          },
-          {
-            id: 'item-2',
-            quantity: 1,
-            product: { price: 10, images: [] },
-            variant: { price: 12 },
-          },
+          { id: 'item-1', quantity: 2, product: { price: 4.5, images: [], businessId: 'bus-1', business: store('bus-1') }, variant: null },
+          { id: 'item-2', quantity: 1, product: { price: 10, images: [], businessId: 'bus-2', business: store('bus-2') }, variant: { price: 12 } },
         ],
       });
 
-      const result = await service.getCart(mockUser);
+      const result: any = await service.getCart(mockUser);
       expect(result.items[0].unitPrice).toBe(4.5);
       expect(result.items[0].total).toBe(9);
       expect(result.items[1].unitPrice).toBe(12);
       expect(result.items[1].total).toBe(12);
       expect(result.subtotal).toBe(21);
+      expect(result.groups).toHaveLength(2);
+      expect(result.groups[0]).toMatchObject({ business: { id: 'bus-1' }, subtotal: 9 });
+      expect(result.groups[0].fulfilmentOptions.shipping).toMatchObject({ enabled: true, fee: 4.95 });
+      expect(result.groups[1].subtotal).toBe(12);
     });
   });
 
@@ -167,20 +164,19 @@ describe('CartService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject adding item from a different business (one-business-per-cart rule)', async () => {
+    it('allows products of a second store in the same cart (multi-store checkout)', async () => {
       prisma.cart.findUnique.mockResolvedValue({
         id: 'cart-1',
-        businessId: 'bus-other',
-        items: [{ id: 'existing-item' }],
+        items: [{ id: 'existing-item', productId: 'prod-other' }],
       });
+      prisma.cartItem.findFirst.mockResolvedValue(null);
+      prisma.cartItem.create.mockResolvedValue({ id: 'new-item' });
 
-      await expect(
-        service.addItem(mockUser, {
-          businessId: 'bus-1',
-          productId: 'prod-1',
-          quantity: 1,
-        }),
-      ).rejects.toThrow(ConflictException);
+      await service.addItem(mockUser, { businessId: 'bus-1', productId: 'prod-1', quantity: 1 });
+
+      expect(prisma.cartItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ cartId: 'cart-1', productId: 'prod-1' }) }),
+      );
     });
 
     it('should increment quantity if item already exists in cart', async () => {
@@ -232,7 +228,7 @@ describe('CartService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should remove item and unlink business when cart becomes empty', async () => {
+    it('should remove the item', async () => {
       prisma.consumerProfile.findUnique.mockResolvedValue(mockConsumerProfile);
       prisma.cart.findUnique.mockResolvedValue({
         id: 'cart-1',
@@ -248,10 +244,6 @@ describe('CartService', () => {
       await service.removeItem(mockUser, 'item-1');
 
       expect(prisma.cartItem.delete).toHaveBeenCalledWith({ where: { id: 'item-1' } });
-      expect(prisma.cart.update).toHaveBeenCalledWith({
-        where: { id: 'cart-1' },
-        data: { businessId: null },
-      });
     });
   });
 });

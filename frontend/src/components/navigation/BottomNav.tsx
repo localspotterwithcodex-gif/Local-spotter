@@ -25,10 +25,10 @@ interface NavItem {
  */
 export const BottomNav: React.FC = () => {
   const pathname = usePathname();
-  const { role, isAuthenticated } = useAuth();
+  const { role, isAuthenticated, user } = useAuth();
   const { t } = useLocale();
   // Unread chat badge; only polled for roles that have a Chat tab.
-  const hasChat = role === "CONSUMER" || role === "BUSINESS_OWNER";
+  const hasChat = (role === "CONSUMER" && user?.isGuest !== true) || role === "BUSINESS_OWNER";
   const unread = usePolling(hasChat && isAuthenticated ? "chat:unread" : null, () => api.getChatUnreadCount(), 30000);
   const unreadCount = hasChat ? (unread.data ?? 0) : 0;
 

@@ -1,6 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsNumber, IsNotEmpty, IsOptional, IsString, IsUrl, IsUUID, Min, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsBoolean, IsInt, IsNumber, IsNotEmpty, IsOptional, IsString, IsUrl, IsUUID, Max, Min, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class WorkshopSessionInputDto {
+  @ApiProperty({ example: '2027-03-15T10:00:00Z' })
+  @IsString()
+  startTime: string;
+
+  @ApiProperty({ example: '2027-03-15T13:00:00Z' })
+  @IsString()
+  endTime: string;
+
+  @ApiPropertyOptional({ example: 10, description: 'Seats for this session (defaults to the workshop capacity)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  capacity?: number;
+}
 import { WorkshopStatus } from '@prisma/client';
 
 export class CreateWorkshopDto {
@@ -44,13 +62,46 @@ export class CreateWorkshopDto {
   @IsNumber()
   longitude?: number;
 
-  @ApiPropertyOptional({ example: '2025-03-15T10:00:00Z', description: 'Workshop start time (must be in the future)' })
+  @ApiPropertyOptional({ example: '2025-03-15T10:00:00Z', description: 'Start of a single-session workshop (use `sessions` for several)' })
+  @IsOptional()
   @IsString()
-  startTime: string;
+  startTime?: string;
 
-  @ApiPropertyOptional({ example: '2025-03-15T13:00:00Z', description: 'Workshop end time (must be after startTime)' })
+  @ApiPropertyOptional({ example: '2025-03-15T13:00:00Z', description: 'End of a single-session workshop' })
+  @IsOptional()
   @IsString()
-  endTime: string;
+  endTime?: string;
+
+  @ApiPropertyOptional({ type: [WorkshopSessionInputDto], description: 'One or more dated sessions, each with its own capacity' })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @ArrayMaxSize(30)
+  @Type(() => WorkshopSessionInputDto)
+  sessions?: WorkshopSessionInputDto[];
+
+  @ApiPropertyOptional({ example: 48, description: 'Participants cancelling at least this many hours before a session get the refund percentage back' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(720)
+  cancellationDeadlineHours?: number;
+
+  @ApiPropertyOptional({ example: 100, description: 'Refund percentage for cancellations before the deadline (0-100)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  refundPercentage?: number;
+
+  @ApiPropertyOptional({ example: 16, description: 'Minimum participant age' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  minAge?: number;
 
   @ApiPropertyOptional({ example: 'https://example.com/workshop-image.jpg', description: 'Optional direct image URL' })
   @IsOptional()

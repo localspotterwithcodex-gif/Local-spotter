@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Plus, Pencil, Star, Users, Package, Share2, X, ImageOff } from "lucide-react";
+import { Plus, Pencil, Star, Users, Package, X, ImageOff } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { useLocale } from "@/i18n/LocaleContext";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 
 export default function OwnerDashboardPage() {
@@ -101,13 +102,9 @@ export default function OwnerDashboardPage() {
               <ImageOff className="w-10 h-10" />
             </div>
           )}
-          <Link
-            href={`/businesses/${business.id}`}
-            aria-label={business.name}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#FA1EFF] shadow"
-          >
-            <Share2 className="w-4 h-4" />
-          </Link>
+          <div className="absolute top-4 right-4">
+            <ShareButton href={`/businesses/${business.id}`} title={business.name} />
+          </div>
           <div className="absolute inset-x-0 bottom-0 bg-white/70 backdrop-blur-sm pb-12 pt-3 grid grid-cols-3 divide-x divide-[#B7B7B7]/60">
             {stats.map((s) => (
               <div key={s.label} className="flex flex-col items-center gap-0.5">

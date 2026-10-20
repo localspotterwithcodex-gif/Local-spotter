@@ -3,7 +3,6 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
@@ -12,6 +11,7 @@ import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { BusinessStatus } from '@prisma/client';
 
 import { getFlatShippingFee } from '../common/config/shipping';
+import { fulfilmentOptions } from '../orders/fulfilment';
 
 @Injectable()
 export class CartService {
@@ -29,7 +29,6 @@ export class CartService {
     const cart = await this.prisma.cart.findUnique({
       where: { consumerProfileId: consumerProfile.id },
       include: {
-        business: { select: { id: true, name: true, slug: true, city: true } },
         items: {
           include: {
             product: {
@@ -38,6 +37,13 @@ export class CartService {
                   include: { mediaAsset: true },
                   orderBy: { sortOrder: 'asc' },
                   take: 1,
+                },
+                business: {
+                  select: {
+                    id: true, name: true, slug: true, city: true, latitude: true, longitude: true,
+                    pickupEnabled: true, shippingEnabled: true, localDeliveryEnabled: true,
+                    shippingFee: true, freeShippingThreshold: true, localDeliveryFee: true, localDeliveryRadiusKm: true,
+                  },
                 },
               },
             },
@@ -48,8 +54,8 @@ export class CartService {
       },
     });
 
-    if (!cart) {
-      return { id: null, items: [], subtotal: 0, deliveryFee: getFlatShippingFee(), business: null };
+    if (!cart || cart.items.length === 0) {
+      return { id: cart?.id ?? null, items: [], groups: [], subtotal: 0, deliveryFee: getFlatShippingFee(), business: null };
     }
 
     const items = cart.items.map((item) => {
@@ -63,12 +69,36 @@ export class CartService {
       };
     });
 
-    const subtotal = items.reduce((acc, i) => acc + i.total, 0);
+    // One group per store: the checkout is a single payment but every store fulfils its own part.
+    const byStore = new Map<string, typeof items>();
+    for (const item of items) {
+      const list = byStore.get(item.product.businessId) ?? [];
+      list.push(item);
+      byStore.set(item.product.businessId, list);
+    }
+    const groups = [...byStore.values()].map((groupItems) => {
+      const b = groupItems[0].product.business;
+      const subtotal = groupItems.reduce((acc, i) => acc + i.total, 0);
+      return {
+        business: { id: b.id, name: b.name, slug: b.slug, city: b.city },
+        items: groupItems.map(({ product, ...rest }) => {
+          const { business: _business, ...productRest } = product;
+          void _business;
+          return { ...rest, product: productRest };
+        }),
+        subtotal,
+        fulfilmentOptions: fulfilmentOptions(b, subtotal),
+      };
+    });
+
+    const subtotal = groups.reduce((acc, g) => acc + g.subtotal, 0);
 
     return {
       id: cart.id,
-      business: cart.business,
-      items,
+      // Kept for older clients: the first store of the cart.
+      business: groups[0].business,
+      groups,
+      items: groups.flatMap((g) => g.items),
       subtotal,
       deliveryFee: getFlatShippingFee(),
       createdAt: cart.createdAt,
@@ -143,28 +173,10 @@ export class CartService {
       include: { items: true },
     });
 
-    if (cart) {
-      // Enforce single-business-per-cart rule
-      if (cart.businessId && cart.businessId !== dto.businessId && cart.items.length > 0) {
-        throw new ConflictException(
-          'Je winkelwagen bevat al producten van een andere winkel. Leeg eerst je winkelwagen voordat je producten van een andere winkel toevoegt.',
-        );
-      }
-    } else {
+    // A cart may hold products of several stores; the checkout splits it per store.
+    if (!cart) {
       cart = await this.prisma.cart.create({
-        data: {
-          consumerProfileId: consumerProfile.id,
-          businessId: dto.businessId,
-        },
-        include: { items: true },
-      });
-    }
-
-    // Update businessId if cart was empty
-    if (!cart.businessId || cart.items.length === 0) {
-      cart = await this.prisma.cart.update({
-        where: { id: cart.id },
-        data: { businessId: dto.businessId },
+        data: { consumerProfileId: consumerProfile.id },
         include: { items: true },
       });
     }
@@ -248,17 +260,7 @@ export class CartService {
 
     await this.prisma.cartItem.delete({ where: { id: itemId } });
 
-    // Check if cart is now empty; if so, clear business association
-    const remainingCount = await this.prisma.cartItem.count({
-      where: { cartId: cart.id },
-    });
-
-    if (remainingCount === 0) {
-      await this.prisma.cart.update({
-        where: { id: cart.id },
-        data: { businessId: null },
-      });
-    }
+    void cart;
 
     return { message: 'Item verwijderd uit winkelwagen' };
   }
@@ -277,10 +279,6 @@ export class CartService {
     }
 
     await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
-    await this.prisma.cart.update({
-      where: { id: cart.id },
-      data: { businessId: null },
-    });
 
     return { message: 'Winkelwagen geleegd' };
   }

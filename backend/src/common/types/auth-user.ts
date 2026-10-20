@@ -9,4 +9,6 @@ export interface AuthUser {
   /** ConsumerProfile.id or BusinessOwnerProfile.id (undefined for SUPER_ADMIN). */
   profileId?: string;
   displayName?: string;
+  /** Password-less guest-checkout account (see AllowGuest). */
+  isGuest?: boolean;
 }

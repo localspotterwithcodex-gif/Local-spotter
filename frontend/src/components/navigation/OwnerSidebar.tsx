@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Store,
+  Package,
   PackagePlus,
   ShoppingBag,
   Calendar,
@@ -14,6 +15,7 @@ import {
   CreditCard,
   Crown,
   Settings,
+  Undo2,
 } from "lucide-react";
 import { useLocale } from "@/i18n/LocaleContext";
 import { api } from "@/lib/api";
@@ -23,8 +25,10 @@ import { TranslationKey } from "@/i18n/dictionaries";
 
 export const ownerSidebarLinks = (t: (key: TranslationKey) => string) => [
   { label: t("owner.myShop"), href: "/owner", icon: Store },
+  { label: t("ownerx.products.title"), href: "/owner/products", icon: Package },
   { label: t("owner.addProduct"), href: "/owner/products/new", icon: PackagePlus },
   { label: t("owner.orders"), href: "/owner/orders", icon: ShoppingBag },
+  { label: t("returns.shop.title"), href: "/owner/returns", icon: Undo2 },
   { label: t("owner.workshopBookings"), href: "/owner/workshop-bookings", icon: Calendar },
   { label: t("owner.myRoutes"), href: "/owner/shoproutes", icon: Route },
   { label: t("owner.myWorkshops"), href: "/owner/workshops", icon: Presentation },
@@ -60,7 +64,7 @@ export const OwnerSidebar: React.FC = () => {
               const isActive =
                 link.href === "/owner"
                   ? pathname === "/owner" || pathname === "/owner/business"
-                  : link.href === "/owner/shoproutes"
+                  : link.href === "/owner/shoproutes" || link.href === "/owner/products"
                     ? pathname === link.href
                     : pathname.startsWith(link.href);
 

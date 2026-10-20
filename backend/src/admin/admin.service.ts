@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole, UserStatus, BusinessStatus, ReviewStatus, OrderStatus, PaymentStatus, SubscriptionStatus, PayoutStatus, Product, Order, Payment, BusinessSubscription, BusinessLedgerEntry } from '@prisma/client';
+import { UserRole, UserStatus, BusinessStatus, ReviewStatus, OrderStatus, PaymentStatus, SubscriptionStatus, PayoutStatus, RouteStatus, Product, Order, Payment, BusinessSubscription, BusinessLedgerEntry } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -398,6 +398,55 @@ export class AdminService {
     return { data: { products, meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
   }
 
+  async getShopRoutes(query: { search?: string; limit?: string; offset?: string }) {
+    const limit = Math.min(Math.max(parseInt(query.limit ?? '20', 10) || 20, 1), 100);
+    const offset = Math.max(parseInt(query.offset ?? '0', 10) || 0, 0);
+    const where: Record<string, any> = { deletedAt: null };
+    if (query.search) where.title = { contains: query.search, mode: 'insensitive' as any };
+    const [routes, total] = await Promise.all([
+      this.prisma.shopRoute.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' as const },
+        include: { business: { select: { id: true, name: true } }, _count: { select: { stops: true } } },
+      }),
+      this.prisma.shopRoute.count({ where }),
+    ]);
+    return { data: { routes, meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
+  }
+
+  async moderateShopRoute(routeId: string, dto: { status?: RouteStatus; featured?: boolean }, adminUserId?: string) {
+    const route = await this.prisma.shopRoute.findFirst({ where: { id: routeId, deletedAt: null } });
+    if (!route) throw new NotFoundException('Route not found');
+    const updated = await this.prisma.shopRoute.update({
+      where: { id: routeId },
+      data: { status: dto.status, featured: dto.featured },
+    });
+    await this.prisma.auditLog
+      .create({ data: { actorUserId: adminUserId ?? null, action: 'ADMIN_MODERATE_ROUTE', targetType: 'ShopRoute', targetId: routeId, metadata: { status: dto.status, featured: dto.featured } as any } })
+      .catch(() => undefined);
+    return { data: updated };
+  }
+
+  async getWorkshops(query: { search?: string; limit?: string; offset?: string }) {
+    const limit = Math.min(Math.max(parseInt(query.limit ?? '20', 10) || 20, 1), 100);
+    const offset = Math.max(parseInt(query.offset ?? '0', 10) || 0, 0);
+    const where: Record<string, any> = {};
+    if (query.search) where.title = { contains: query.search, mode: 'insensitive' as any };
+    const [workshops, total] = await Promise.all([
+      this.prisma.workshop.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { startTime: 'desc' as const },
+        include: { business: { select: { id: true, name: true } } },
+      }),
+      this.prisma.workshop.count({ where }),
+    ]);
+    return { data: { workshops, meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
+  }
+
   async moderateProduct(productId: string, active: boolean) {
     const product = await this.prisma.product.findUnique({ where: { id: productId } });
     if (!product) {
@@ -674,7 +723,7 @@ export class AdminService {
       this.prisma.payout.count({ where }),
     ]);
 
-    return { data: { payouts, meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
+    return { data: { payouts: payouts.map(({ ibanEncrypted: _hidden, ...rest }) => rest), meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
   }
 
   async getPayout(payoutId: string) {
@@ -691,7 +740,8 @@ export class AdminService {
       throw new NotFoundException('Payout not found');
     }
 
-    return { data: { payout } };
+    const { ibanEncrypted: _hidden, ...safe } = payout;
+    return { data: { payout: safe } };
   }
 
   async approvePayout(payoutId: string) {
@@ -703,24 +753,13 @@ export class AdminService {
     if (payout.status === 'APPROVED') {
       return { data: { message: 'Payout already approved', payout: { id: payout.id, status: payout.status } } };
     }
-
-    const updated = await this.prisma.payout.update({
-      where: { id: payoutId },
-      data: { status: 'APPROVED' },
-    });
-
-    return { data: { id: updated.id, status: updated.status } };
-  }
-
-  async rejectPayout(payoutId: string, reason: string) {
-    const payout = await this.prisma.payout.findUnique({ where: { id: payoutId } });
-    if (!payout) {
-      throw new NotFoundException('Payout not found');
+    if (payout.status !== 'PENDING') {
+      throw new ConflictException(`Payout is ${payout.status} and cannot be approved`);
     }
 
     const updated = await this.prisma.payout.update({
       where: { id: payoutId },
-      data: { status: 'REJECTED', adminNotes: reason },
+      data: { status: 'APPROVED' },
     });
 
     return { data: { id: updated.id, status: updated.status } };

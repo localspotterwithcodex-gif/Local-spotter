@@ -18,6 +18,18 @@ export interface BusinessHours {
   isClosed: boolean;
 }
 
+export interface BusinessFulfilment {
+  pickupEnabled: boolean;
+  shippingEnabled: boolean;
+  localDeliveryEnabled: boolean;
+  /** null = platform default */
+  shippingFee: number | null;
+  freeShippingThreshold: number | null;
+  localDeliveryFee: number;
+  /** null = same town only */
+  localDeliveryRadiusKm: number | null;
+}
+
 export interface Business {
   id: string;
   ownerId: string;
@@ -27,6 +39,9 @@ export interface Business {
   heroImageUrl?: string;
   logoAssetId?: string;
   coverAssetId?: string;
+  /** Equirectangular 360° photo of the shop (virtual store). */
+  panoramaUrl?: string;
+  panoramaAssetId?: string;
   category: string;
   shopType: string;
   /** Real value should come from GET /businesses/:id/subscription (backend/src/subscriptions) — see PROMPT.md items 5 & 6. */
@@ -35,7 +50,13 @@ export interface Business {
   phone: string;
   email?: string;
   kvkNumber: string;
+  websiteUrl?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  tiktokUrl?: string;
   location: BusinessLocation;
+  /** How customers can receive orders (owner settings; also returned for the public shop). */
+  fulfilment?: BusinessFulfilment;
   hours?: BusinessHours[];
   rating: number;
   reviewCount: number;

@@ -23,11 +23,13 @@ import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('Cart')
 @Controller('cart')
+@AllowGuest()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.CONSUMER)
 @ApiBearerAuth()

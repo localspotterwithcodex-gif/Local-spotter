@@ -16,9 +16,10 @@ export class CreatePaymentIntentDto {
   @IsUUID()
   relatedEntityId!: string;
 
-  @ApiProperty({ enum: PaymentProvider })
+  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.MOLLIE })
+  @IsOptional()
   @IsEnum(PaymentProvider)
-  provider!: PaymentProvider;
+  provider?: PaymentProvider;
 
   @ApiPropertyOptional({ enum: PaymentMethod })
   @IsOptional()

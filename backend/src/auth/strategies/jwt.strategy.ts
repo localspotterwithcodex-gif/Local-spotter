@@ -9,6 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export interface JwtPayload {
   sub: string;
   role: string;
+  /** Present on one-purpose tokens (e.g. the guest order link); those are never sessions. */
+  purpose?: string;
 }
 
 @Injectable()
@@ -28,6 +30,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    if (payload.purpose) {
+      throw new UnauthorizedException('Token cannot be used as a session');
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
@@ -61,6 +66,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       status: user.status,
       profileId,
       displayName,
+      isGuest: user.isGuest,
     };
   }
 }

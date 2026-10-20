@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Header,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,8 @@ import { UpdateWorkshopDto } from './dto/update-workshop.dto';
 import { QueryWorkshopDto } from './dto/query-workshop.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { QueryBookingDto } from './dto/query-booking.dto';
+import { UpdateSessionDto } from './dto/session.dto';
+import { WorkshopSessionInputDto } from './dto/create-workshop.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -90,7 +93,7 @@ export class WorkshopsController {
 
   @Get('businesses/:businessId/workshops')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN, UserRole.CONSUMER) // employees are consumer accounts; the service checks the shop
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all workshops for owned business' })
   @ApiResponse({ status: 200, description: 'List of business workshops.' })
@@ -140,6 +143,78 @@ export class WorkshopsController {
     @CurrentUser() user: any,
   ) {
     return this.workshopsService.cancelWorkshop(workshopId, user);
+  }
+
+  // ==========================================
+  // SESSIONS & PARTICIPANTS (OWNER)
+  // ==========================================
+
+  @Post('workshops/:workshopId/sessions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add a session to a workshop' })
+  async addSession(
+    @Param('workshopId') workshopId: string,
+    @CurrentUser() user: any,
+    @Body() dto: WorkshopSessionInputDto,
+  ) {
+    return this.workshopsService.addSession(workshopId, user, dto);
+  }
+
+  @Patch('workshops/:workshopId/sessions/:sessionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change time or capacity of a session' })
+  async updateSession(
+    @Param('workshopId') workshopId: string,
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateSessionDto,
+  ) {
+    return this.workshopsService.updateSession(workshopId, sessionId, user, dto);
+  }
+
+  @Post('workshops/:workshopId/sessions/:sessionId/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel one session; participants are notified and refunded in full' })
+  async cancelSession(
+    @Param('workshopId') workshopId: string,
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.workshopsService.cancelSession(workshopId, sessionId, user);
+  }
+
+  @Get('workshops/:workshopId/participants')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN, UserRole.CONSUMER) // employees are consumer accounts; the service checks the shop
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Participant list for the organiser' })
+  async getParticipants(
+    @Param('workshopId') workshopId: string,
+    @CurrentUser() user: any,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    return this.workshopsService.getParticipants(workshopId, user, sessionId);
+  }
+
+  @Get('workshops/:workshopId/participants.csv')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN, UserRole.CONSUMER) // employees are consumer accounts; the service checks the shop
+  @ApiBearerAuth()
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="participants.csv"')
+  @ApiOperation({ summary: 'Participant list as CSV' })
+  async getParticipantsCsv(
+    @Param('workshopId') workshopId: string,
+    @CurrentUser() user: any,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    return this.workshopsService.getParticipantsCsv(workshopId, user, sessionId);
   }
 
   // ==========================================

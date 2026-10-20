@@ -45,6 +45,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [code, setCode] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [step, setStep] = useState<Step>("form");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +70,10 @@ export default function SignupPage() {
       setError(t("authx.signup.mismatch"));
       return;
     }
+    if (!acceptTerms) {
+      setError(t("authx.signup.acceptRequired"));
+      return;
+    }
     setStep("role");
   };
 
@@ -83,6 +88,7 @@ export default function SignupPage() {
         password,
         role,
         displayName: name,
+        acceptTerms: true,
       });
       setStep("verify");
     } catch (err) {
@@ -169,6 +175,21 @@ export default function SignupPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
+
+              <label className="flex items-start gap-2 text-xs text-[#555555]">
+                <input
+                  type="checkbox"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 accent-[#FA1EFF]"
+                />
+                <span>
+                  {t("authx.signup.acceptPrefix")}{" "}
+                  <Link href="/terms" target="_blank" className="font-bold text-[#FA1EFF] hover:underline">{t("authx.signup.terms")}</Link>{" "}
+                  {t("authx.signup.and")}{" "}
+                  <Link href="/privacy-policy" target="_blank" className="font-bold text-[#FA1EFF] hover:underline">{t("authx.signup.privacy")}</Link>.
+                </span>
+              </label>
 
               <Button type="submit" variant="primary" className={authButtonClass}>
                 {t("auth.signUp")}

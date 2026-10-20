@@ -1,5 +1,6 @@
 "use client";
 
+import { PanoramaViewer } from "@/components/PanoramaViewer";
 import React, { useState, use } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -214,6 +215,13 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
               </div>
             </div>
 
+            {business.panoramaUrl && (
+              <section className="my-4 space-y-2" aria-label={t("panorama.title")}>
+                <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("panorama.title")}</h2>
+                <PanoramaViewer src={business.panoramaUrl} alt={t("panorama.alt", { name: business.name })} />
+              </section>
+            )}
+
             {/* Description & Contact Meta */}
             <div className="space-y-3 text-xs text-[#555555]">
               <p className="text-sm leading-relaxed">{business.description}</p>
@@ -231,6 +239,27 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   {t("shops.detail.kvk", { n: business.kvkNumber })}
                 </span>
               </div>
+              {[
+                [business.websiteUrl, t("ownerx.settings.website")],
+                [business.instagramUrl, "Instagram"],
+                [business.facebookUrl, "Facebook"],
+                [business.tiktokUrl, "TikTok"],
+              ].some(([u]) => !!u) && (
+                <div className="flex flex-wrap gap-3 pt-2 text-xs font-bold">
+                  {([
+                    [business.websiteUrl, t("ownerx.settings.website")],
+                    [business.instagramUrl, "Instagram"],
+                    [business.facebookUrl, "Facebook"],
+                    [business.tiktokUrl, "TikTok"],
+                  ] as [string | undefined, string][])
+                    .filter(([u]) => !!u)
+                    .map(([u, label]) => (
+                      <a key={label} href={u} target="_blank" rel="noopener noreferrer nofollow" className="text-[#FA1EFF] hover:underline">
+                        {label}
+                      </a>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

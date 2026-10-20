@@ -5,6 +5,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 import { UpdateBusinessStatusDto } from './dto/update-business-status.dto';
 import { Prisma, BusinessStatus, SubscriptionStatus, UserRole, ReviewStatus } from '@prisma/client';
+import { boundingBox, haversineKm, hasGeo, toNum } from '../common/geo';
 import { QueryBusinessDto } from './dto/query-business.dto';
 import { TranslationService } from '../translation/translation.service';
 
@@ -65,6 +66,7 @@ export class BusinessesService {
         hours: true,
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
+        panoramaAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -88,6 +90,12 @@ export class BusinessesService {
         { description: { contains: query.search, mode: 'insensitive' } },
       ];
     }
+    const geo = hasGeo(query) ? query : null;
+    if (geo) {
+      const box = boundingBox(geo.lat, geo.lng, geo.radiusKm);
+      where.latitude = { gte: box.minLat, lte: box.maxLat };
+      where.longitude = { gte: box.minLng, lte: box.maxLng };
+    }
     const rows = await this.prisma.business.findMany({
       where,
       include: {
@@ -95,13 +103,33 @@ export class BusinessesService {
         hours: true,
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
+        panoramaAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: { include: { plan: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: query.sort === 'name' ? { name: 'asc' } : { createdAt: 'desc' },
       take: query.limit ?? 100,
     });
-    return this.withLiveCounts(rows);
+    await this.backfillTranslations(rows);
+    let result: any[] = await this.withLiveCounts(rows);
+    if (geo) {
+      result = result
+        .map((b) => {
+          const lat = toNum(b.latitude);
+          const lng = toNum(b.longitude);
+          return { ...b, distanceKm: lat === null || lng === null ? null : haversineKm(geo.lat, geo.lng, lat, lng) };
+        })
+        .filter((b) => b.distanceKm !== null && b.distanceKm <= geo.radiusKm);
+    }
+    if (query.sort === 'distance' && geo) result.sort((a, b) => a.distanceKm - b.distanceKm);
+    else if (query.sort === 'rating') result.sort((a, b) => b.averageRating - a.averageRating || b.ratingCount - a.ratingCount);
+    return result;
+  }
+
+  private backfillTranslations(rows: any[]) {
+    return this.translation.backfill(rows, ['description'], (r, b) =>
+      this.prisma.business.update({ where: { id: r.id }, data: { translations: b.translations as any, sourceLocale: b.sourceLocale } }),
+    );
   }
 
   /**
@@ -152,6 +180,7 @@ export class BusinessesService {
         hours: true,
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
+        panoramaAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -175,6 +204,7 @@ export class BusinessesService {
         hours: true,
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
+        panoramaAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -186,6 +216,7 @@ export class BusinessesService {
       throw new NotFoundException('Winkel niet gevonden');
     }
 
+    await this.backfillTranslations([business]);
     const [withCounts] = await this.withLiveCounts([business]);
     return withCounts;
   }
@@ -209,7 +240,14 @@ export class BusinessesService {
         ? await this.translation.translateFields({ description: dto.description })
         : null;
 
-    for (const assetId of [dto.logoAssetId, dto.coverAssetId]) {
+    const pickup = dto.pickupEnabled ?? business.pickupEnabled;
+    const shipping = dto.shippingEnabled ?? business.shippingEnabled;
+    const local = dto.localDeliveryEnabled ?? business.localDeliveryEnabled;
+    if (!pickup && !shipping && !local) {
+      throw new BadRequestException('Schakel minimaal één leveringswijze in (afhalen, verzenden of lokale bezorging)');
+    }
+
+    for (const assetId of [dto.logoAssetId, dto.coverAssetId, dto.panoramaAssetId]) {
       if (assetId) {
         const asset = await this.prisma.mediaAsset.findUnique({ where: { id: assetId }, select: { id: true } });
         if (!asset) throw new BadRequestException('Afbeelding niet gevonden, upload de afbeelding opnieuw');
@@ -222,11 +260,16 @@ export class BusinessesService {
         name: dto.name,
         logoAssetId: dto.logoAssetId,
         coverAssetId: dto.coverAssetId,
+        panoramaAssetId: dto.panoramaAssetId,
         ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
         phone: dto.phone !== undefined ? dto.phone : undefined,
         email: dto.email !== undefined ? dto.email : undefined,
+        websiteUrl: dto.websiteUrl !== undefined ? dto.websiteUrl || null : undefined,
+        instagramUrl: dto.instagramUrl !== undefined ? dto.instagramUrl || null : undefined,
+        facebookUrl: dto.facebookUrl !== undefined ? dto.facebookUrl || null : undefined,
+        tiktokUrl: dto.tiktokUrl !== undefined ? dto.tiktokUrl || null : undefined,
         kvkNumber: dto.kvkNumber !== undefined ? dto.kvkNumber : undefined,
         categoryId: dto.categoryId !== undefined ? dto.categoryId : undefined,
         state: dto.state !== undefined ? dto.state : undefined,
@@ -236,12 +279,20 @@ export class BusinessesService {
         postalCode: dto.postalCode !== undefined ? dto.postalCode : undefined,
         latitude: dto.latitude !== undefined ? dto.latitude : undefined,
         longitude: dto.longitude !== undefined ? dto.longitude : undefined,
+        pickupEnabled: dto.pickupEnabled,
+        shippingEnabled: dto.shippingEnabled,
+        localDeliveryEnabled: dto.localDeliveryEnabled,
+        shippingFee: dto.shippingFee,
+        freeShippingThreshold: dto.freeShippingThreshold,
+        localDeliveryFee: dto.localDeliveryFee,
+        localDeliveryRadiusKm: dto.localDeliveryRadiusKm,
       },
       include: {
         category: true,
         hours: true,
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
+        panoramaAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },

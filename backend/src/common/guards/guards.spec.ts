@@ -78,6 +78,23 @@ describe('validateEnv', () => {
     const good = { ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'A <a@b.com>' };
     expect(validateEnv(good)).toBe(good);
   });
+  it('validates ENCRYPTION_KEY (base64, 32 bytes) without echoing it', () => {
+    const key = Buffer.alloc(32, 7).toString('base64');
+    expect(validateEnv({ ...ok, ENCRYPTION_KEY: key })).toBeDefined();
+    expect(() => validateEnv({ ...ok, ENCRYPTION_KEY: 'too-short-key' })).toThrow(/ENCRYPTION_KEY/);
+    try {
+      validateEnv({ ...ok, ENCRYPTION_KEY: 'too-short-key' });
+    } catch (e) {
+      expect((e as Error).message).not.toContain('too-short-key');
+    }
+  });
+  it('validates the commission, payout and return settings', () => {
+    expect(validateEnv({ ...ok, COMMISSION_DEFAULT_BPS: '500', PAYOUT_HOLD_DAYS: '14', PAYOUT_MIN_CENTS: '1000', RETURN_WINDOW_DAYS: '14' })).toBeDefined();
+    expect(() => validateEnv({ ...ok, COMMISSION_DEFAULT_BPS: '6000' })).toThrow(/COMMISSION_DEFAULT_BPS/);
+    expect(() => validateEnv({ ...ok, PAYOUT_HOLD_DAYS: '-1' })).toThrow(/PAYOUT_HOLD_DAYS/);
+    expect(() => validateEnv({ ...ok, PAYOUT_MIN_CENTS: 'abc' })).toThrow(/PAYOUT_MIN_CENTS/);
+    expect(() => validateEnv({ ...ok, RETURN_WINDOW_DAYS: '0' })).toThrow(/RETURN_WINDOW_DAYS/);
+  });
 });
 
 describe('readCookie', () => {

@@ -4,6 +4,8 @@ import React, { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, ShoppingBag, Truck, ArrowRight, ShieldCheck, MapPin } from "lucide-react";
+import { PAID_STATES } from "@/types/order";
+import { GuestClaimCard } from "@/features/guest/GuestClaimCard";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -46,6 +48,8 @@ function CheckoutSuccessContent() {
   }
 
   const { items, subtotal, deliveryFee: shipping, total, orderNumber, deliveryAddress } = order;
+  const paid = PAID_STATES.includes(order.paymentStatus);
+  const pickup = order.fulfilmentMethod === "PICKUP";
 
   return (
     <div className="max-w-2xl mx-auto my-6 sm:my-10 space-y-6">
@@ -77,6 +81,8 @@ function CheckoutSuccessContent() {
           <span>{t("checkout.success.awaiting", { name: order.businessName })}</span>
         </div>
       </div>
+
+      <GuestClaimCard />
 
       {/* Order Details & Summary Card */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
@@ -125,18 +131,24 @@ function CheckoutSuccessContent() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-1">
             <span className="font-bold text-[#111111] flex items-center gap-1 mb-1">
-              <MapPin className="w-4 h-4 text-[#FA1EFF]" /> {t("checkout.deliveryAddress")}
+              <MapPin className="w-4 h-4 text-[#FA1EFF]" /> {t(`checkout.fulfilment.${order.fulfilmentMethod}` as never)}
             </span>
-            <p className="text-[#B7B7B7]">{deliveryAddress.street} {deliveryAddress.houseNumber}</p>
-            <p className="text-[#B7B7B7]">{deliveryAddress.postalCode} {deliveryAddress.city}</p>
+            {pickup ? (
+              <p className="text-[#B7B7B7]">{t("checkout.success.pickupAt", { name: order.businessName })}</p>
+            ) : (
+              <>
+                <p className="text-[#B7B7B7]">{deliveryAddress.street} {deliveryAddress.houseNumber}</p>
+                <p className="text-[#B7B7B7]">{deliveryAddress.postalCode} {deliveryAddress.city}</p>
+              </>
+            )}
           </div>
 
           <div className="p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-1">
             <span className="font-bold text-[#111111] flex items-center gap-1 mb-1">
               <ShieldCheck className="w-4 h-4 text-[#54D1CA]" /> {t("checkout.paymentMethod")}
             </span>
-            <p className="text-[#111111] font-medium">{t("checkout.success.paymentPending")}</p>
-            <p className="text-[#B7B7B7]">{t("checkout.success.paymentLater")}</p>
+            <p className="text-[#111111] font-medium">{paid ? t("checkout.success.paymentDone") : t("checkout.success.paymentPending")}</p>
+            {!paid && <p className="text-[#B7B7B7]">{t("checkout.success.paymentOpen")}</p>}
           </div>
         </div>
 

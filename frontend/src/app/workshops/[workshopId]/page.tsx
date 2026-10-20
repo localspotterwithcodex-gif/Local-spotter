@@ -4,7 +4,7 @@ import React, { useState, use } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Clock, MapPin, Users, Calendar as CalendarIcon, Store, Check, ArrowLeft } from "lucide-react";
+import { Clock, MapPin, Users, Calendar as CalendarIcon, Store, Check, ArrowLeft, Info } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -32,8 +32,12 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   const [ticketQuantity, setTicketQuantity] = useState(1);
   const [isBooking, setIsBooking] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
-  const [bookedTickets, setBookedTickets] = useState(0);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [ageOk, setAgeOk] = useState(false);
+
+  const sessions = (workshop?.sessions ?? []).filter((s) => s.status !== "CANCELLED" && s.status !== "COMPLETED");
+  const selected = sessions.find((s) => s.id === sessionId) ?? (sessions.length === 1 ? sessions[0] : null);
 
   const handleBooking = async () => {
     if (!workshop) return;
@@ -41,12 +45,29 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
       router.push(`/login?redirectTo=${encodeURIComponent(pathname)}`);
       return;
     }
+    if (sessions.length > 1 && !selected) {
+      setBookingError(t("workshops.detail.pickSession"));
+      return;
+    }
+    if (workshop.minAge && !ageOk) {
+      setBookingError(t("workshops.detail.confirmMinAge", { n: workshop.minAge }));
+      return;
+    }
     setIsBooking(true);
     setBookingError(null);
     try {
-      await api.bookWorkshop(workshop.id, ticketQuantity);
-      setBookedTickets((n) => n + ticketQuantity);
+      const booking = await api.bookWorkshop(workshop.id, ticketQuantity, {
+        sessionId: selected?.id,
+        acceptMinAge: !!workshop.minAge && ageOk,
+      });
+      if (booking.requiresPayment) {
+        // The seats are held for a short time; the booking is confirmed once the payment succeeds.
+        const intent = await api.createPaymentIntent({ purpose: "WORKSHOP_BOOKING", relatedEntityId: booking.id });
+        window.location.assign(intent.checkoutUrl ?? `/payment/return?payment=${encodeURIComponent(intent.paymentId)}`);
+        return;
+      }
       setIsBooked(true);
+      reload();
     } catch (err) {
       setBookingError(errMsg(err));
     } finally {
@@ -78,7 +99,12 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
     );
   }
 
-  const spotsLeft = workshop.capacity - workshop.bookedCount - bookedTickets;
+  const shown = selected ?? sessions[0] ?? null;
+  const spotsLeft = selected
+    ? selected.remaining
+    : sessions.length > 1
+      ? sessions.reduce((n, s) => n + s.remaining, 0)
+      : workshop.capacity - workshop.bookedCount;
   const isSoldOut = spotsLeft <= 0;
 
   return (
@@ -114,14 +140,14 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
                 <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.date")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <CalendarIcon className="w-3.5 h-3.5 text-[#FA1EFF]" />
-                  {f.date(workshop.date)}
+                  {f.date(shown?.date ?? workshop.date)}
                 </span>
               </div>
               <div>
                 <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.time")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <Clock className="w-3.5 h-3.5 text-[#121F3E]" />
-                  {workshop.startTime} - {workshop.finishTime}
+                  {shown?.startTime ?? workshop.startTime} - {shown?.finishTime ?? workshop.finishTime}
                 </span>
               </div>
               <div>
@@ -145,6 +171,53 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
               <h3 className="text-sm font-bold text-[#111111]">{t("workshops.detail.about")}</h3>
               <p className="text-xs text-[#555555] leading-relaxed">{workshop.description}</p>
             </div>
+
+            {sessions.length > 1 && (
+              <fieldset className="space-y-2 border-t border-[#F9F9F9] pt-4">
+                <legend className="text-sm font-bold text-[#111111] mb-2">{t("workshops.detail.session")}</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {sessions.map((s) => {
+                    const full = s.remaining <= 0;
+                    return (
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-3 rounded-2xl border p-3 text-xs cursor-pointer ${
+                          selected?.id === s.id ? "border-[#FA1EFF] bg-[#FAE2F0]/40" : "border-[#EAEAEA] bg-white"
+                        } ${full ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="session"
+                          className="accent-[#FA1EFF]"
+                          disabled={full}
+                          checked={selected?.id === s.id}
+                          onChange={() => {
+                            setSessionId(s.id);
+                            setTicketQuantity(1);
+                          }}
+                        />
+                        <span className="font-bold text-[#111111]">
+                          {f.date(s.date)} · {s.startTime}–{s.finishTime}
+                        </span>
+                        <span className="ml-auto text-[#555555]">
+                          {full ? t("workshops.detail.sessionFull") : t("workshops.detail.spotsLeft", { n: s.remaining })}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+
+            <p className="flex items-start gap-2 text-[11px] text-[#555555] bg-[#F9F9F9] rounded-xl p-3">
+              <Info className="w-4 h-4 shrink-0 text-[#790166]" />
+              <span>
+                {workshop.refundPercentage > 0
+                  ? t("workshops.detail.policy", { h: workshop.cancellationDeadlineHours, p: workshop.refundPercentage })
+                  : t("workshops.detail.policyNone")}
+                {workshop.minAge ? ` ${t("workshops.detail.minAge", { n: workshop.minAge })}` : ""}
+              </span>
+            </p>
 
             {/* Ticket Booking Box */}
             <div className="bg-[#FAE2F0]/40 p-5 rounded-2xl border border-[#FAE2F0] space-y-4">
@@ -173,6 +246,13 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
                   </div>
                 )}
               </div>
+
+              {workshop.minAge ? (
+                <label className="flex items-start gap-2 text-xs text-[#111111]">
+                  <input type="checkbox" className="mt-0.5 accent-[#FA1EFF]" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)} />
+                  {t("workshops.detail.confirmMinAge", { n: workshop.minAge })}
+                </label>
+              ) : null}
 
               {bookingError && (
                 <div role="alert" className="bg-[#F2D9DE]/50 border border-[#ED4C5C]/30 text-[#555555] text-xs rounded-2xl p-3">

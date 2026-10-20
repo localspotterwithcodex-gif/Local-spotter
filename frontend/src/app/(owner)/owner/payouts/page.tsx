@@ -12,8 +12,9 @@ import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
+import { PayoutAccountCard } from "@/features/payouts/PayoutAccountCard";
 
-const ENTRY_TYPES = ["SALE", "REFUND"];
+const ENTRY_TYPES = ["SALE", "COMMISSION", "COMMISSION_REVERSAL", "REFUND", "REFUND_PENDING", "PAYOUT", "PAYOUT_REVERSAL"];
 const PAYOUT_STATUSES = ["PENDING", "APPROVED", "REJECTED", "PAID", "FAILED"];
 
 export default function OwnerPayoutsPage() {
@@ -56,7 +57,9 @@ export default function OwnerPayoutsPage() {
   const stats: Array<[string, number]> = [
     [t("manage.payouts.gross"), b.grossSalesCents],
     [t("manage.payouts.refunds"), b.refundsCents],
+    [t("payoutsx.commission"), b.commissionCents],
     [t("manage.payouts.net"), b.netSalesCents],
+    [t("payoutsx.onHold"), b.onHoldCents],
     [t("manage.payouts.paidOut"), b.paidOutCents],
     [t("manage.payouts.pending"), b.pendingPayoutCents],
   ];
@@ -66,9 +69,12 @@ export default function OwnerPayoutsPage() {
       <div className="bg-[#FAE2F0] rounded-3xl p-6">
         <p className="text-xs font-bold text-[#790166]">{t("manage.payouts.available")}</p>
         <p className="text-3xl font-extrabold font-rubik text-[#111111]">{eur(b.availableCents)}</p>
+        {b.nextReleaseAt && <p className="text-[11px] text-[#790166] mt-1">{t("payoutsx.nextRelease", { date: f.date(b.nextReleaseAt) })}</p>}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {businessId && <PayoutAccountCard businessId={businessId} />}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map(([label, cents]) => (
           <div key={label} className="bg-white rounded-2xl border border-[#EAEAEA] p-4">
             <p className="text-[11px] text-[#B7B7B7] font-bold">{label}</p>
@@ -88,7 +94,7 @@ export default function OwnerPayoutsPage() {
               <li key={e.id} className="flex items-center justify-between gap-3 p-3 text-xs">
                 <div className="min-w-0">
                   <p className="font-bold text-[#111111] truncate">
-                    {t(ENTRY_TYPES.includes(e.type) ? (`manage.payouts.type.${e.type}` as "manage.payouts.type.SALE") : "manage.payouts.type.other")}
+                    {t(ENTRY_TYPES.includes(e.type) ? (`payoutsx.type.${e.type}` as "payoutsx.type.SALE") : "manage.payouts.type.other")}
                     {e.orderNumber ? ` · ${e.orderNumber}` : e.workshopTitle ? ` · ${e.workshopTitle}` : ""}
                   </p>
                   <p className="text-[#B7B7B7]">{f.dateTime(e.createdAt)}</p>
@@ -113,6 +119,7 @@ export default function OwnerPayoutsPage() {
                   <p className="text-[#B7B7B7]">{f.date(p.paidAt ?? p.requestedAt)}</p>
                 </div>
                 <span className="font-bold text-[#790166]">
+                  {p.periodKey ? `${p.periodKey} · ` : ""}
                   {PAYOUT_STATUSES.includes(p.status) ? t(`manage.payouts.status.${p.status}` as "manage.payouts.status.PAID") : p.status}
                 </span>
               </li>

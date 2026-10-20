@@ -1,4 +1,9 @@
+/** Hard ceiling accepted by the upload interceptor (chat attachments). */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** Product / shop / workshop / review images. */
+export const MAX_CONTENT_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Chat attachments. */
+export const MAX_CHAT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 export type DetectedImage = { mime: string };
 

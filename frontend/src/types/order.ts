@@ -8,6 +8,21 @@ export type OrderStatus =
   | "CANCELLED"
   | "REJECTED";
 
+export type FulfilmentMethod = "PICKUP" | "SHIPPING" | "LOCAL_DELIVERY";
+
+export type PaymentState =
+  | "PENDING"
+  | "AUTHORIZED"
+  | "PAID"
+  | "FAILED"
+  | "CANCELLED"
+  | "EXPIRED"
+  | "REFUNDED"
+  | "PARTIALLY_REFUNDED";
+
+/** States in which the money has been received (the shop may see and process the order). */
+export const PAID_STATES: PaymentState[] = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
+
 export interface OrderItem {
   id: string;
   productId: string;
@@ -43,7 +58,12 @@ export interface Order {
   total: number;
   status: OrderStatus;
   deliveryAddress: DeliveryAddress;
-  paymentMethod?: "ideal" | "paypal" | "tikkie";
+  fulfilmentMethod: FulfilmentMethod;
+  paymentStatus: PaymentState;
+  /** The checkout this order belongs to (absent on legacy orders). */
+  customerOrder?: { id: string; orderNumber: string; paymentStatus: PaymentState };
   createdAt: string;
   updatedAt: string;
+  /** When the order was delivered / picked up (starts the return window). */
+  deliveredAt?: string;
 }

@@ -7,6 +7,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { TranslationService } from '../translation/translation.service';
+import { FavoritesService } from '../favorites/favorites.service';
+import { boundingBox, haversineKm, hasGeo, toNum } from '../common/geo';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
@@ -21,6 +23,7 @@ export class ProductsService {
     private prisma: PrismaService,
     private entitlementService: SubscriptionEntitlementService,
     private translation: TranslationService,
+    private favorites: FavoritesService,
   ) {}
 
   // ==========================================
@@ -75,6 +78,12 @@ export class ProductsService {
         stock: dto.stock,
         active: dto.active !== undefined ? dto.active : true,
         shopUrl: dto.shopUrl || null,
+        ...(dto.vatRate !== undefined ? { vatRate: dto.vatRate } : {}),
+        brand: dto.brand?.trim() || null,
+        weightGrams: dto.weightGrams ?? null,
+        lengthMm: dto.lengthMm ?? null,
+        widthMm: dto.widthMm ?? null,
+        heightMm: dto.heightMm ?? null,
       },
       include: {
         category: true,
@@ -142,6 +151,15 @@ export class ProductsService {
       ];
     }
 
+    if (query.inStock) where.stock = { gt: 0 };
+
+    const geo = hasGeo(query) ? query : null;
+    if (geo) {
+      const box = boundingBox(geo.lat, geo.lng, geo.radiusKm);
+      where.business.latitude = { gte: box.minLat, lte: box.maxLat };
+      where.business.longitude = { gte: box.minLng, lte: box.maxLng };
+    }
+
     const products = await this.prisma.product.findMany({
       where,
       include: {
@@ -157,12 +175,40 @@ export class ProductsService {
             name: true,
             slug: true,
             city: true,
+            latitude: true,
+            longitude: true,
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: query.sort === 'price_asc' ? { price: 'asc' } : query.sort === 'price_desc' ? { price: 'desc' } : { createdAt: 'desc' },
+      take: 500,
     });
-    return this.withRatings(products);
+    await this.backfillTranslations(products);
+    let rows: any[] = await this.withLikes(await this.withRatings(products));
+
+    if (geo) {
+      rows = rows
+        .map((p) => {
+          const lat = toNum(p.business?.latitude);
+          const lng = toNum(p.business?.longitude);
+          return { ...p, distanceKm: lat === null || lng === null ? null : haversineKm(geo.lat, geo.lng, lat, lng) };
+        })
+        .filter((p) => p.distanceKm !== null && p.distanceKm <= geo.radiusKm);
+    }
+    if (query.sort === 'distance' && geo) rows.sort((a, b) => a.distanceKm - b.distanceKm);
+    else if (query.sort === 'popular') rows.sort((a, b) => b.likeCount - a.likeCount || b.viewCount - a.viewCount);
+    return rows;
+  }
+
+  private async withLikes<T extends { id: string }>(rows: T[]): Promise<(T & { likeCount: number })[]> {
+    const counts = await this.favorites.countsForProducts(rows.map((r) => r.id));
+    return rows.map((r) => ({ ...r, likeCount: counts.get(r.id) ?? 0 }));
+  }
+
+  private backfillTranslations(rows: any[]) {
+    return this.translation.backfill(rows, ['name', 'description'], (r, b) =>
+      this.prisma.product.update({ where: { id: r.id }, data: { translations: b.translations as any, sourceLocale: b.sourceLocale } }),
+    );
   }
 
   /**
@@ -225,8 +271,50 @@ export class ProductsService {
       await this.verifyBusinessOwnership(product.businessId, user);
     }
 
-    const [withRating] = await this.withRatings([product]);
+    await this.backfillTranslations([product]);
+    const [withRating] = await this.withLikes(await this.withRatings([product]));
     return withRating;
+  }
+
+  /** Throttle so reloads/refresh loops from one visitor count once per window (in-memory, per instance). */
+  private recentViews = new Map<string, number>();
+  private static readonly VIEW_WINDOW_MS = 30 * 60 * 1000;
+
+  /**
+   * Counts one view of a public product page. Not counted: the shop owner's own visits,
+   * the same visitor (user id or IP) again within 30 minutes, inactive/deleted products.
+   */
+  async recordView(idOrSlug: string, viewer: { userId?: string; ip?: string }) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+    const product = await this.prisma.product.findFirst({
+      where: { OR: isUuid ? [{ id: idOrSlug }, { slug: idOrSlug }] : [{ slug: idOrSlug }], deletedAt: null, active: true },
+      select: { id: true, viewCount: true, business: { select: { ownerProfile: { select: { userId: true } } } } },
+    });
+    if (!product) throw new NotFoundException('Product niet gevonden');
+
+    const ownerUserId = product.business?.ownerProfile?.userId;
+    if (viewer.userId && ownerUserId && viewer.userId === ownerUserId) {
+      return { viewCount: product.viewCount, counted: false };
+    }
+
+    const now = Date.now();
+    const key = `${product.id}:${viewer.userId ?? viewer.ip ?? 'anon'}`;
+    const last = this.recentViews.get(key);
+    if (last !== undefined && now - last < ProductsService.VIEW_WINDOW_MS) {
+      return { viewCount: product.viewCount, counted: false };
+    }
+    if (this.recentViews.size > 5000) {
+      for (const [k, t] of this.recentViews) if (now - t >= ProductsService.VIEW_WINDOW_MS) this.recentViews.delete(k);
+      if (this.recentViews.size > 5000) this.recentViews.clear();
+    }
+    this.recentViews.set(key, now);
+
+    const updated = await this.prisma.product.update({
+      where: { id: product.id },
+      data: { viewCount: { increment: 1 } },
+      select: { viewCount: true },
+    });
+    return { viewCount: updated.viewCount, counted: true };
   }
 
   async updateProduct(productId: string, user: any, dto: UpdateProductDto) {
@@ -281,6 +369,12 @@ export class ProductsService {
         categoryId: dto.categoryId !== undefined ? dto.categoryId : undefined,
         shopUrl: dto.shopUrl !== undefined ? dto.shopUrl : undefined,
         active: dto.active !== undefined ? dto.active : undefined,
+        vatRate: dto.vatRate,
+        brand: dto.brand !== undefined ? dto.brand.trim() || null : undefined,
+        weightGrams: dto.weightGrams,
+        lengthMm: dto.lengthMm,
+        widthMm: dto.widthMm,
+        heightMm: dto.heightMm,
       },
       include: {
         category: true,
@@ -463,6 +557,7 @@ export class ProductsService {
 
   async getCategories() {
     return this.prisma.productCategory.findMany({
+      where: { active: true },
       orderBy: { sortOrder: 'asc' },
     });
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, LocateFixed } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { Input } from "@/components/ui/Input";
@@ -12,18 +12,27 @@ import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { uniqueCities } from "@/lib/cities";
 import { useLocale } from "@/i18n/LocaleContext";
+import { useNearMe } from "@/lib/hooks/useNearMe";
 
 export default function BusinessListingPage() {
   const { t } = useLocale();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [sort, setSort] = useState<"newest" | "rating" | "name" | "distance">("newest");
+  const nearMe = useNearMe();
+  const geo = nearMe.active && nearMe.coords ? { lat: nearMe.coords.lat, lng: nearMe.coords.lng, radiusKm: nearMe.radiusKm } : {};
   const {
     data,
     error,
     loading: isLoading,
     reload,
-  } = useApiResource(`businesses:${selectedCity ?? ""}:${searchQuery}`, () =>
-    api.getBusinesses({ query: searchQuery || undefined, city: selectedCity || undefined })
+  } = useApiResource(`businesses:${selectedCity ?? ""}:${searchQuery}:${sort}:${geo.lat ?? ""}:${geo.lng ?? ""}:${geo.radiusKm ?? ""}`, () =>
+    api.getBusinesses({
+      query: searchQuery || undefined,
+      city: selectedCity || undefined,
+      sort: sort === "distance" && !geo.lat ? undefined : sort,
+      ...geo,
+    })
   );
   const businesses = data ?? [];
 
@@ -77,6 +86,35 @@ export default function BusinessListingPage() {
             </button>
           ))}
         </div>
+
+        <div className="flex flex-wrap items-end gap-3 text-xs">
+          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+            {t("filters.sort")}
+            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
+              <option value="newest">{t("filters.sortNewest")}</option>
+              <option value="rating">{t("filters.sortRating")}</option>
+              <option value="name">{t("filters.sortName")}</option>
+              {nearMe.active && <option value="distance">{t("filters.sortDistance")}</option>}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => (nearMe.active ? nearMe.disable() : nearMe.enable())}
+            aria-pressed={nearMe.active}
+            className={`flex h-10 items-center gap-1.5 rounded-xl border px-3 font-bold ${nearMe.active ? "border-[#FA1EFF] bg-[#FAE2F0] text-[#FA1EFF]" : "border-[#EAEAEA] text-[#111111]"}`}
+          >
+            <LocateFixed className="h-4 w-4" />
+            {nearMe.active ? t("filters.nearMeOn", { km: nearMe.radiusKm }) : t("filters.nearMe")}
+          </button>
+          {nearMe.active && (
+            <select value={nearMe.radiusKm} onChange={(e) => nearMe.setRadiusKm(Number(e.target.value))} aria-label={t("filters.radius")} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
+              {[5, 10, 25, 50, 100].map((km) => (
+                <option key={km} value={km}>{km} km</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {nearMe.error && <p className="text-xs text-[#ED4C5C]" role="alert">{t(nearMe.error)}</p>}
 
         {isLoading ? (
           <LoadingState label={t("shops.loading")} />

@@ -10,7 +10,9 @@ import {
 import { BookingStatus, PaymentProvider, PaymentPurpose, PaymentStatus, UserRole } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { PAYMENT_GATEWAY } from './payment-gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { AuthUser } from '../common/types/auth-user';
 
@@ -79,22 +81,32 @@ describe('PaymentsService', () => {
   let service: PaymentsService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let prisma: any;
-  const gateway = { isConfigured: jest.fn(), refund: jest.fn() };
+  const gateway = { isConfigured: jest.fn(), refund: jest.fn(), createPayment: jest.fn(), getPayment: jest.fn() };
+  const notifications = { notifyUser: jest.fn(), notifyBusinessOwner: jest.fn() };
+  const configValues: Record<string, string> = { FRONTEND_URL: 'https://app.example.nl', API_PUBLIC_URL: 'https://api.example.nl' };
 
   beforeEach(async () => {
     jest.resetAllMocks();
     gateway.isConfigured.mockReturnValue(true);
     gateway.refund.mockResolvedValue({ providerRefundId: 're_1' });
+    gateway.createPayment.mockResolvedValue({ providerPaymentId: 'tr_new', checkoutUrl: 'https://pay.mollie.test/checkout/tr_new' });
+    notifications.notifyUser.mockResolvedValue(undefined);
+    notifications.notifyBusinessOwner.mockResolvedValue(undefined);
 
     prisma = {
-      order: { findUnique: jest.fn(), update: jest.fn() },
-      workshopBooking: { findUnique: jest.fn(), update: jest.fn() },
+      order: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+      customerOrder: { findUnique: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]), update: jest.fn(), updateMany: jest.fn() },
+      orderStatusEvent: { create: jest.fn() },
+      merchantEmployee: { findMany: jest.fn().mockResolvedValue([]) },
+      paymentWebhookEvent: { create: jest.fn().mockResolvedValue({}), updateMany: jest.fn().mockResolvedValue({}) },
+      workshopBooking: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       businessSubscription: { findUnique: jest.fn(), update: jest.fn() },
       business: { findUnique: jest.fn() },
-      payment: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
+      payment: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       businessLedgerEntry: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       auditLog: { findFirst: jest.fn(), create: jest.fn() },
       $queryRaw: jest.fn(),
+      $executeRaw: jest.fn().mockResolvedValue(1),
     };
     prisma.$transaction = jest.fn(async (cb: (tx: unknown) => unknown) => cb(prisma));
     prisma.business.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
@@ -111,7 +123,13 @@ describe('PaymentsService', () => {
     prisma.payment.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ ...basePayment, ...data }));
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PaymentsService, { provide: PrismaService, useValue: prisma }, { provide: PAYMENT_GATEWAY, useValue: gateway }],
+      providers: [
+        PaymentsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PAYMENT_GATEWAY, useValue: gateway },
+        { provide: NotificationsService, useValue: notifications },
+        { provide: ConfigService, useValue: { get: (k: string) => configValues[k] } },
+      ],
     }).compile();
     service = module.get(PaymentsService);
   });
@@ -197,10 +215,12 @@ describe('PaymentsService', () => {
 
     it('is idempotent: returns the open payment instead of creating a duplicate', async () => {
       prisma.order.findUnique.mockResolvedValue(orderA);
-      prisma.payment.findMany.mockResolvedValue([{ ...basePayment, id: 'pay-open', status: PaymentStatus.PENDING }]);
+      prisma.payment.findMany.mockResolvedValue([{ ...basePayment, id: 'pay-open', status: PaymentStatus.PENDING, checkoutUrl: 'https://pay.mollie.test/x' }]);
       const result = await service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'order-1'));
       expect(result.paymentId).toBe('pay-open');
+      expect(result.checkoutUrl).toBe('https://pay.mollie.test/x');
       expect(prisma.payment.create).not.toHaveBeenCalled();
+      expect(gateway.createPayment).not.toHaveBeenCalled();
     });
 
     it('rejects paying an already-paid order', async () => {
@@ -401,6 +421,391 @@ describe('PaymentsService', () => {
         await expect(service.processRefund('pay-1', ownerA, { amount: 10, idempotencyKey: 'k1' })).rejects.toThrow(ConflictException);
         await expect(service.processRefund('pay-1', ownerA, { amount: 20, idempotencyKey: 'k1' })).rejects.toThrow(/different amount/);
       });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  describe('hosted checkout (Mollie)', () => {
+    const checkout = {
+      id: 'co-1',
+      orderNumber: 'LS-ABC',
+      consumerProfileId: 'cp-a',
+      cancelledAt: null,
+      orders: [
+        { id: 'order-1', businessId: 'biz-1', totalAmount: 60, status: 'PENDING' },
+        { id: 'order-2', businessId: 'biz-2', totalAmount: 40.5, status: 'PENDING' },
+      ],
+    };
+
+    it('refuses to start a payment when no provider is configured', async () => {
+      gateway.isConfigured.mockReturnValue(false);
+      await expect(service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'order-1'))).rejects.toThrow(ServiceUnavailableException);
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects providers other than Mollie', async () => {
+      await expect(
+        service.createPaymentIntent(consumerA, { purpose: PaymentPurpose.PRODUCT_ORDER, relatedEntityId: 'order-1', provider: PaymentProvider.STRIPE }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates ONE provider payment for a multi-store checkout and one Payment row per store', async () => {
+      prisma.customerOrder.findUnique.mockResolvedValue(checkout);
+      let n = 0;
+      prisma.payment.create.mockImplementation(async ({ data }: any) => ({ id: `pay-${++n}`, createdAt: new Date(), ...data }));
+
+      const result = await service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'co-1'));
+
+      expect(gateway.createPayment).toHaveBeenCalledTimes(1);
+      expect(gateway.createPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amountCents: 10050,
+          currency: 'EUR',
+          redirectUrl: 'https://app.example.nl/payment/return?payment=pay-1',
+          webhookUrl: 'https://api.example.nl/api/v1/payments/webhooks/mollie',
+          idempotencyKey: 'intent-pay-1',
+          metadata: expect.objectContaining({ paymentId: 'pay-1', scopeId: 'co-1' }),
+        }),
+      );
+      expect(prisma.payment.create).toHaveBeenCalledTimes(2);
+      expect(prisma.payment.create.mock.calls[0][0].data).toMatchObject({ orderId: 'order-1', customerOrderId: 'co-1', businessId: 'biz-1', amount: 60 });
+      expect(prisma.payment.create.mock.calls[1][0].data).toMatchObject({ orderId: 'order-2', customerOrderId: 'co-1', businessId: 'biz-2', amount: 40.5 });
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['pay-1', 'pay-2'] } },
+        data: { providerTransactionId: 'tr_new', checkoutUrl: 'https://pay.mollie.test/checkout/tr_new' },
+      });
+      expect(result).toMatchObject({ paymentId: 'pay-1', amount: 100.5, checkoutUrl: 'https://pay.mollie.test/checkout/tr_new' });
+      expect(prisma.$executeRaw).toHaveBeenCalled(); // advisory lock
+    });
+
+    it('only asks to pay for the stores whose order is still active', async () => {
+      prisma.customerOrder.findUnique.mockResolvedValue({ ...checkout, orders: [{ ...checkout.orders[0], status: 'CANCELLED' }, checkout.orders[1]] });
+      await service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'co-1'));
+      expect(gateway.createPayment).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 4050 }));
+    });
+
+    it("forbids paying someone else's checkout", async () => {
+      prisma.customerOrder.findUnique.mockResolvedValue(checkout);
+      await expect(service.createPaymentIntent(consumerB, intent(PaymentPurpose.PRODUCT_ORDER, 'co-1'))).rejects.toThrow(ForbiddenException);
+    });
+
+    it('marks the new payments FAILED and answers 502 when the provider cannot start the payment', async () => {
+      prisma.customerOrder.findUnique.mockResolvedValue(checkout);
+      gateway.createPayment.mockRejectedValue(new Error('boom'));
+      await expect(service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'co-1'))).rejects.toThrow(BadGatewayException);
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: PaymentStatus.FAILED } }),
+      );
+    });
+  });
+
+  // ------------------------------------------------------------------
+  describe('Mollie webhook / provider sync', () => {
+    const rows = [
+      { ...basePayment, id: 'pay-1', status: PaymentStatus.PENDING, amount: 60, providerTransactionId: 'tr_abc12345', orderId: 'order-1' },
+      { ...basePayment, id: 'pay-2', status: PaymentStatus.PENDING, amount: 40.5, providerTransactionId: 'tr_abc12345', orderId: 'order-2', businessId: 'biz-2' },
+    ];
+    const info = (extra: Record<string, unknown> = {}) => ({
+      providerPaymentId: 'tr_abc12345',
+      status: 'PAID',
+      amountCents: 10050,
+      currency: 'EUR',
+      metadata: { paymentId: 'pay-1' },
+      checkoutUrl: null,
+      ...extra,
+    });
+
+    beforeEach(() => {
+      prisma.payment.findMany.mockResolvedValue(rows);
+      prisma.payment.findUnique.mockImplementation(async ({ where }: any) => rows.find((r) => r.id === where.id) ?? null);
+      prisma.businessLedgerEntry.findFirst.mockResolvedValue(null);
+      prisma.order.findUnique.mockResolvedValue({ id: 'order-1', orderNumber: 'LS-1', status: 'PENDING', businessId: 'biz-1', totalAmount: 60, consumerProfile: { userId: 'user-ca' } });
+    });
+
+    it('ignores ids that are not Mollie payment ids and never calls the provider for them', async () => {
+      await service.handleMollieWebhook('../../etc/passwd');
+      await service.handleMollieWebhook('');
+      expect(gateway.getPayment).not.toHaveBeenCalled();
+    });
+
+    it('ignores payments it does not know', async () => {
+      prisma.payment.findMany.mockResolvedValue([]);
+      await service.handleMollieWebhook('tr_unknown123');
+      expect(gateway.getPayment).not.toHaveBeenCalled();
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('marks every store payment paid, writes one sale per store and the checkout paid, using the provider status', async () => {
+      gateway.getPayment.mockResolvedValue(info());
+      await service.handleMollieWebhook('tr_abc12345');
+
+      expect(gateway.getPayment).toHaveBeenCalledWith('tr_abc12345');
+      expect(prisma.payment.update).toHaveBeenCalledTimes(2);
+      expect(prisma.order.update).toHaveBeenCalledWith({ where: { id: 'order-1' }, data: { paymentStatus: PaymentStatus.PAID } });
+      expect(prisma.order.update).toHaveBeenCalledWith({ where: { id: 'order-2' }, data: { paymentStatus: PaymentStatus.PAID } });
+      expect(prisma.businessLedgerEntry.create).toHaveBeenCalledTimes(2);
+      expect(prisma.businessLedgerEntry.create).toHaveBeenCalledWith({ data: expect.objectContaining({ businessId: 'biz-2', type: 'SALE', amountCents: 4050 }) });
+      expect(notifications.notifyUser).toHaveBeenCalledWith('user-ca', 'ORDER', 'Betaling ontvangen', expect.any(String), expect.any(Object));
+      expect(notifications.notifyBusinessOwner).toHaveBeenCalled();
+    });
+
+    it('does nothing when the provider amount does not match our records', async () => {
+      gateway.getPayment.mockResolvedValue(info({ amountCents: 1 }));
+      await service.handleMollieWebhook('tr_abc12345');
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(prisma.businessLedgerEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the provider metadata points at a different payment', async () => {
+      gateway.getPayment.mockResolvedValue(info({ metadata: { paymentId: 'someone-elses' } }));
+      await service.handleMollieWebhook('tr_abc12345');
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent when the webhook is delivered again for an already-paid payment', async () => {
+      const paid = rows.map((r) => ({ ...r, status: PaymentStatus.PAID }));
+      prisma.payment.findMany.mockResolvedValue(paid);
+      prisma.payment.findUnique.mockImplementation(async ({ where }: any) => paid.find((r) => r.id === where.id) ?? null);
+      gateway.getPayment.mockResolvedValue(info());
+      await service.handleMollieWebhook('tr_abc12345');
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(prisma.businessLedgerEntry.create).not.toHaveBeenCalled();
+      expect(notifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('records a failed payment without touching the ledger', async () => {
+      gateway.getPayment.mockResolvedValue(info({ status: 'FAILED' }));
+      await service.handleMollieWebhook('tr_abc12345');
+      expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: PaymentStatus.FAILED }) }));
+      expect(prisma.businessLedgerEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('lets the error through when the provider is unreachable so that Mollie retries', async () => {
+      gateway.getPayment.mockRejectedValue(new BadGatewayException('down'));
+      await expect(service.handleMollieWebhook('tr_abc12345')).rejects.toThrow(BadGatewayException);
+    });
+
+    it('refunds automatically when the payment arrives after the order was cancelled', async () => {
+      prisma.order.findUnique.mockResolvedValue({ id: 'order-1', orderNumber: 'LS-1', status: 'CANCELLED', businessId: 'biz-1', totalAmount: 60, consumerProfile: { userId: 'user-ca' } });
+      gateway.getPayment.mockResolvedValue(info());
+      // First read: still pending (status change applies); later reads (refund) see it paid.
+      const seen = new Set<string>();
+      prisma.payment.findUnique.mockImplementation(async ({ where }: any) => {
+        const r = rows.find((x) => x.id === where.id);
+        if (!r) return null;
+        const again = seen.has(where.id);
+        seen.add(where.id);
+        return { ...r, status: again ? PaymentStatus.PAID : PaymentStatus.PENDING };
+      });
+      prisma.businessLedgerEntry.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValue([{ amountCents: -6000 }]);
+      await service.handleMollieWebhook('tr_abc12345');
+      expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ providerTransactionId: 'tr_abc12345', amountCents: 6000 }));
+    });
+  });
+
+  // ------------------------------------------------------------------
+  describe('paid effects', () => {
+    it('sets the checkout paid and activates a subscription for 30 days from now', async () => {
+      const sub = { id: 'sub-1', status: 'INCOMPLETE', currentPeriodStart: new Date('2026-01-01'), currentPeriodEnd: new Date('2026-01-31') };
+      prisma.payment.findUnique.mockResolvedValue({ ...subscriptionPayment, status: PaymentStatus.PENDING });
+      prisma.businessSubscription.findUnique.mockResolvedValue(sub);
+      const before = Date.now();
+      await service.updatePaymentStatus('pay-sub', PaymentStatus.PAID, 'tr_sub');
+      const data = prisma.businessSubscription.update.mock.calls[0][0].data;
+      expect(data.status).toBe('ACTIVE');
+      expect(data.provider).toBe('MOLLIE');
+      expect(data.currentPeriodEnd.getTime()).toBeGreaterThanOrEqual(before + 29.9 * 86400000);
+      expect(notifications.notifyUser).not.toHaveBeenCalled(); // owner notification goes through business lookup
+    });
+
+    it('extends a running subscription instead of losing paid days', async () => {
+      const end = new Date(Date.now() + 10 * 86400000);
+      prisma.payment.findUnique.mockResolvedValue({ ...subscriptionPayment, status: PaymentStatus.PENDING });
+      prisma.businessSubscription.findUnique.mockResolvedValue({ id: 'sub-1', status: 'ACTIVE', currentPeriodStart: new Date(), currentPeriodEnd: end });
+      await service.updatePaymentStatus('pay-sub', PaymentStatus.PAID, 'tr_sub');
+      const data = prisma.businessSubscription.update.mock.calls[0][0].data;
+      expect(data.currentPeriodEnd.getTime()).toBe(end.getTime() + 30 * 86400000);
+    });
+
+    it('confirms a pending workshop booking when its payment succeeds', async () => {
+      prisma.payment.findUnique.mockResolvedValue({ ...basePayment, id: 'pay-w', status: PaymentStatus.PENDING, orderId: null, workshopBookingId: 'booking-1', purpose: PaymentPurpose.WORKSHOP_BOOKING });
+      prisma.workshopBooking.findUnique.mockResolvedValue({ id: 'booking-1', status: 'CONFIRMED', workshop: { id: 'w1', title: 'Keramiek', businessId: 'biz-1' }, consumerProfile: { userId: 'user-ca' } });
+      await service.updatePaymentStatus('pay-w', PaymentStatus.PAID, 'tr_w');
+      expect(prisma.workshopBooking.updateMany).toHaveBeenCalledWith({ where: { id: 'booking-1', status: 'PENDING' }, data: { status: 'CONFIRMED' } });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  describe('expireUnpaidCheckouts', () => {
+    const stale = (extra: Record<string, unknown> = {}) => ({
+      id: 'co-1',
+      payments: [],
+      orders: [{ id: 'order-1', items: [{ productId: 'prod-1', productVariantId: null, quantity: 2 }, { productId: 'prod-2', productVariantId: 'var-1', quantity: 1 }] }],
+      ...extra,
+    });
+
+    it('cancels unpaid orders and gives the stock back', async () => {
+      prisma.customerOrder.findMany.mockResolvedValue([stale()]);
+      prisma.customerOrder.findUnique.mockResolvedValue({ paymentStatus: PaymentStatus.PENDING });
+      prisma.customerOrder.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.expireUnpaidCheckouts(new Date('2026-10-20T12:00:00Z'));
+
+      expect(result).toEqual({ checked: 1, released: 1 });
+      expect(prisma.customerOrder.findMany.mock.calls[0][0].where.createdAt.lt).toEqual(new Date('2026-10-20T11:30:00Z'));
+      expect(prisma.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'order-1', status: 'PENDING' } }));
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2); // one per item (product + variant)
+      expect(prisma.orderStatusEvent.create).toHaveBeenCalled();
+    });
+
+    it('asks the provider first and leaves the order alone when it was paid in the meantime', async () => {
+      prisma.customerOrder.findMany.mockResolvedValue([stale({ payments: [{ providerTransactionId: 'tr_abc12345', status: PaymentStatus.PENDING }] })]);
+      prisma.payment.findMany.mockResolvedValue([]); // unknown to sync -> no-op
+      prisma.customerOrder.findUnique.mockResolvedValue({ paymentStatus: PaymentStatus.PAID });
+
+      const result = await service.expireUnpaidCheckouts();
+
+      expect(result.released).toBe(0);
+      expect(prisma.customerOrder.updateMany).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not release twice when another run already claimed the checkout', async () => {
+      prisma.customerOrder.findMany.mockResolvedValue([stale()]);
+      prisma.customerOrder.findUnique.mockResolvedValue({ paymentStatus: PaymentStatus.PENDING });
+      prisma.customerOrder.updateMany.mockResolvedValue({ count: 0 });
+      const result = await service.expireUnpaidCheckouts();
+      expect(result.released).toBe(0);
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  describe('automatic refunds for cancelled orders / bookings', () => {
+    it('refundOrder refunds the remaining paid amount without an actor', async () => {
+      prisma.payment.findFirst.mockResolvedValue(basePayment);
+      prisma.payment.findUnique.mockResolvedValue(basePayment);
+      prisma.businessLedgerEntry.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValue([{ amountCents: -10000 }]);
+      const result = await service.refundOrder('order-1', 'Bestelling geannuleerd');
+      expect(result).toEqual({ status: 'REFUNDED', refundedCents: 10000 });
+      expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 10000, providerTransactionId: 'tr_123' }));
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ actorUserId: null, action: 'PAYMENT_REFUND_REQUESTED' }) });
+    });
+
+    it('needs no refund for an unpaid order', async () => {
+      prisma.payment.findFirst.mockResolvedValue(null);
+      await expect(service.refundOrder('order-1', 'x')).resolves.toEqual({ status: 'NOT_REQUIRED', refundedCents: 0 });
+      expect(gateway.refund).not.toHaveBeenCalled();
+    });
+
+    it('caps a workshop refund at the policy amount', async () => {
+      const paid = { ...basePayment, id: 'pay-w', orderId: null, workshopBookingId: 'booking-1', amount: 130 };
+      prisma.payment.findFirst.mockResolvedValue(paid);
+      prisma.payment.findUnique.mockResolvedValue(paid);
+      prisma.businessLedgerEntry.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValue([{ amountCents: -6500 }]);
+      const result = await service.refundWorkshopBooking('booking-1', 'Annulering door deelnemer', 6500);
+      expect(result.refundedCents).toBe(6500);
+      expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 6500 }));
+    });
+
+    it('reports FAILED (and audits it) instead of throwing when the provider refuses', async () => {
+      prisma.payment.findFirst.mockResolvedValue(basePayment);
+      prisma.payment.findUnique.mockResolvedValue(basePayment);
+      gateway.refund.mockRejectedValue(new Error('provider down'));
+      prisma.auditLog.create.mockResolvedValue({});
+      prisma.businessLedgerEntry.update.mockResolvedValue({});
+      const result = await service.refundOrder('order-1', 'x');
+      expect(result.status).toBe('FAILED');
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'PAYMENT_AUTO_REFUND_FAILED' }) });
+    });
+  });
+  // ------------------------------------------------------------------
+  describe('commission, payout hold and reversal (ledger)', () => {
+    beforeEach(() => {
+      prisma.payment.findUnique.mockResolvedValue(basePayment);
+    });
+
+    afterEach(() => {
+      delete configValues.COMMISSION_DEFAULT_BPS;
+      delete configValues.PAYOUT_HOLD_DAYS;
+    });
+
+    const pay = async () => {
+      prisma.payment.findUnique.mockResolvedValue({ ...basePayment, status: PaymentStatus.PENDING });
+      prisma.businessLedgerEntry.findFirst.mockResolvedValue(null);
+      await service.updatePaymentStatus('pay-1', PaymentStatus.PAID, 'tr_123');
+    };
+    const created = () => prisma.businessLedgerEntry.create.mock.calls.map((c: [{ data: Record<string, any> }]) => c[0].data);
+
+    it('books the sale on hold for 14 days by default and no commission when the rate is 0', async () => {
+      await pay();
+      const rows = created();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].type).toBe('SALE');
+      const days = (rows[0].availableAt.getTime() - Date.now()) / 86400000;
+      expect(days).toBeGreaterThan(13.9);
+      expect(days).toBeLessThan(14.1);
+    });
+
+    it('uses the platform default rate and PAYOUT_HOLD_DAYS', async () => {
+      configValues.COMMISSION_DEFAULT_BPS = '500';
+      configValues.PAYOUT_HOLD_DAYS = '7';
+      await pay();
+      const [sale, fee] = created();
+      expect(sale).toMatchObject({ type: 'SALE', amountCents: 10000 });
+      expect(fee).toMatchObject({ type: 'COMMISSION', amountCents: -500, rateBps: 500 });
+      expect(fee.availableAt.getTime()).toBe(sale.availableAt.getTime());
+      expect((sale.availableAt.getTime() - Date.now()) / 86400000).toBeLessThan(7.1);
+    });
+
+    it('prefers the plan rate over the platform default, including an explicit 0%', async () => {
+      configValues.COMMISSION_DEFAULT_BPS = '500';
+      prisma.businessSubscription.findUnique.mockResolvedValue({ plan: { commissionBps: 250 } });
+      await pay();
+      expect(created()[1]).toMatchObject({ type: 'COMMISSION', amountCents: -250, rateBps: 250 });
+
+      prisma.businessLedgerEntry.create.mockClear();
+      prisma.businessSubscription.findUnique.mockResolvedValue({ plan: { commissionBps: 0 } });
+      await pay();
+      expect(created()).toHaveLength(1);
+    });
+
+    it('does not book a second sale or commission when the payment is processed twice', async () => {
+      configValues.COMMISSION_DEFAULT_BPS = '500';
+      prisma.payment.findUnique.mockResolvedValue({ ...basePayment, status: PaymentStatus.PENDING });
+      prisma.businessLedgerEntry.findFirst.mockResolvedValue({ id: 'existing' });
+      await service.updatePaymentStatus('pay-1', PaymentStatus.PAID, 'tr_123');
+      expect(prisma.businessLedgerEntry.create).not.toHaveBeenCalled();
+    });
+
+    it('a refund inherits the sale hold date and gives back the proportional commission', async () => {
+      const availableAt = new Date('2026-12-01');
+      prisma.businessLedgerEntry.findFirst.mockResolvedValue({ availableAt });
+      prisma.businessLedgerEntry.findMany
+        .mockResolvedValueOnce([]) // refunds when reserving
+        .mockResolvedValueOnce([{ amountCents: -4000 }]) // confirmed refunds
+        .mockResolvedValueOnce([{ type: 'COMMISSION', amountCents: -500, rateBps: 500, businessId: 'biz-1', currency: 'EUR', availableAt, orderId: 'order-1', workshopBookingId: null }]); // commission rows
+
+      await service.processRefund('pay-1', ownerA, { amount: 40 });
+
+      const rows = created();
+      expect(rows[0]).toMatchObject({ type: 'REFUND_PENDING', amountCents: -4000, availableAt });
+      expect(rows[1]).toMatchObject({ type: 'COMMISSION_REVERSAL', amountCents: 200, availableAt });
+    });
+
+    it('never gives back more commission than was charged', async () => {
+      const availableAt = new Date('2026-12-01');
+      prisma.businessLedgerEntry.findFirst.mockResolvedValue({ availableAt });
+      prisma.businessLedgerEntry.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ amountCents: -10000 }])
+        .mockResolvedValueOnce([
+          { type: 'COMMISSION', amountCents: -500, rateBps: 500, businessId: 'biz-1', currency: 'EUR', availableAt },
+          { type: 'COMMISSION_REVERSAL', amountCents: 450 },
+        ]);
+      await service.processRefund('pay-1', ownerA, { amount: 100 });
+      expect(created().find((r: any) => r.type === 'COMMISSION_REVERSAL')).toMatchObject({ amountCents: 50 });
     });
   });
 });

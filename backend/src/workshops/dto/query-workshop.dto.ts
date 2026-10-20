@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsUUID, IsBoolean, Min, Max } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, IsBoolean, IsDateString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WorkshopStatus } from '@prisma/client';
 
@@ -43,4 +43,14 @@ export class QueryWorkshopDto {
   @IsOptional()
   @IsBoolean()
   upcomingOnly?: boolean;
+
+  @ApiPropertyOptional({ description: 'Only workshops starting on/after this ISO date' })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Only workshops starting on/before this ISO date' })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }

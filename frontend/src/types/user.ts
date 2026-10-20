@@ -10,6 +10,8 @@ export interface User {
   avatarUrl?: string;
   createdAt: string;
   onboardingComplete?: boolean;
+  /** Guest-checkout account: no password, limited to cart, orders and payments. */
+  isGuest?: boolean;
 }
 
 export interface ConsumerProfile {

@@ -81,6 +81,12 @@ enum PaymentPurpose {
   WORKSHOP_BOOKING
 }
 
+enum FulfilmentMethod {
+  PICKUP
+  SHIPPING
+  LOCAL_DELIVERY
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -107,6 +113,13 @@ enum WorkshopStatus {
   COMPLETED
 }
 
+enum SessionStatus {
+  OPEN
+  FULL
+  CANCELLED
+  COMPLETED
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -118,6 +131,15 @@ enum RouteStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  REFUNDED
+  CANCELLED
 }
 
 enum PayoutStatus {
@@ -136,6 +158,8 @@ enum NotificationType {
   PAYOUT
   SUBSCRIPTION
   SYSTEM
+  CHAT
+  RETURN
 }
 
 // ==========================================
@@ -159,6 +183,13 @@ model User {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
   deletedAt         DateTime?    @map("deleted_at")
+  /// Consent record: when and which terms/privacy version the user accepted at registration.
+  consentAcceptedAt DateTime?    @map("consent_accepted_at")
+  consentVersion    String?      @map("consent_version")
+  /// Password-less shadow account created at guest checkout (no login; access via emailed link).
+  isGuest           Boolean      @default(false) @map("is_guest")
+  /// Contact e-mail of a guest. users.email stays empty until the guest claims a real account.
+  guestEmail        String?      @map("guest_email")
 
   oauthAccounts       OAuthAccount[]
   passwordResetTokens PasswordResetToken[]
@@ -167,6 +198,8 @@ model User {
   notifications       Notification[]
   notificationPreference NotificationPreference?
   chatMessages        ChatMessage[]
+  chatReports         ChatReport[]    @relation("ChatReportReporter")
+  employeeships       MerchantEmployee[] @relation("EmployeeUser")
   payments            Payment[]
   auditLogs           AuditLog[]   @relation("AuditLogActor")
   comments            Comment[]
@@ -175,6 +208,8 @@ model User {
   reportsAsReporter   Report[]     @relation("ReportReporter")
   reportsAsResolved   Report[]     @relation("ReportResolvedBy")
 
+  @@index([isGuest, createdAt])
+  @@index([guestEmail])
   @@map("users")
 }
 
@@ -223,12 +258,15 @@ model ConsumerProfile {
    user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
    profileImageAsset MediaAsset?       @relation(fields: [profileImageAssetId], references: [id])
    orders           Order[]
+  customerOrders   CustomerOrder[]
    conversations    Conversation[]
    reviews          Review[]
    followers        Follower[]
+   favorites        Favorite[]
    workshopBookings WorkshopBooking[]
    carts            Cart[]
    consumerAddresses ConsumerAddress[]
+   returnRequests   ReturnRequest[]
 
    @@map("consumer_profiles")
 }
@@ -265,6 +303,8 @@ model Business {
   categoryId     String?        @map("category_id") @db.Uuid
   logoAssetId    String?        @map("logo_asset_id") @db.Uuid
   coverAssetId   String?        @map("cover_asset_id") @db.Uuid
+  /// Equirectangular 360° photo of the shop interior (virtual store).
+  panoramaAssetId String?       @map("panorama_asset_id") @db.Uuid
   state          String
   city           String
   street         String
@@ -285,6 +325,18 @@ model Business {
   averageRating  Decimal        @default(0) @map("average_rating") @db.Decimal(3, 2)
   ratingCount    Int            @default(0) @map("rating_count")
   followerCount  Int            @default(0) @map("follower_count")
+  websiteUrl     String?        @map("website_url")
+  instagramUrl   String?        @map("instagram_url")
+  facebookUrl    String?        @map("facebook_url")
+  tiktokUrl      String?        @map("tiktok_url")
+  // Fulfilment settings (per shop). shippingFee null = platform default (FLAT_SHIPPING_FEE).
+  pickupEnabled         Boolean  @default(true) @map("pickup_enabled")
+  shippingEnabled       Boolean  @default(true) @map("shipping_enabled")
+  localDeliveryEnabled  Boolean  @default(false) @map("local_delivery_enabled")
+  shippingFee           Decimal? @map("shipping_fee") @db.Decimal(10, 2)
+  freeShippingThreshold Decimal? @map("free_shipping_threshold") @db.Decimal(10, 2)
+  localDeliveryFee      Decimal  @default(0) @map("local_delivery_fee") @db.Decimal(10, 2)
+  localDeliveryRadiusKm Decimal? @map("local_delivery_radius_km") @db.Decimal(6, 2)
   translations   Json?
   sourceLocale   String?        @map("source_locale")
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -295,6 +347,7 @@ model Business {
   category     BusinessCategory?     @relation(fields: [categoryId], references: [id])
   logoAsset    MediaAsset?           @relation("BusinessLogo", fields: [logoAssetId], references: [id])
   coverAsset   MediaAsset?           @relation("BusinessCover", fields: [coverAssetId], references: [id])
+  panoramaAsset MediaAsset?          @relation("BusinessPanorama", fields: [panoramaAssetId], references: [id])
   hours        BusinessHours[]
   subscription BusinessSubscription?
   products     Product[]
@@ -304,15 +357,18 @@ model Business {
   routeStops   RouteStop[]
   reviews      Review[]
   followers    Follower[]
+  favorites    Favorite[]
   orders       Order[]
   payouts      Payout[]
   carts        Cart[]
   payments     Payment[]
   ledgerEntries BusinessLedgerEntry[]
   payoutAccounts PayoutAccount[]
+  returnRequests ReturnRequest[]
   comments     Comment[]
 
   conversations Conversation[]
+  employees     MerchantEmployee[]
 
   @@map("businesses")
 }
@@ -367,6 +423,8 @@ model SubscriptionPlan {
   slug         SubscriptionPlanSlug @unique
   description  String?
   monthlyPrice Decimal              @map("monthly_price") @db.Decimal(10, 2)
+  /// Platform commission on sales in basis points (500 = 5%); null = platform default (COMMISSION_DEFAULT_BPS).
+  commissionBps Int?                @map("commission_bps")
   currency     String               @default("EUR")
   active       Boolean              @default(true)
   createdAt    DateTime             @default(now()) @map("created_at")
@@ -389,6 +447,8 @@ model BusinessSubscription {
   cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
   autoRenew            Boolean            @default(true) @map("auto_renew")
   cancelledAt          DateTime?          @map("cancelled_at")
+  /// The period end for which the expiry reminder was already sent (one reminder per period).
+  expiryReminderForEnd DateTime?          @map("expiry_reminder_for_end")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
@@ -408,6 +468,7 @@ model ProductCategory {
   name        String
   slug        String   @unique
   description String?
+  active      Boolean  @default(true)
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -429,6 +490,15 @@ model Product {
   active      Boolean   @default(true)
   shopUrl     String?   @map("shop_url")
   compareAtPrice Decimal? @map("compare_at_price") @db.Decimal(10, 2)
+  /// VAT percentage included in `price` (NL: 0, 9 or 21).
+  vatRate     Decimal   @default(21) @map("vat_rate") @db.Decimal(4, 2)
+  brand       String?
+  weightGrams Int?      @map("weight_grams")
+  lengthMm    Int?      @map("length_mm")
+  widthMm     Int?      @map("width_mm")
+  heightMm    Int?      @map("height_mm")
+  /// Public product-page views (see ProductsService.recordView for what counts as a view).
+  viewCount   Int       @default(0) @map("view_count")
   // Auto-translated copy of name/description: { en: {name, description}, nl: {...} }
   translations Json?
   sourceLocale String?  @map("source_locale")
@@ -444,6 +514,7 @@ model Product {
   reviews    Review[]
   cartItems  CartItem[]
   comments   Comment[]
+  favorites  Favorite[]
 
   @@unique([businessId, slug])
   @@map("products")
@@ -516,10 +587,35 @@ model CartItem {
   @@map("cart_items")
 }
 
+/// One checkout by one customer; groups the per-store orders (Order = MerchantOrder) and is paid with one payment.
+model CustomerOrder {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderNumber       String        @unique @map("order_number")
+  consumerProfileId String        @map("consumer_profile_id") @db.Uuid
+  paymentStatus     PaymentStatus @default(PENDING) @map("payment_status")
+  totalAmount       Decimal       @map("total_amount") @db.Decimal(10, 2)
+  currency          String        @default("EUR")
+  paidAt            DateTime?     @map("paid_at")
+  cancelledAt       DateTime?     @map("cancelled_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  consumerProfile ConsumerProfile @relation(fields: [consumerProfileId], references: [id])
+  orders          Order[]
+  payments        Payment[]
+
+  @@index([consumerProfileId, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@map("customer_orders")
+}
+
+/// Per-store order ("MerchantOrder"). Belongs to a CustomerOrder (null for orders created before payments existed).
 model Order {
 
   id                      String        @id @default(uuid()) @db.Uuid
   orderNumber             String        @unique @map("order_number")
+  customerOrderId         String?       @map("customer_order_id") @db.Uuid
+  fulfilmentMethod        FulfilmentMethod @default(SHIPPING) @map("fulfilment_method")
   consumerProfileId       String        @map("consumer_profile_id") @db.Uuid
   businessId              String        @map("business_id") @db.Uuid
   status                  OrderStatus   @default(PENDING)
@@ -529,9 +625,9 @@ model Order {
   totalAmount             Decimal       @map("total_amount") @db.Decimal(10, 2)
   currency                String        @default("EUR")
   deliveryAddressSnapshot Json?         @map("delivery_address_snapshot")
-  deliveryStreet          String        @map("delivery_street")
+  deliveryStreet          String?       @map("delivery_street")
   deliveryHouseNumber     String?       @map("delivery_house_number")
-  deliveryCity            String        @map("delivery_city")
+  deliveryCity            String?       @map("delivery_city")
   deliveryPostalCode      String?       @map("delivery_postal_code")
   deliveryCountry         String        @default("NL") @map("delivery_country")
   deliveryNotes           String?       @map("delivery_notes")
@@ -544,13 +640,17 @@ model Order {
   updatedAt               DateTime      @updatedAt @map("updated_at")
 
   consumerProfile ConsumerProfile    @relation(fields: [consumerProfileId], references: [id])
+  customerOrder   CustomerOrder?     @relation(fields: [customerOrderId], references: [id])
   business        Business           @relation(fields: [businessId], references: [id])
   items           OrderItem[]
   payments        Payment[]
   statusEvents    OrderStatusEvent[]
   reviews         Review[]
   ledgerEntries   BusinessLedgerEntry[]
+  returnRequests  ReturnRequest[]
 
+  @@index([customerOrderId])
+  @@index([businessId, createdAt])
   @@map("orders")
 }
 
@@ -569,6 +669,7 @@ model OrderItem {
   order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product         @relation(fields: [productId], references: [id])
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
+  returnItems    ReturnItem[]
 
   @@map("order_items")
 }
@@ -607,6 +708,10 @@ model Workshop {
   longitude   Decimal?       @db.Decimal(9, 6)
   imageUrl    String?        @map("image_url")
   imageAssetId String?       @map("image_asset_id") @db.Uuid
+  /// Participants cancelling at least this many hours before a session start get `refundPercentage` back.
+  cancellationDeadlineHours Int @default(48) @map("cancellation_deadline_hours")
+  refundPercentage Int @default(100) @map("refund_percentage")
+  minAge      Int?           @map("min_age")
   translations Json?
   sourceLocale String?       @map("source_locale")
   status      WorkshopStatus @default(DRAFT)
@@ -616,6 +721,7 @@ model Workshop {
   business   Business          @relation(fields: [businessId], references: [id])
   imageAsset MediaAsset?        @relation(fields: [imageAssetId], references: [id])
   bookings   WorkshopBooking[]
+  sessions   WorkshopSession[]
   reviews    Review[]
   comments   Comment[]
 
@@ -626,15 +732,21 @@ model Workshop {
 model WorkshopBooking {
   id                String        @id @default(uuid()) @db.Uuid
   workshopId        String        @map("workshop_id") @db.Uuid
+  sessionId         String?       @map("session_id") @db.Uuid
   consumerProfileId String        @map("consumer_profile_id") @db.Uuid
   ticketQuantity    Int           @default(1) @map("ticket_quantity")
   unitPrice         Decimal       @default(0) @map("unit_price") @db.Decimal(10, 2)
   totalAmount       Decimal       @map("total_amount") @db.Decimal(10, 2)
   status            BookingStatus @default(PENDING)
+  cancelledAt       DateTime?     @map("cancelled_at")
+  /// Share of the paid amount owed back after a cancellation, per the workshop's policy.
+  refundPercent     Int?          @map("refund_percent")
+  refundAmount      Decimal?      @map("refund_amount") @db.Decimal(10, 2)
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 
   workshop        Workshop        @relation(fields: [workshopId], references: [id])
+  session         WorkshopSession? @relation(fields: [sessionId], references: [id])
   consumerProfile ConsumerProfile @relation(fields: [consumerProfileId], references: [id])
   payments        Payment[]
   ledgerEntries   BusinessLedgerEntry[]
@@ -652,6 +764,13 @@ model ShopRoute {
   description         String?
   city                String
   status              RouteStatus @default(DRAFT)
+  theme               String?
+  coverImageUrl       String?     @map("cover_image_url")
+  /// Total length in km and estimated duration; computed from the stops unless `statsManual`.
+  distanceKm          Decimal?    @map("distance_km") @db.Decimal(6, 2)
+  durationMinutes     Int?        @map("duration_minutes")
+  statsManual         Boolean     @default(false) @map("stats_manual")
+  featured            Boolean     @default(false)
   translations        Json?
   sourceLocale        String?     @map("source_locale")
   createdAt           DateTime    @default(now()) @map("created_at")
@@ -784,6 +903,9 @@ model Payment {
   businessSubscriptionId String?        @map("business_subscription_id") @db.Uuid
   orderId                String?        @map("order_id") @db.Uuid
   workshopBookingId      String?        @map("workshop_booking_id") @db.Uuid
+  customerOrderId        String?        @map("customer_order_id") @db.Uuid
+  /// Hosted checkout page of the provider while the payment is open.
+  checkoutUrl            String?        @map("checkout_url")
   paidAt                 DateTime?      @map("paid_at")
   refundedAt             DateTime?      @map("refunded_at")
   userId                 String?        @map("user_id") @db.Uuid
@@ -793,11 +915,14 @@ model Payment {
 
   businessSubscription BusinessSubscription? @relation(fields: [businessSubscriptionId], references: [id])
   order                Order?                @relation(fields: [orderId], references: [id])
+  customerOrder        CustomerOrder?        @relation(fields: [customerOrderId], references: [id])
   workshopBooking      WorkshopBooking?      @relation(fields: [workshopBookingId], references: [id])
   user                 User?                 @relation(fields: [userId], references: [id])
   business             Business?             @relation(fields: [businessId], references: [id])
   ledgerEntries        BusinessLedgerEntry[]
 
+  @@index([providerTransactionId])
+  @@index([customerOrderId])
   @@map("payments")
 }
 
@@ -810,7 +935,11 @@ model Payout {
   iban             String?
   accountHolder    String?      @map("account_holder")
   adminNotes       String?      @map("admin_notes")
-  requestedByUserId String      @map("requested_by_user_id") @db.Uuid
+  requestedByUserId String?     @map("requested_by_user_id") @db.Uuid
+  /// Weekly run key (e.g. 2026-W43); with business_id it makes the run idempotent. Null for manual payouts.
+  periodKey        String?      @map("period_key")
+  /// IBAN snapshot at the time of the run, encrypted (AES-256-GCM); never returned by the API.
+  ibanEncrypted    String?      @map("iban_encrypted")
   approvedByUserId String?      @map("approved_by_user_id") @db.Uuid
   rejectedReason   String?      @map("rejected_reason")
   providerReference String?     @map("provider_reference")
@@ -821,10 +950,11 @@ model Payout {
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
   business       Business @relation(fields: [businessId], references: [id])
-  requestedBy    User     @relation("PayoutRequestedBy", fields: [requestedByUserId], references: [id])
+  requestedBy    User?    @relation("PayoutRequestedBy", fields: [requestedByUserId], references: [id])
   approvedBy     User?    @relation("PayoutApprovedBy", fields: [approvedByUserId], references: [id])
   ledgerEntries  BusinessLedgerEntry[]
 
+  @@unique([businessId, periodKey])
   @@map("payouts")
 }
 
@@ -843,9 +973,11 @@ model MediaAsset {
   businessOwnerProfiles BusinessOwnerProfile[]
   businessLogos         Business[]              @relation("BusinessLogo")
   businessCovers        Business[]              @relation("BusinessCover")
+  businessPanoramas     Business[]              @relation("BusinessPanorama")
   productImages         ProductImage[]
   workshops             Workshop[]
   reviewImages          ReviewImage[]
+  chatAttachments       ChatMessage[]           @relation("ChatAttachment")
 
   @@map("media_assets")
 }
@@ -924,6 +1056,8 @@ model BusinessLedgerEntry {
   type             String  @map("type")
   amountCents      Int     @map("amount_cents")
   currency         String  @default("EUR") @map("currency")
+  /// Commission rate in basis points that applied to a COMMISSION entry (used to reverse it on refunds).
+  rateBps          Int?    @map("rate_bps")
   availableAt      DateTime? @map("available_at")
   createdAt        DateTime @default(now()) @map("created_at")
 
@@ -946,6 +1080,8 @@ model PayoutAccount {
   provider          PaymentProvider? @map("provider")
   accountHolderName String? @map("account_holder_name")
   ibanLast4         String? @map("iban_last4")
+  /// Full IBAN, encrypted at rest (AES-256-GCM, key ENCRYPTION_KEY). Decrypted only for the payout export.
+  ibanEncrypted     String? @map("iban_encrypted")
   providerAccountId String? @map("provider_account_id")
   status            String  @default("PENDING") @map("status")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -1056,10 +1192,17 @@ model Conversation {
   businessId        String   @map("business_id") @db.Uuid
   lastMessageAt     DateTime @default(now()) @map("last_message_at")
   createdAt         DateTime @default(now()) @map("created_at")
+  /// Set when the consumer / the shop blocked the conversation. While either is set nobody can send.
+  consumerBlockedAt DateTime? @map("consumer_blocked_at")
+  businessBlockedAt DateTime? @map("business_blocked_at")
+  /// Set when the recipient was notified of unread messages; cleared when they read. One notification per unread burst.
+  consumerNotifiedAt DateTime? @map("consumer_notified_at")
+  businessNotifiedAt DateTime? @map("business_notified_at")
 
   consumerProfile ConsumerProfile @relation(fields: [consumerProfileId], references: [id], onDelete: Cascade)
   business        Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   messages        ChatMessage[]
+  reports         ChatReport[]
 
   @@unique([consumerProfileId, businessId])
   @@index([businessId, lastMessageAt])
@@ -1072,12 +1215,183 @@ model ChatMessage {
   conversationId String    @map("conversation_id") @db.Uuid
   senderUserId   String    @map("sender_user_id") @db.Uuid
   body           String
+  attachmentAssetId String?  @map("attachment_asset_id") @db.Uuid
+  /// true = written by the shop side (owner or an employee), false = by the consumer.
+  fromBusiness   Boolean   @default(false) @map("from_business")
   readAt         DateTime? @map("read_at")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  attachment   MediaAsset?  @relation("ChatAttachment", fields: [attachmentAssetId], references: [id], onDelete: SetNull)
+  reports      ChatReport[]
 
   @@index([conversationId, createdAt])
+  @@index([createdAt])
   @@map("chat_messages")
+}
+
+enum ChatReportReason {
+  SPAM
+  HARASSMENT
+  FRAUD
+  INAPPROPRIATE
+  OTHER
+}
+
+enum ChatReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+/// A participant's report of a chat message (or of the other party in general). The message text is
+/// snapshotted so moderators can still review it after the retention job removes the message.
+model ChatReport {
+  id               String           @id @default(uuid()) @db.Uuid
+  conversationId   String           @map("conversation_id") @db.Uuid
+  messageId        String?          @map("message_id") @db.Uuid
+  reporterUserId   String           @map("reporter_user_id") @db.Uuid
+  reportedUserId   String?         @map("reported_user_id") @db.Uuid
+  reason           ChatReportReason
+  details          String?
+  messageSnapshot  String?          @map("message_snapshot")
+  status           ChatReportStatus @default(OPEN)
+  resolutionNote   String?          @map("resolution_note")
+  resolvedByUserId String?          @map("resolved_by_user_id") @db.Uuid
+  resolvedAt       DateTime?        @map("resolved_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      ChatMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  reporter     User         @relation("ChatReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterUserId, messageId])
+  @@index([status, createdAt])
+  @@map("chat_reports")
+}
+
+
+/// A consumer's saved product or store. Exactly one of productId / businessId is set.
+model Favorite {
+  id                String   @id @default(uuid()) @db.Uuid
+  consumerProfileId String   @map("consumer_profile_id") @db.Uuid
+  productId         String?  @map("product_id") @db.Uuid
+  businessId        String?  @map("business_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  consumerProfile ConsumerProfile @relation(fields: [consumerProfileId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  business        Business?       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([consumerProfileId, productId])
+  @@unique([consumerProfileId, businessId])
+  @@index([productId])
+  @@index([businessId])
+  @@map("favorites")
+}
+
+
+model WorkshopSession {
+  id          String        @id @default(uuid()) @db.Uuid
+  workshopId  String        @map("workshop_id") @db.Uuid
+  startTime   DateTime      @map("start_time")
+  endTime     DateTime      @map("end_time")
+  capacity    Int
+  bookedCount Int           @default(0) @map("booked_count")
+  status      SessionStatus @default(OPEN)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  workshop Workshop          @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+  bookings WorkshopBooking[]
+
+  @@index([workshopId, startTime])
+  @@map("workshop_sessions")
+}
+
+
+enum EmployeeRole {
+  MANAGER
+  STAFF
+}
+
+enum EmployeeStatus {
+  INVITED
+  ACTIVE
+  REVOKED
+}
+
+/// A person who works for a shop without owning it. MVP scope: chat and workshop participants
+/// (orders follow with the order rewrite). Products, settings, subscription and payouts stay owner-only.
+model MerchantEmployee {
+  id              String         @id @default(uuid()) @db.Uuid
+  businessId      String         @map("business_id") @db.Uuid
+  userId          String?        @map("user_id") @db.Uuid
+  email           String
+  role            EmployeeRole   @default(STAFF)
+  status          EmployeeStatus @default(INVITED)
+  inviteTokenHash String?        @unique @map("invite_token_hash")
+  inviteExpiresAt DateTime?      @map("invite_expires_at")
+  invitedByUserId String         @map("invited_by_user_id") @db.Uuid
+  acceptedAt      DateTime?      @map("accepted_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation("EmployeeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, email])
+  @@index([userId, status])
+  @@map("merchant_employees")
+}
+
+// ==========================================
+// RETURNS (RMA)
+// ==========================================
+
+model ReturnRequest {
+  id                String       @id @default(uuid()) @db.Uuid
+  returnNumber      String       @unique @map("return_number")
+  orderId           String       @map("order_id") @db.Uuid
+  consumerProfileId String       @map("consumer_profile_id") @db.Uuid
+  businessId        String       @map("business_id") @db.Uuid
+  status            ReturnStatus @default(REQUESTED)
+  reason            String
+  merchantNote      String?      @map("merchant_note")
+  /// Set when the shop confirms receipt: what is paid back (items, plus delivery when everything is returned).
+  refundAmountCents Int?         @map("refund_amount_cents")
+  /// REFUNDED | NOT_REQUIRED | FAILED (a failed refund can be retried by the shop or an admin).
+  refundStatus      String?      @map("refund_status")
+  restocked         Boolean      @default(false)
+  decidedByUserId   String?      @map("decided_by_user_id") @db.Uuid
+  requestedAt       DateTime     @default(now()) @map("requested_at")
+  decidedAt         DateTime?    @map("decided_at")
+  receivedAt        DateTime?    @map("received_at")
+  refundedAt        DateTime?    @map("refunded_at")
+  cancelledAt       DateTime?    @map("cancelled_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  order           Order           @relation(fields: [orderId], references: [id])
+  consumerProfile ConsumerProfile @relation(fields: [consumerProfileId], references: [id])
+  business        Business        @relation(fields: [businessId], references: [id])
+  items           ReturnItem[]
+
+  @@index([orderId])
+  @@index([businessId, status, createdAt])
+  @@index([consumerProfileId, createdAt])
+  @@map("return_requests")
+}
+
+model ReturnItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  returnRequestId String   @map("return_request_id") @db.Uuid
+  orderItemId     String   @map("order_item_id") @db.Uuid
+  quantity        Int
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id])
+
+  @@index([orderItemId])
+  @@map("return_items")
 }

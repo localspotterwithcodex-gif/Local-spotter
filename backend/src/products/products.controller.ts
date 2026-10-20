@@ -28,6 +28,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
+import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Products')
@@ -59,6 +60,15 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Public product details.' })
   async getPublicProduct(@Param('productId') productId: string, @Req() req: any) {
     return this.productsService.getPublicProductByIdOrSlug(productId, req?.user);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard, RateLimitGuard)
+  @RateLimit({ limit: 120, windowMs: 15 * 60 * 1000 })
+  @Post('products/:productId/view')
+  @ApiOperation({ summary: 'Record one view of a public product page' })
+  @ApiResponse({ status: 201, description: 'Current view count and whether this visit was counted.' })
+  async recordView(@Param('productId') productId: string, @Req() req: any) {
+    return this.productsService.recordView(productId, { userId: req?.user?.id, ip: req?.ip });
   }
 
   // ==========================================

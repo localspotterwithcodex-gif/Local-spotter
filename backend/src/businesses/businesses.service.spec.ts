@@ -1,9 +1,9 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { BusinessStatus, UserRole } from '@prisma/client';
 import { BusinessesService } from './businesses.service';
 
 function make(status: BusinessStatus) {
-  const business = { id: 'b1', status, ownerProfileId: 'op-1', deletedAt: null };
+  const business = { id: 'b1', status, ownerProfileId: 'op-1', deletedAt: null, pickupEnabled: true, shippingEnabled: true, localDeliveryEnabled: false };
   const prisma = {
     businessOwnerProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'op-1', userId: 'owner-1' }) },
     business: {
@@ -11,7 +11,7 @@ function make(status: BusinessStatus) {
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'b1', ...data })),
     },
   };
-  return { service: new BusinessesService(prisma as never, { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } as never), prisma };
+  return { service: new BusinessesService(prisma as never, { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } as never), prisma };
 }
 const owner = { id: 'owner-1', role: UserRole.BUSINESS_OWNER };
 const admin = { id: 'admin-1', role: UserRole.SUPER_ADMIN };
@@ -56,9 +56,59 @@ describe('BusinessesService live counts', () => {
         groupBy: jest.fn().mockResolvedValue([{ businessId: 'b1', _avg: { rating: 4.25 }, _count: { _all: 4 } }]),
       },
     };
-    const service = new BusinessesService(prisma as never, {} as never);
+    const service = new BusinessesService(prisma as never, { backfill: jest.fn() } as never);
     const result = await service.getPublicBusinesses({} as never);
     expect(result[0]).toMatchObject({ id: 'b1', followerCount: 2, averageRating: 4.3, ratingCount: 4 });
     expect(result[1]).toMatchObject({ id: 'b2', followerCount: 0, averageRating: 0, ratingCount: 0 });
+  });
+});
+
+describe('BusinessesService.update store links', () => {
+  it('saves website and social links and clears them with null', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await service.update('b1', owner, { websiteUrl: 'https://shop.example.nl', instagramUrl: null as never });
+    const data = prisma.business.update.mock.calls[0][0].data;
+    expect(data.websiteUrl).toBe('https://shop.example.nl');
+    expect(data.instagramUrl).toBeNull();
+    expect(data.facebookUrl).toBeUndefined();
+  });
+});
+
+describe('BusinessesService.update fulfilment settings', () => {
+  it('saves the fulfilment options and fees', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await service.update('b1', owner, { localDeliveryEnabled: true, localDeliveryFee: 3.5, localDeliveryRadiusKm: 8, shippingFee: null, freeShippingThreshold: 75 });
+    const data = prisma.business.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({ localDeliveryEnabled: true, localDeliveryFee: 3.5, localDeliveryRadiusKm: 8, shippingFee: null, freeShippingThreshold: 75 });
+  });
+
+  it('refuses to switch off every fulfilment method', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await expect(service.update('b1', owner, { pickupEnabled: false, shippingEnabled: false })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.business.update).not.toHaveBeenCalled();
+  });
+
+  it('allows switching one method off while another stays on', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await service.update('b1', owner, { shippingEnabled: false });
+    expect(prisma.business.update.mock.calls[0][0].data.shippingEnabled).toBe(false);
+  });
+});
+
+describe('BusinessesService.update 360° photo', () => {
+  it('saves a known panorama asset and lets the owner remove it with null', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue({ id: '8c1f1a3e-6a0b-4b8e-9d57-1f6f3f7a2b11' }) };
+    await service.update('b1', owner, { panoramaAssetId: '8c1f1a3e-6a0b-4b8e-9d57-1f6f3f7a2b11' });
+    expect(prisma.business.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ panoramaAssetId: '8c1f1a3e-6a0b-4b8e-9d57-1f6f3f7a2b11' }) }));
+    await service.update('b1', owner, { panoramaAssetId: null });
+    expect(prisma.business.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ panoramaAssetId: null }) }));
+  });
+
+  it('rejects an asset id that was never uploaded', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue(null) };
+    await expect(service.update('b1', owner, { panoramaAssetId: '8c1f1a3e-6a0b-4b8e-9d57-1f6f3f7a2b11' })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.business.update).not.toHaveBeenCalled();
   });
 });

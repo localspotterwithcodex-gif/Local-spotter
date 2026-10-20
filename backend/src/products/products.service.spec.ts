@@ -3,6 +3,7 @@ import { ProductsService } from './products.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { TranslationService } from '../translation/translation.service';
+import { FavoritesService } from '../favorites/favorites.service';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -10,7 +11,7 @@ describe('ProductsService', () => {
   let service: ProductsService;
   let prisma: any;
   let entitlementService: any;
-  let translation: { translateFields: jest.Mock };
+  let translation: { translateFields: jest.Mock; backfill: jest.Mock };
 
   const mockUser = {
     id: 'user-owner-1',
@@ -72,7 +73,7 @@ describe('ProductsService', () => {
       hasFeature: jest.fn(),
     };
 
-    translation = { translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) };
+    translation = { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -80,6 +81,7 @@ describe('ProductsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: SubscriptionEntitlementService, useValue: entitlementService },
         { provide: TranslationService, useValue: translation },
+        { provide: FavoritesService, useValue: { countsForProducts: jest.fn().mockResolvedValue(new Map()) } },
       ],
     }).compile();
 
@@ -199,6 +201,21 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('product specifications', () => {
+    it('stores VAT, brand and dimensions on update, trimming the brand', async () => {
+      prisma.product.findUnique.mockResolvedValue({
+        id: 'prod-1', businessId: 'bus-1', name: 'x', slug: 'x', price: 10, compareAtPrice: null, description: null,
+        business: mockBusiness, deletedAt: null,
+      });
+      prisma.businessOwnerProfile.findUnique.mockResolvedValue(mockOwnerProfile);
+      prisma.product.update.mockResolvedValue({ id: 'prod-1' });
+      await service.updateProduct('prod-1', mockUser, { vatRate: 9, brand: '  Studio  ', weightGrams: 500, lengthMm: 300 });
+      const data = prisma.product.update.mock.calls[0][0].data;
+      expect(data).toMatchObject({ vatRate: 9, brand: 'Studio', weightGrams: 500, lengthMm: 300 });
+      expect(data.widthMm).toBeUndefined();
+    });
+  });
+
   describe('Ownership Security on Mutations', () => {
     it('should reject updating another owner product', async () => {
       prisma.product.findUnique.mockResolvedValue({
@@ -224,8 +241,8 @@ describe('ProductsService', () => {
       prisma.review.groupBy.mockResolvedValue([{ productId: 'p1', _avg: { rating: 4.333 }, _count: { _all: 3 } }]);
       const res = await service.getPublicProducts({} as any);
       expect(res).toEqual([
-        { id: 'p1', averageRating: 4.3, ratingCount: 3 },
-        { id: 'p2', averageRating: 0, ratingCount: 0 },
+        { id: 'p1', averageRating: 4.3, ratingCount: 3, likeCount: 0 },
+        { id: 'p2', averageRating: 0, ratingCount: 0, likeCount: 0 },
       ]);
       const where = prisma.review.groupBy.mock.calls[0][0].where;
       expect(where).toMatchObject({ status: 'PUBLISHED', deletedAt: null, productId: { in: ['p1', 'p2'] } });
@@ -235,6 +252,27 @@ describe('ProductsService', () => {
       prisma.product.findMany.mockResolvedValue([]);
       expect(await service.getPublicProducts({} as any)).toEqual([]);
       expect(prisma.review.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('filters by radius, drops stores without coordinates and sorts by distance', async () => {
+      prisma.product.findMany.mockResolvedValue([
+        { id: 'far', business: { latitude: 51.9244, longitude: 4.4777 } },
+        { id: 'near', business: { latitude: 52.37, longitude: 4.9 } },
+        { id: 'nocoords', business: { latitude: null, longitude: null } },
+      ]);
+      prisma.review.groupBy.mockResolvedValue([]);
+      const res = await service.getPublicProducts({ lat: 52.3676, lng: 4.9041, radiusKm: 100, sort: 'distance' } as any);
+      expect(res.map((p: any) => p.id)).toEqual(['near', 'far']);
+      const where = prisma.product.findMany.mock.calls[0][0].where;
+      expect(where.business.latitude).toEqual(expect.objectContaining({ gte: expect.any(Number), lte: expect.any(Number) }));
+    });
+
+    it('applies in-stock and price sort at the database level', async () => {
+      prisma.product.findMany.mockResolvedValue([]);
+      await service.getPublicProducts({ inStock: true, sort: 'price_asc' } as any);
+      const args = prisma.product.findMany.mock.calls[0][0];
+      expect(args.where.stock).toEqual({ gt: 0 });
+      expect(args.orderBy).toEqual({ price: 'asc' });
     });
 
     it('adds ratings to a single product', async () => {

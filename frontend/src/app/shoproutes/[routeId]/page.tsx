@@ -10,10 +10,13 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useLocale } from "@/i18n/LocaleContext";
+import { useFormat } from "@/i18n/useFormat";
+import { appleStopUrl, formatDuration, googleRouteUrl, googleStopUrl } from "@/lib/maps";
 
 export default function ShoprouteDetailPage({ params }: { params: Promise<{ routeId: string }> }) {
   const { routeId } = use(params);
   const { t } = useLocale();
+  const f = useFormat();
 
   const { data: route, error, loading: isLoading, reload } = useApiResource(`shoproute:${routeId}`, () =>
     api.getShoprouteById(routeId)
@@ -35,6 +38,8 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
     const focus = selectedStop && (selectedStop.lat !== 0 || selectedStop.lng !== 0) ? selectedStop : geoStops[0];
     mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${focus.lat}%2C${focus.lng}`;
   }
+
+  const routeLink = googleRouteUrl(geoStops.map((st) => ({ lat: st.lat, lng: st.lng })), userLocation);
 
   const handleStartRoute = () => {
     setIsNavigating(true);
@@ -97,16 +102,41 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             <p className="text-xs text-[#555555] mt-1">{route.description}</p>
           </div>
 
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={handleStartRoute}
-            className="gap-2 bg-[#54D1CA] hover:bg-[#43B8B1] text-white shrink-0"
-          >
-            <Navigation className="w-5 h-5" />
-            {isNavigating ? t("routes.detail.active") : t("routes.detail.start")}
-          </Button>
+          <div className="flex flex-col items-stretch gap-2 shrink-0">
+            {routeLink ? (
+              <a
+                href={routeLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleStartRoute}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#54D1CA] px-5 text-sm font-bold text-white hover:bg-[#43B8B1]"
+              >
+                <Navigation className="w-5 h-5" />
+                {isNavigating ? t("routes.detail.active") : t("routes.detail.start")}
+              </a>
+            ) : (
+              <Button variant="primary" size="lg" disabled className="gap-2 bg-[#54D1CA] text-white">
+                <Navigation className="w-5 h-5" />
+                {t("routes.detail.noCoords")}
+              </Button>
+            )}
+            {routeLink?.truncated && <p className="text-[11px] text-[#B7B7B7]">{t("routes.detail.truncated")}</p>}
+          </div>
         </div>
+
+        {(route.theme || route.distanceKm != null || (route.durationMinutes ?? 0) > 0) && (
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 rounded-2xl border border-[#EAEAEA] bg-white px-5 py-3 text-xs">
+            {route.theme && (
+              <div><dt className="text-[#B7B7B7]">{t("routes.theme")}</dt><dd className="font-bold text-[#111111]">{route.theme}</dd></div>
+            )}
+            {route.distanceKm != null && (
+              <div><dt className="text-[#B7B7B7]">{t("routes.distance")}</dt><dd className="font-bold text-[#111111]">{f.number(route.distanceKm, { maximumFractionDigits: 1 })} km</dd></div>
+            )}
+            {(route.durationMinutes ?? 0) > 0 && (
+              <div><dt className="text-[#B7B7B7]">{t("routes.duration")}</dt><dd className="font-bold text-[#111111]">{formatDuration(route.durationMinutes!)}</dd></div>
+            )}
+          </dl>
+        )}
 
         {locationError && <p className="text-xs text-[#ED4C5C]">{locationError}</p>}
 
@@ -174,12 +204,26 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                   <h4 className="text-sm font-bold text-[#111111]">{selectedStop.businessName}</h4>
                   <p className="text-xs text-[#B7B7B7]">{selectedStop.address}</p>
                 </div>
-                <Link
-                  href={`/businesses/${selectedStop.businessId}`}
-                  className="px-3 py-1.5 rounded-xl bg-[#FA1EFF] text-white text-xs font-bold hover:bg-[#E000EC] transition-colors"
-                >
-                  {t("routes.detail.viewShop")}
-                </Link>
+                <div className="flex flex-col items-end gap-1.5">
+                  <Link
+                    href={`/businesses/${selectedStop.businessId}`}
+                    className="px-3 py-1.5 rounded-xl bg-[#FA1EFF] text-white text-xs font-bold hover:bg-[#E000EC] transition-colors"
+                  >
+                    {t("routes.detail.viewShop")}
+                  </Link>
+                  <div className="flex gap-3 text-[11px] font-bold text-[#2F7FD6]">
+                    {googleStopUrl({ lat: selectedStop.lat, lng: selectedStop.lng }) && (
+                      <a href={googleStopUrl({ lat: selectedStop.lat, lng: selectedStop.lng })!} target="_blank" rel="noopener noreferrer">
+                        {t("routes.detail.directionsGoogle")}
+                      </a>
+                    )}
+                    {appleStopUrl({ lat: selectedStop.lat, lng: selectedStop.lng }) && (
+                      <a href={appleStopUrl({ lat: selectedStop.lat, lng: selectedStop.lng })!} target="_blank" rel="noopener noreferrer">
+                        {t("routes.detail.directionsApple")}
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { RoleLayout } from "@/layouts/RoleLayout";
 import { api } from "@/lib/api";
@@ -11,12 +12,13 @@ import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
 
 /** Conversation list (consumers see their shops, owners see their customers). */
-export default function ChatListPage() {
+function ChatList() {
   const { t } = useLocale();
   const fmt = useFormat();
   const { role } = useAuth();
-  const list = usePolling("chat:list", () => api.getConversations(), 10000);
-  const isOwner = role === "BUSINESS_OWNER";
+  const shopId = useSearchParams().get("shop") || undefined;
+  const list = usePolling(`chat:list:${shopId ?? "me"}`, () => api.getConversations(shopId), 10000);
+  const isOwner = role === "BUSINESS_OWNER" || !!shopId;
 
   return (
     <RoleLayout>
@@ -63,7 +65,7 @@ export default function ChatListPage() {
                       <span className="text-[10px] text-[#B7B7B7] shrink-0">{fmt.date(c.lastMessageAt, { day: "numeric", month: "short" })}</span>
                     </span>
                     <span className="block text-xs text-[#B7B7B7] truncate">
-                      {c.lastMessage ? `${c.lastMessage.mine ? t("manage.chat.youPrefix") : ""}${c.lastMessage.body}` : "…"}
+                      {c.lastMessage ? `${c.lastMessage.mine ? t("manage.chat.youPrefix") : ""}${c.lastMessage.body || (c.lastMessage.hasAttachment ? t("manage.chat.photo") : "")}` : "…"}
                     </span>
                   </span>
                   {c.unreadCount > 0 && (
@@ -81,5 +83,13 @@ export default function ChatListPage() {
         </ul>
       </div>
     </RoleLayout>
+  );
+}
+
+export default function ChatListPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatList />
+    </Suspense>
   );
 }

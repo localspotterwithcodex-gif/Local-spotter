@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Heart, Eye, Star, ImageOff } from "lucide-react";
 import { Product } from "@/types/product";
 import { useFormat } from "@/i18n/useFormat";
+import { useLocale } from "@/i18n/LocaleContext";
+import { useFavorites } from "@/features/favorites/FavoritesContext";
 
 interface ProductCardProps {
   product: Product;
@@ -13,14 +16,23 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const f = useFormat();
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(product.likeCount);
+  const { t } = useLocale();
+  const router = useRouter();
+  const { canFavorite, isFavorite, toggle } = useFavorites();
+  const isLiked = isFavorite("product", product.id);
+  // Server count + the change made by this user on this card (the count is not re-fetched).
+  const [delta, setDelta] = React.useState(0);
+  const likeCount = Math.max(0, product.likeCount + delta);
 
-  const toggleLike = (e: React.MouseEvent) => {
+  const toggleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsLiked(!isLiked);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
+    if (!canFavorite) {
+      router.push(`/login?redirectTo=${encodeURIComponent(`/products/${product.id}`)}`);
+      return;
+    }
+    const next = await toggle("product", product.id);
+    if (next !== null) setDelta((d) => d + (next ? 1 : -1));
   };
 
   // No stock photo fallback: a product without photos shows a neutral placeholder.
@@ -52,6 +64,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Like / Heart Counter */}
           <button
             onClick={toggleLike}
+            aria-pressed={isLiked}
+            aria-label={isLiked ? t("favorites.remove") : t("favorites.add")}
             className="flex items-center gap-1 text-[11px] font-bold text-[#111111] hover:scale-110 transition-transform"
           >
             <Heart

@@ -36,6 +36,9 @@ const GENERIC_REGISTER_RESPONSE = (identifier: string, channel: 'EMAIL' | 'MOBIL
 
 type UserWithProfiles = Prisma.UserGetPayload<{ include: { consumerProfile: true; businessOwnerProfile: true } }>;
 
+/** Bump when the terms or privacy policy change materially. */
+export const CONSENT_VERSION = '2026-10';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -81,7 +84,15 @@ export class AuthService {
 
     const user = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
-        data: { email, mobile, passwordHash, role: dto.role, status: UserStatus.PENDING_VERIFICATION },
+        data: {
+          email,
+          mobile,
+          passwordHash,
+          role: dto.role,
+          status: UserStatus.PENDING_VERIFICATION,
+          consentAcceptedAt: new Date(),
+          consentVersion: CONSENT_VERSION,
+        },
       });
 
       if (dto.role === UserRole.CONSUMER) {
@@ -423,6 +434,7 @@ export class AuthService {
       status: user.status,
       displayName,
       profileId,
+      isGuest: user.isGuest,
       createdAt: user.createdAt,
     };
   }

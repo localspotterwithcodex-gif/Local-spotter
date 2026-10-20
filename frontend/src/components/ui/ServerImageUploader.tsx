@@ -8,7 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import { errorCode } from "@/lib/errors";
 import type { TranslationKey } from "@/i18n/dictionaries";
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_EDGE = 2000;
 /** Browsers/OSes often report an empty MIME type for AVIF, HEIC or JFIF files, so the extension counts too. */
 const IMAGE_EXT = /\.(jpe?g|jfif|png|webp|gif|avif|heic|heif|bmp|tiff?)$/i;
@@ -21,11 +21,11 @@ const looksLikeImage = (file: File) => file.type.startsWith("image/") || IMAGE_E
  * browser cannot decode it (e.g. HEIC in Chrome) the original goes to the
  * server, which checks the real type and lets Cloudinary convert it.
  */
-async function prepareImage(file: File): Promise<File> {
+async function prepareImage(file: File, maxEdge: number): Promise<File> {
   if (file.type === "image/gif" || typeof createImageBitmap !== "function") return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
@@ -49,6 +49,8 @@ interface Props {
   label?: string;
   /** Called with true while uploads are in flight so the parent can disable its submit button. */
   onBusyChange?: (busy: boolean) => void;
+  /** Longest edge after in-browser re-encoding (default 2000; a 360° photo needs more). */
+  maxEdge?: number;
 }
 
 /**
@@ -56,7 +58,7 @@ interface Props {
  * the real file type and stores it in Cloudinary) and reports the stored
  * { id, url } pairs. Nothing is kept in the browser beyond a preview.
  */
-export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3, label, onBusyChange }) => {
+export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3, label, onBusyChange, maxEdge = MAX_EDGE }) => {
   const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<{ key: string; preview: string }[]>([]);
@@ -92,7 +94,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
         const preview = URL.createObjectURL(file);
         setPending((p) => [...p, { key, preview }]);
         try {
-          const prepared = await prepareImage(file);
+          const prepared = await prepareImage(file, maxEdge);
           if (prepared.size > MAX_BYTES) {
             setErrorKey("manage.upload.errSize");
             continue;
