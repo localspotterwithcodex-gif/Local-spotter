@@ -25,6 +25,15 @@ const DEFAULTS: BusinessFulfilment = {
   localDeliveryRadiusKm: null,
 };
 
+function Toggle({ id, checked, onChange, label }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label htmlFor={id} className="flex items-center gap-3 text-sm font-bold text-[#111111] cursor-pointer">
+      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="w-4 h-4 accent-[#FA1EFF]" />
+      {label}
+    </label>
+  );
+}
+
 const toText = (n: number | null): string => (n === null ? "" : String(n));
 
 /** Empty = null; otherwise a non-negative number with at most 2 decimals. */
@@ -90,13 +99,6 @@ function FulfilmentForm({ business, onSaved }: { business: Business; onSaved: ()
       setBusy(false);
     }
   };
-
-  const Toggle = ({ id, checked, onChange, label }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string }) => (
-    <label htmlFor={id} className="flex items-center gap-3 text-sm font-bold text-[#111111] cursor-pointer">
-      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="w-4 h-4 accent-[#FA1EFF]" />
-      {label}
-    </label>
-  );
 
   return (
     <form onSubmit={submit} className="space-y-4">

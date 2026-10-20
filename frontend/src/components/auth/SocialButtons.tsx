@@ -93,7 +93,9 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
     [socialLogin, onSuccess, onError, t]
   );
   const attemptRef = useRef(attempt);
-  attemptRef.current = attempt;
+  useEffect(() => {
+    attemptRef.current = attempt;
+  });
 
   // Google renders its own (policy-compliant) button.
   useEffect(() => {

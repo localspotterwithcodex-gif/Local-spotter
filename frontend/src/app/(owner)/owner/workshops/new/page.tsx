@@ -26,6 +26,8 @@ export default function AddWorkshopPage() {
 
   const access = useOwnerAccess(business?.id ?? null);
 
+  // Earliest selectable date (today, local time); computed once on mount.
+  const [today] = useState(() => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [capacity, setCapacity] = useState("");
@@ -229,7 +231,7 @@ export default function AddWorkshopPage() {
                     <Input
                       label={t("ownerx.workshopNew.dateLabel")}
                       type="date"
-                      min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
+                      min={today}
                       icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
                       value={r.date}
                       onChange={(e) => setRow(i, { date: e.target.value })}

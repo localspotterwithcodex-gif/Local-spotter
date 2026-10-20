@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { api, type ServerCart, type FulfilmentOptions } from "@/lib/api";
 import { describeError } from "@/lib/errors";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -96,9 +96,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [merging, setMerging] = useState(false);
   const [mergeFailed, setMergeFailed] = useState<string[]>([]);
   const mergeStarted = useRef(false);
+  // Read the browser cart after mount (localStorage does not exist during SSR).
   useEffect(() => {
-    setLocal(readLocalCart());
-    setLocalReady(true);
+    const id = window.setTimeout(() => {
+      setLocal(readLocalCart());
+      setLocalReady(true);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
   const updateLocal = useCallback((fn: (items: LocalCartItem[]) => LocalCartItem[]) => {
     setLocal((prev) => {
@@ -135,9 +139,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (pending.length === 0) return;
     mergeStarted.current = true;
     writeLocalCart([]);
-    setLocal([]);
-    setMerging(true);
     void (async () => {
+      await Promise.resolve(); // state updates happen outside the effect body
+      setLocal([]);
+      setMerging(true);
       const failed: string[] = [];
       for (const item of pending) {
         try {
@@ -222,8 +227,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [anonymous, mutate, updateLocal]);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
-  const groups = useMemo<CartStoreGroup[]>(
-    () =>
+  const groups: CartStoreGroup[] =
       (cart?.groups ?? []).map((g) => ({
         business: g.business,
         subtotal: g.subtotal,
@@ -239,12 +243,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: i.quantity,
           variantLabel: i.variantLabel,
         })),
-      })),
-    [cart]
-  );
+      }));
 
-  const items = useMemo<CartLine[]>(
-    () =>
+  const items: CartLine[] =
       anonymous
         ? local.map((i) => ({
             id: i.id,
@@ -257,11 +258,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             quantity: i.quantity,
             variantLabel: i.variantLabel,
           }))
-        : groups.flatMap((g) => g.items),
-    [anonymous, local, groups]
-  );
+        : groups.flatMap((g) => g.items);
 
-  const itemCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
+  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   const value: CartContextType = {
     items,

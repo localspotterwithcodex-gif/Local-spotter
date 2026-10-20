@@ -15,9 +15,19 @@ export function usePolling<T>(key: string | null, fetcher: () => Promise<T>, int
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(key !== null);
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
   const tRef = useRef(t);
-  tRef.current = t;
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+    tRef.current = t;
+  });
+
+  // A new key means a new resource: reset during render instead of inside the effect.
+  const [loadedKey, setLoadedKey] = useState(key);
+  if (key !== loadedKey) {
+    setLoadedKey(key);
+    setData(undefined);
+    setLoading(key !== null);
+  }
 
   const load = useCallback(async () => {
     try {
@@ -33,8 +43,6 @@ export function usePolling<T>(key: string | null, fetcher: () => Promise<T>, int
 
   useEffect(() => {
     if (key === null) return;
-    setData(undefined);
-    setLoading(true);
     void load();
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void load();

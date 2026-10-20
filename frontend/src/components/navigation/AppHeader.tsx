@@ -30,8 +30,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, onMenuClick }) => {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Close the menu after navigating.
-  useEffect(() => setOpen(false), [pathname]);
+  // Close the menu after navigating (state adjusted during render, not in an effect).
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (pathname !== menuPath) {
+    setMenuPath(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;

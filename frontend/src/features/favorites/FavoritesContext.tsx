@@ -14,27 +14,34 @@ interface FavoritesContextType {
   toggle: (target: Target, id: string) => Promise<boolean | null>;
 }
 
+interface FavoriteStore {
+  userId: string;
+  products: Set<string>;
+  businesses: Set<string>;
+}
+
+const EMPTY: Set<string> = new Set();
+
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const canFavorite = isAuthenticated && user?.role === "CONSUMER" && user.isGuest !== true;
-  const [products, setProducts] = useState<Set<string>>(new Set());
-  const [businesses, setBusinesses] = useState<Set<string>>(new Set());
+  const uid = user?.id ?? null;
+  // Sets belong to the user they were loaded for, so a sign-out/sign-in never shows stale hearts.
+  const [store, setStore] = useState<FavoriteStore | null>(null);
+  const active = canFavorite && store !== null && store.userId === uid ? store : null;
+  const products = active?.products ?? EMPTY;
+  const businesses = active?.businesses ?? EMPTY;
 
   useEffect(() => {
-    if (!canFavorite) {
-      setProducts(new Set());
-      setBusinesses(new Set());
-      return;
-    }
+    if (!canFavorite || uid === null) return;
     let cancelled = false;
     api
       .getFavoriteIds()
       .then((ids) => {
         if (cancelled) return;
-        setProducts(new Set(ids.productIds));
-        setBusinesses(new Set(ids.businessIds));
+        setStore({ userId: uid, products: new Set(ids.productIds), businesses: new Set(ids.businessIds) });
       })
       .catch(() => {
         /* hearts simply start empty; a toggle will surface a real error */
@@ -42,7 +49,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       cancelled = true;
     };
-  }, [canFavorite, user?.id]);
+  }, [canFavorite, uid]);
 
   const isFavorite = useCallback(
     (target: Target, id: string) => (target === "product" ? products.has(id) : businesses.has(id)),
@@ -51,16 +58,17 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const toggle = useCallback(
     async (target: Target, id: string) => {
-      if (!canFavorite) return null;
-      const set = target === "product" ? products : businesses;
-      const setter = target === "product" ? setProducts : setBusinesses;
-      const next = !set.has(id);
+      if (!canFavorite || uid === null) return null;
+      const field = target === "product" ? "products" : "businesses";
+      const next = !(target === "product" ? products : businesses).has(id);
       const apply = (on: boolean) =>
-        setter((prev) => {
-          const copy = new Set(prev);
+        setStore((prev) => {
+          const base: FavoriteStore =
+            prev && prev.userId === uid ? prev : { userId: uid, products: new Set(), businesses: new Set() };
+          const copy = new Set(base[field]);
           if (on) copy.add(id);
           else copy.delete(id);
-          return copy;
+          return { ...base, [field]: copy };
         });
       apply(next);
       try {
@@ -71,7 +79,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return null;
       }
     },
-    [canFavorite, products, businesses]
+    [canFavorite, uid, products, businesses]
   );
 
   const value = useMemo(() => ({ canFavorite, isFavorite, toggle }), [canFavorite, isFavorite, toggle]);
