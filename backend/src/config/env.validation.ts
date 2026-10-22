@@ -34,16 +34,20 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     errors.push('MAIL_TRANSPORT=resend is required in production (otherwise signup and password reset return 503)');
   }
 
-  const mollieKey = typeof config.MOLLIE_API_KEY === 'string' ? config.MOLLIE_API_KEY.trim() : '';
-  if (mollieKey) {
-    if (!/^(live|test)_[A-Za-z0-9]{20,}$/.test(mollieKey)) {
-      errors.push('MOLLIE_API_KEY must be a Mollie live_ or test_ API key');
+  const stripeKey = typeof config.STRIPE_SECRET_KEY === 'string' ? config.STRIPE_SECRET_KEY.trim() : '';
+  if (stripeKey) {
+    if (!/^(sk|rk)_(live|test)_[A-Za-z0-9]{10,}$/.test(stripeKey)) {
+      errors.push('STRIPE_SECRET_KEY must be a Stripe secret key (sk_test_... or sk_live_...)');
     }
-    if (isProd && !/^https:\/\//i.test(String(config.API_PUBLIC_URL ?? ''))) {
-      errors.push('API_PUBLIC_URL (public https URL of this API, used for the Mollie webhook) is required when MOLLIE_API_KEY is set in production');
+    const webhookSecret = typeof config.STRIPE_WEBHOOK_SECRET === 'string' ? config.STRIPE_WEBHOOK_SECRET.trim() : '';
+    if (webhookSecret && !/^whsec_[A-Za-z0-9]{10,}$/.test(webhookSecret)) {
+      errors.push('STRIPE_WEBHOOK_SECRET must be a Stripe webhook signing secret (whsec_...)');
+    }
+    if (isProd && !webhookSecret) {
+      errors.push('STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set in production (payments are confirmed by Stripe webhooks)');
     }
     if (isProd && !config.FRONTEND_URL) {
-      errors.push('FRONTEND_URL is required when MOLLIE_API_KEY is set in production (customers return there after paying)');
+      errors.push('FRONTEND_URL is required when STRIPE_SECRET_KEY is set in production (customers return there after paying)');
     }
   }
 

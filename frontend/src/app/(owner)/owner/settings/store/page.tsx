@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api, type BusinessCategory, type NotificationPreferences, type UploadedImage } from "@/lib/api";
 import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
+import { ShopVideoUploader } from "@/components/ui/ShopVideoUploader";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -73,6 +74,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const [logo, setLogo] = useState<UploadedImage[]>(() => toImages(business.logoAssetId, business.logoUrl));
   const [cover, setCover] = useState<UploadedImage[]>(() => toImages(business.coverAssetId, business.heroImageUrl));
   const [panorama, setPanorama] = useState<UploadedImage[]>(() => toImages(business.panoramaAssetId, business.panoramaUrl));
+  const [video, setVideo] = useState<UploadedImage | null>(() => toImages(business.videoAssetId, business.videoUrl)[0] ?? null);
   const [uploadsBusy, setUploadsBusy] = useState(false);
 
   // Notification preferences
@@ -155,6 +157,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
         logoAssetId: logo[0]?.id ?? null,
         coverAssetId: cover[0]?.id ?? null,
         panoramaAssetId: panorama[0]?.id ?? null,
+        videoAssetId: video?.id ?? null,
       });
       if (prefsDirty && prefsLoaded) {
         setPrefs(await api.updateNotificationPreferences(prefs));
@@ -273,6 +276,8 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 />
                 <p className="text-[11px] text-[#B7B7B7]">{t("panorama.settingsHelp")}</p>
               </div>
+
+              <ShopVideoUploader value={video} onChange={setVideo} label={t("manage.video.label")} onBusyChange={setUploadsBusy} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input

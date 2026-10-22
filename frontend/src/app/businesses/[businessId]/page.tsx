@@ -221,6 +221,19 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                 <PanoramaViewer src={business.panoramaUrl} alt={t("panorama.alt", { name: business.name })} />
               </section>
             )}
+            {business.videoUrl && (
+              <section className="my-4 space-y-2" aria-label={t("manage.video.publicTitle")}>
+                <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("manage.video.publicTitle")}</h2>
+                <video
+                  src={business.videoUrl}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="w-full rounded-xl border border-[#EEEEEE] bg-black aspect-video"
+                  aria-label={t("manage.video.publicAlt", { name: business.name })}
+                />
+              </section>
+            )}
 
             {/* Description & Contact Meta */}
             <div className="space-y-3 text-xs text-[#555555]">

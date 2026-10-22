@@ -112,3 +112,25 @@ describe('BusinessesService.update 360° photo', () => {
     expect(prisma.business.update).not.toHaveBeenCalled();
   });
 });
+
+describe('BusinessesService.update shop video', () => {
+  const VIDEO_ID = '8c1f1a3e-6a0b-4b8e-9d57-1f6f3f7a2b12';
+
+  it('saves a registered video asset and lets the owner remove it with null', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue({ id: VIDEO_ID, mimeType: 'video/mp4' }) };
+    await service.update('b1', owner, { videoAssetId: VIDEO_ID });
+    expect(prisma.business.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ videoAssetId: VIDEO_ID }) }));
+    await service.update('b1', owner, { videoAssetId: null });
+    expect(prisma.business.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ videoAssetId: null }) }));
+  });
+
+  it('rejects an unknown asset, or an image used as the video', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue(null) };
+    await expect(service.update('b1', owner, { videoAssetId: VIDEO_ID })).rejects.toBeInstanceOf(BadRequestException);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue({ mimeType: 'image/jpeg' }) };
+    await expect(service.update('b1', owner, { videoAssetId: VIDEO_ID })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.business.update).not.toHaveBeenCalled();
+  });
+});

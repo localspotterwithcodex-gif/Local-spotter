@@ -218,6 +218,14 @@ async function main() {
     update: {},
     create: { name: 'Kleding', slug: 'kleding' },
   });
+  // Further product categories (also added to existing databases by migration 20261024100000).
+  for (const [name, slug, sortOrder] of [
+    ['Sieraden', 'sieraden', 20],
+    ['Schoenen', 'schoenen', 30],
+    ['Woonaccessoires', 'woonaccessoires', 40],
+  ] as const) {
+    await prisma.productCategory.upsert({ where: { slug }, update: {}, create: { name, slug, sortOrder } });
+  }
 
   // No demo products are seeded: owners add their own via the portal.
 

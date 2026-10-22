@@ -29,8 +29,8 @@ export function csvCell(value: string | number): string {
 }
 
 /**
- * Weekly payouts. The platform collects every payment (Mollie), so a payout is a ledger movement
- * followed by a bank transfer that an administrator makes (Mollie cannot pay arbitrary IBANs).
+ * Weekly payouts. The platform collects every payment (Stripe), so a payout is a ledger movement
+ * followed by a bank transfer that an administrator makes (the payment provider cannot pay arbitrary IBANs).
  * Flow: weekly run -> PENDING payout (+ PAYOUT ledger debit) -> admin exports the IBAN list, transfers,
  * marks PAID. A rejected or failed payout is credited back (PAYOUT_REVERSAL).
  */

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, useState } from "react";
-import { Loader2, Upload, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Camera, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { useLocale } from "@/i18n/LocaleContext";
 import { api, type UploadedImage } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
@@ -61,8 +61,10 @@ interface Props {
 export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3, label, onBusyChange, maxEdge = MAX_EDGE }) => {
   const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<{ key: string; preview: string }[]>([]);
   const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const uploadedCount = value.length;
   const total = uploadedCount + pending.length;
@@ -78,7 +80,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
     return "manage.upload.errFailed";
   };
 
-  const handleFiles = async (list: FileList | null) => {
+  const handleFiles = async (list: FileList | File[] | null) => {
     if (!list || list.length === 0) return;
     setErrorKey(null);
     const files = Array.from(list).slice(0, Math.max(0, max - total));
@@ -160,6 +162,16 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
             <span className="text-[10px] font-bold">{t("manage.upload.add")}</span>
           </button>
         )}
+        {total < max && (
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-[#B7B7B7] hover:border-[#FA1EFF] hover:text-[#FA1EFF] transition-colors"
+          >
+            <Camera className="w-5 h-5" />
+            <span className="text-[10px] font-bold">{t("manage.upload.camera")}</span>
+          </button>
+        )}
       </div>
 
       <input
@@ -176,6 +188,143 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
           {t(errorKey)}
         </p>
       )}
+      {cameraOpen && (
+        <CameraCapture
+          onClose={() => setCameraOpen(false)}
+          onCapture={(file) => {
+            setCameraOpen(false);
+            void handleFiles([file]);
+          }}
+          onFallback={() => {
+            setCameraOpen(false);
+            cameraInputRef.current?.click();
+          }}
+        />
+      )}
+      {/* Phones without live camera access fall back to the system camera app. */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => void handleFiles(e.target.files)}
+      />
+    </div>
+  );
+};
+
+interface CameraProps {
+  onClose: () => void;
+  onCapture: (file: File) => void;
+  /** Used when the browser has no live camera API: open the device's camera app / file picker instead. */
+  onFallback: () => void;
+}
+
+/** Live camera preview in a dialog; the captured frame is returned as a JPEG File and uploaded like any other photo. */
+const CameraCapture: React.FC<CameraProps> = ({ onClose, onCapture, onFallback }) => {
+  const { t } = useLocale();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
+  const [ready, setReady] = useState(false);
+  const hasCameraApi = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+
+  useEffect(() => {
+    if (!hasCameraApi) {
+      onFallback();
+      return;
+    }
+    let cancelled = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        setErrorKey(null);
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          void video.play().then(() => setReady(true)).catch(() => setReady(true));
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const name = err instanceof DOMException ? err.name : "";
+        setErrorKey(name === "NotFoundError" || name === "OverconstrainedError" ? "manage.upload.cameraUnavailable" : "manage.upload.cameraDenied");
+      });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facing, hasCameraApi]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) onCapture(new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label={t("manage.upload.cameraTitle")}>
+      <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("manage.upload.cameraTitle")}</h2>
+          <button type="button" onClick={onClose} aria-label={t("manage.upload.cameraClose")} className="w-8 h-8 rounded-full bg-[#F9F9F9] flex items-center justify-center">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {errorKey ? (
+          <p role="alert" className="text-xs font-bold text-[#E54666]">
+            {t(errorKey)}
+          </p>
+        ) : (
+          <video ref={videoRef} playsInline muted className="w-full rounded-2xl bg-black aspect-[4/3] object-cover" />
+        )}
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setReady(false);
+              setFacing((f) => (f === "environment" ? "user" : "environment"));
+            }}
+            aria-label={t("manage.upload.cameraFlip")}
+            className="w-10 h-10 rounded-full border border-[#EAEAEA] flex items-center justify-center text-[#121F3E]"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={capture}
+            disabled={!ready || !!errorKey}
+            className="px-6 h-11 rounded-full bg-[#FA1EFF] text-white text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+          >
+            <Camera className="w-4 h-4" />
+            {t("manage.upload.capture")}
+          </button>
+          <button type="button" onClick={onFallback} className="text-xs font-bold text-[#B7B7B7] hover:underline">
+            {t("manage.upload.choose")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

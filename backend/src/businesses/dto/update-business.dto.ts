@@ -77,6 +77,11 @@ export class UpdateBusinessDto {
   @IsUUID()
   panoramaAssetId?: string | null;
 
+  @ApiPropertyOptional({ description: 'MediaAsset id of the shop video (from POST /media/videos). null removes it.', nullable: true })
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsUUID()
+  videoAssetId?: string | null;
+
   @ApiPropertyOptional({ example: 'https://www.mijnwinkel.nl' })
   @IsOptional()
   @IsUrl({ require_protocol: true, protocols: ['http', 'https'] }, { message: 'Ongeldige website-URL' })

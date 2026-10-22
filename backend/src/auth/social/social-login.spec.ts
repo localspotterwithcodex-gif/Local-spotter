@@ -95,7 +95,6 @@ describe('SocialTokenVerifier', () => {
   it('is unavailable (503) when the provider is not configured', async () => {
     const v = new SocialTokenVerifier(cfg({}));
     await expect(v.verify('google', 'x'.repeat(20))).rejects.toBeInstanceOf(HttpException);
-    await expect(v.verify('facebook', 'x'.repeat(20))).rejects.toBeInstanceOf(HttpException);
   });
 
   it('accepts a Google token only for our client id and issuer', async () => {
@@ -109,11 +108,8 @@ describe('SocialTokenVerifier', () => {
     await expect(v.verify('google', 'x'.repeat(20))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('accepts a Facebook token only for our app id and matching user', async () => {
-    const v = new SocialTokenVerifier(cfg({ FACEBOOK_APP_ID: 'app', FACEBOOK_APP_SECRET: 'sec' }));
-    respond({ data: { is_valid: true, app_id: 'app', user_id: '9' } }, { id: '9', name: 'F', email: 'f@x.nl' });
-    expect(await v.verify('facebook', 'x'.repeat(20))).toMatchObject({ providerAccountId: '9', email: 'f@x.nl', emailVerified: true });
-    respond({ data: { is_valid: true, app_id: 'other', user_id: '9' } });
-    await expect(v.verify('facebook', 'x'.repeat(20))).rejects.toBeInstanceOf(UnauthorizedException);
+  it('rejects any provider other than Google', async () => {
+    const v = new SocialTokenVerifier(cfg({ GOOGLE_CLIENT_ID: 'cid' }));
+    await expect(v.verify('facebook' as never, 'x'.repeat(20))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

@@ -305,6 +305,7 @@ model Business {
   coverAssetId   String?        @map("cover_asset_id") @db.Uuid
   /// Equirectangular 360° photo of the shop interior (virtual store).
   panoramaAssetId String?       @map("panorama_asset_id") @db.Uuid
+  videoAssetId    String?       @map("video_asset_id") @db.Uuid
   state          String
   city           String
   street         String
@@ -348,6 +349,7 @@ model Business {
   logoAsset    MediaAsset?           @relation("BusinessLogo", fields: [logoAssetId], references: [id])
   coverAsset   MediaAsset?           @relation("BusinessCover", fields: [coverAssetId], references: [id])
   panoramaAsset MediaAsset?          @relation("BusinessPanorama", fields: [panoramaAssetId], references: [id])
+  videoAsset    MediaAsset?          @relation("BusinessVideo", fields: [videoAssetId], references: [id])
   hours        BusinessHours[]
   subscription BusinessSubscription?
   products     Product[]
@@ -974,6 +976,7 @@ model MediaAsset {
   businessLogos         Business[]              @relation("BusinessLogo")
   businessCovers        Business[]              @relation("BusinessCover")
   businessPanoramas     Business[]              @relation("BusinessPanorama")
+  businessVideos        Business[]              @relation("BusinessVideo")
   productImages         ProductImage[]
   workshops             Workshop[]
   reviewImages          ReviewImage[]

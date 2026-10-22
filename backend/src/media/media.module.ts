@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryImageStorage, IMAGE_STORAGE, ImageStorage, UnconfiguredImageStorage } from './image-storage';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
+import { CloudinaryVideoStorage, UnconfiguredVideoStorage, VIDEO_STORAGE, VideoStorage } from './video-storage';
 
 @Module({
   controllers: [MediaController],
@@ -22,6 +23,18 @@ import { MediaService } from './media.service';
         return cloudName && apiKey && apiSecret
           ? new CloudinaryImageStorage({ cloudName, apiKey, apiSecret })
           : new UnconfiguredImageStorage();
+      },
+    },
+    {
+      provide: VIDEO_STORAGE,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): VideoStorage => {
+        const cloudName = config.get<string>('CLOUDINARY_CLOUD_NAME');
+        const apiKey = config.get<string>('CLOUDINARY_API_KEY');
+        const apiSecret = config.get<string>('CLOUDINARY_API_SECRET');
+        return cloudName && apiKey && apiSecret
+          ? new CloudinaryVideoStorage({ cloudName, apiKey, apiSecret })
+          : new UnconfiguredVideoStorage();
       },
     },
   ],

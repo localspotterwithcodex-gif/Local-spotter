@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsUUID } from 'class-validator';
 import { PaymentPurpose, PaymentProvider, PaymentMethod } from '@prisma/client';
 
 /**
@@ -16,13 +16,13 @@ export class CreatePaymentIntentDto {
   @IsUUID()
   relatedEntityId!: string;
 
-  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.MOLLIE })
+  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.STRIPE })
   @IsOptional()
   @IsEnum(PaymentProvider)
   provider?: PaymentProvider;
 
-  @ApiPropertyOptional({ enum: PaymentMethod })
+  @ApiPropertyOptional({ enum: [PaymentMethod.IDEAL], default: PaymentMethod.IDEAL, description: 'iDEAL is the only supported method' })
   @IsOptional()
-  @IsEnum(PaymentMethod)
+  @IsIn([PaymentMethod.IDEAL], { message: 'Alleen iDEAL wordt ondersteund' })
   method?: PaymentMethod;
 }

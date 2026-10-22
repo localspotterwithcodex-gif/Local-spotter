@@ -21,10 +21,8 @@ export interface GatewayCreatePaymentRequest {
   description: string;
   /** Where the provider sends the customer after the hosted checkout. */
   redirectUrl: string;
-  /** Public server URL the provider calls on status changes; omitted when not publicly reachable. */
-  webhookUrl?: string;
-  /** Preferred method; omitted lets the customer choose on the provider page. */
-  method?: 'IDEAL' | 'CARD' | 'PAYPAL' | 'BANK_TRANSFER';
+  /** Payment method; iDEAL is the only one offered. */
+  method?: 'IDEAL';
   /** Echoed back by the provider; used to cross-check webhooks. */
   metadata: Record<string, string>;
   /** Stable per attempt so a retried call never creates a second payment. */
@@ -49,8 +47,8 @@ export interface GatewayPaymentInfo {
 }
 
 /**
- * Boundary to the payment service provider (PSP). The provider is Mollie
- * (see mollie.gateway.ts); `UnconfiguredPaymentGateway` is bound when no API key is set.
+ * Boundary to the payment service provider (PSP). The provider is Stripe
+ * (see stripe.gateway.ts, iDEAL via Checkout); `UnconfiguredPaymentGateway` is bound when no API key is set.
  * A refund is only ever recorded as completed after `refund()` resolves,
  * i.e. after the provider has confirmed it.
  */
@@ -62,7 +60,7 @@ export interface PaymentGateway {
   refund(request: GatewayRefundRequest): Promise<GatewayRefundResult>;
 }
 
-/** Bound when MOLLIE_API_KEY is missing: refuses instead of pretending. */
+/** Bound when STRIPE_SECRET_KEY is missing: refuses instead of pretending. */
 @Injectable()
 export class UnconfiguredPaymentGateway implements PaymentGateway {
   isConfigured(): boolean {

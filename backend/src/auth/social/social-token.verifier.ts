@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type SocialProvider = 'google' | 'facebook';
+export type SocialProvider = 'google';
 
 export interface VerifiedSocialProfile {
   provider: SocialProvider;
@@ -15,7 +15,7 @@ export interface VerifiedSocialProfile {
 const TIMEOUT_MS = 8000;
 
 /**
- * Verifies a token that the browser obtained from Google / Facebook by asking
+ * Verifies a token that the browser obtained from Google by asking
  * the PROVIDER itself (no signature code of our own, no extra dependency).
  * The audience / app id is always checked so a token issued to another app
  * cannot be replayed here. Tokens are never logged.
@@ -27,7 +27,8 @@ export class SocialTokenVerifier {
   constructor(private readonly config: ConfigService) {}
 
   async verify(provider: SocialProvider, token: string): Promise<VerifiedSocialProfile> {
-    return provider === 'google' ? this.verifyGoogle(token) : this.verifyFacebook(token);
+    if (provider !== 'google') throw new UnauthorizedException('Ongeldige inlogpoging');
+    return this.verifyGoogle(token);
   }
 
   private async getJson(url: string): Promise<Record<string, any>> {
@@ -58,24 +59,5 @@ export class SocialTokenVerifier {
       emailVerified: data.email_verified === true || data.email_verified === 'true',
       name: typeof data.name === 'string' ? data.name : null,
     };
-  }
-
-  private async verifyFacebook(accessToken: string): Promise<VerifiedSocialProfile> {
-    const appId = this.config.get<string>('FACEBOOK_APP_ID');
-    const appSecret = this.config.get<string>('FACEBOOK_APP_SECRET');
-    if (!appId || !appSecret) throw new HttpException('Inloggen met Facebook is niet ingesteld', HttpStatus.SERVICE_UNAVAILABLE);
-
-    const debug = await this.getJson(
-      `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`,
-    );
-    const info = debug.data ?? {};
-    if (!info.is_valid || String(info.app_id) !== appId || !info.user_id) {
-      throw new UnauthorizedException('Ongeldige inlogpoging');
-    }
-    const me = await this.getJson(`https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`);
-    if (String(me.id) !== String(info.user_id)) throw new UnauthorizedException('Ongeldige inlogpoging');
-    const email = typeof me.email === 'string' ? me.email.toLowerCase() : null;
-    // Facebook only returns an email address it has confirmed for the account.
-    return { provider: 'facebook', providerAccountId: String(me.id), email, emailVerified: !!email, name: typeof me.name === 'string' ? me.name : null };
   }
 }

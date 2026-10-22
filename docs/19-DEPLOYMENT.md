@@ -58,17 +58,15 @@ Required categories:
 - `AUTH_SECRET`.
 - `GOOGLE_CLIENT_ID`.
 - `GOOGLE_CLIENT_SECRET`.
-- `FACEBOOK_CLIENT_ID`.
-- `FACEBOOK_CLIENT_SECRET`.
-- `PAYMENT_SECRET_KEY`.
-- `PAYMENT_WEBHOOK_SECRET`.
+- `STRIPE_SECRET_KEY`.
+- `STRIPE_WEBHOOK_SECRET`.
 - `MAP_PROVIDER_KEY`.
 - `STORAGE_URL`.
 - `STORAGE_SERVICE_ROLE_KEY`.
 - `STORAGE_PUBLIC_BUCKET`.
 - `MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM` (sender on a domain verified in Resend). The backend refuses to start in production without them.
 - Optional: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (product/workshop photo upload; without them uploads return 503) and `DEEPL_API_KEY` (automatic EN/NL content translation; without it text is saved untranslated). Server-side only.
-- Optional (social login): backend `GOOGLE_CLIENT_ID`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`; frontend (Vercel, public) `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_FACEBOOK_APP_ID`. Buttons are hidden when the frontend ids are missing. Optional frontend `NEXT_PUBLIC_SUPPORT_EMAIL` for the Help page.
+- Optional (social login): backend `GOOGLE_CLIENT_ID`; frontend (Vercel, public) `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. Buttons are hidden when the frontend ids are missing. Optional frontend `NEXT_PUBLIC_SUPPORT_EMAIL` for the Help page.
 - Migration `20261015100000_chat` must be applied (`prisma migrate deploy`) before the chat endpoints are used.
 - Migration `20261016100000_notification_preferences` must be applied before the notification-settings endpoints are used.
 - `APP_BASE_URL`.

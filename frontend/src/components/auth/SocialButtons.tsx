@@ -9,19 +9,14 @@ import type { User, UserRole } from "@/types/user";
 
 // Public identifiers (not secrets). The buttons only render when they are configured.
 const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "").trim();
-const FACEBOOK_APP_ID = (process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? "").trim();
 
-type Provider = "google" | "facebook";
+type Provider = "google";
 
 interface GoogleId {
   initialize: (cfg: { client_id: string; callback: (r: { credential?: string }) => void }) => void;
   renderButton: (el: HTMLElement, opts: Record<string, string | number>) => void;
 }
-interface FacebookSdk {
-  init: (cfg: { appId: string; version: string; cookie: boolean; xfbml: boolean }) => void;
-  login: (cb: (r: { authResponse?: { accessToken: string } | null }) => void, opts: { scope: string }) => void;
-}
-type SdkWindow = Window & { google?: { accounts: { id: GoogleId } }; FB?: FacebookSdk; fbAsyncInit?: () => void };
+type SdkWindow = Window & { google?: { accounts: { id: GoogleId } } };
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -51,7 +46,7 @@ interface Props {
 }
 
 /**
- * "Continue with Google / Facebook". The browser obtains a token from the
+ * "Continue with Google". The browser obtains a token from the
  * provider, the backend verifies it with the provider and issues the normal
  * HttpOnly session cookie. A brand-new account asks once which kind it is.
  */
@@ -62,7 +57,7 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
   const [pending, setPending] = useState<{ provider: Provider; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const providerName = (p: Provider) => (p === "google" ? t("manage.social.google") : t("manage.social.facebook"));
+  const providerName = (_p: Provider) => t("manage.social.google");
 
   const attempt = useCallback(
     async (provider: Provider, token: string, role?: UserRole) => {
@@ -120,27 +115,7 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const facebookLogin = async () => {
-    try {
-      const w = window as SdkWindow;
-      if (!w.FB) {
-        await loadScript("https://connect.facebook.net/en_US/sdk.js");
-      }
-      const FB = w.FB;
-      if (!FB) throw new Error("sdk");
-      FB.init({ appId: FACEBOOK_APP_ID, version: "v19.0", cookie: false, xfbml: false });
-      FB.login(
-        (r) => {
-          if (r.authResponse?.accessToken) void attemptRef.current("facebook", r.authResponse.accessToken);
-        },
-        { scope: "public_profile,email" }
-      );
-    } catch {
-      onError(t("manage.social.unavailable", { provider: providerName("facebook") }));
-    }
-  };
-
-  if (!GOOGLE_CLIENT_ID && !FACEBOOK_APP_ID) return null;
+  if (!GOOGLE_CLIENT_ID) return null;
 
   return (
     <div className="space-y-3">
@@ -151,18 +126,6 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
       </div>
       <div className="flex flex-col items-center gap-3">
         {GOOGLE_CLIENT_ID && <div ref={googleRef} className="min-h-10" aria-label={t("manage.social.google")} />}
-        {FACEBOOK_APP_ID && (
-          <button
-            type="button"
-            onClick={facebookLogin}
-            disabled={busy}
-            className="w-[200px] h-10 rounded-full border border-[#DADCE0] bg-white text-[#121F3E] text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#F9F9F9] disabled:opacity-50"
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#1877F2]" fill="currentColor" aria-hidden="true">
-              <path d="M13.5 21v-8h2.7l.4-3.2h-3.1V7.8c0-.9.3-1.5 1.6-1.5h1.7V3.4c-.3 0-1.3-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2v2.3H7.5V13h2.8v8h3.2z" />
-            </svg> {t("manage.social.facebook")}
-          </button>
-        )}
       </div>
 
       {pending && (

@@ -21,6 +21,7 @@ import {
   Prisma,
   SubscriptionStatus,
   UserRole,
+  PaymentMethod,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/types/auth-user';
@@ -132,8 +133,8 @@ export class PaymentsService {
     if (!this.gateway.isConfigured()) {
       throw new ServiceUnavailableException('No payment provider is configured; payments cannot be started');
     }
-    const provider = dto.provider ?? PaymentProvider.MOLLIE;
-    if (provider !== PaymentProvider.MOLLIE) {
+    const provider = dto.provider ?? PaymentProvider.STRIPE;
+    if (provider !== PaymentProvider.STRIPE) {
       throw new BadRequestException('Unsupported payment provider');
     }
 
@@ -165,7 +166,7 @@ export class PaymentsService {
             data: {
               purpose: dto.purpose,
               provider,
-              method: dto.method,
+              method: PaymentMethod.IDEAL,
               status: PaymentStatus.PENDING,
               amount: part.amountCents / 100,
               currency: CURRENCY,
@@ -194,8 +195,7 @@ export class PaymentsService {
         currency: CURRENCY,
         description: target.description,
         redirectUrl: this.redirectUrl(first.id),
-        webhookUrl: this.webhookUrl(),
-        method: this.gatewayMethod(dto.method),
+        method: this.gatewayMethod(),
         metadata: { purpose: dto.purpose, scopeId: target.scopeId, paymentId: first.id },
         idempotencyKey: `intent-${first.id}`,
         locale: 'nl_NL',
@@ -222,15 +222,9 @@ export class PaymentsService {
     return `${this.frontendUrl()}/payment/return?payment=${encodeURIComponent(paymentId)}`;
   }
 
-  /** Mollie rejects non-public webhook URLs, so it is only sent when API_PUBLIC_URL is a public https URL. */
-  private webhookUrl(): string | undefined {
-    const base = this.config.get<string>('API_PUBLIC_URL')?.trim().replace(/\/+$/, '');
-    if (!base || !/^https:\/\//i.test(base) || /localhost|127\.0\.0\.1/.test(base)) return undefined;
-    return `${base}/api/v1/payments/webhooks/mollie`;
-  }
-
-  private gatewayMethod(method?: string): 'IDEAL' | 'CARD' | 'PAYPAL' | 'BANK_TRANSFER' | undefined {
-    return method === 'IDEAL' || method === 'CARD' || method === 'PAYPAL' || method === 'BANK_TRANSFER' ? method : undefined;
+  /** iDEAL is the only payment method offered. */
+  private gatewayMethod(): 'IDEAL' {
+    return 'IDEAL';
   }
 
   /** Total of all rows that belong to the same provider payment. */
@@ -465,13 +459,13 @@ export class PaymentsService {
   // ==========================================
 
   /**
-   * Entry point of the Mollie webhook. Mollie sends only a payment id and no
-   * signature, so nothing in the request is trusted: the status, amount and
-   * metadata are read back from the provider API, and an unknown id is ignored.
-   * Throws when the provider cannot be reached so that Mollie retries.
+   * Entry point of the provider webhook (already signature-checked by the controller). Only the
+   * Checkout Session id is taken from the event: status, amount and metadata are read back from
+   * the provider API, and an unknown id is ignored. Throws when the provider cannot be reached
+   * so that Stripe retries the delivery.
    */
-  async handleMollieWebhook(providerPaymentId: string): Promise<void> {
-    if (!/^tr_[A-Za-z0-9]{4,64}$/.test(providerPaymentId)) return;
+  async handleProviderWebhook(providerPaymentId: string): Promise<void> {
+    if (!/^cs_(test|live)_[A-Za-z0-9]{8,200}$/.test(providerPaymentId)) return;
     if (!this.gateway.isConfigured()) return;
     await this.syncFromProvider(providerPaymentId);
   }
@@ -479,7 +473,7 @@ export class PaymentsService {
   /** Reads the provider status and applies it to every Payment row of that provider payment. Idempotent. */
   async syncFromProvider(providerPaymentId: string): Promise<void> {
     const rows = await this.prisma.payment.findMany({
-      where: { provider: PaymentProvider.MOLLIE, providerTransactionId: providerPaymentId },
+      where: { provider: PaymentProvider.STRIPE, providerTransactionId: providerPaymentId },
     });
     if (rows.length === 0) return;
 
@@ -495,7 +489,7 @@ export class PaymentsService {
     const status = GATEWAY_TO_PAYMENT[info.status];
     const eventId = `${providerPaymentId}:${info.status}`;
     await this.prisma.paymentWebhookEvent
-      .create({ data: { provider: PaymentProvider.MOLLIE, providerEventId: eventId, eventType: `payment.${info.status.toLowerCase()}`, payload: { status: info.status }, processed: false } })
+      .create({ data: { provider: PaymentProvider.STRIPE, providerEventId: eventId, eventType: `payment.${info.status.toLowerCase()}`, payload: { status: info.status }, processed: false } })
       .catch(() => undefined); // already recorded (redelivery)
 
     for (const row of rows) {
@@ -510,7 +504,7 @@ export class PaymentsService {
       }
     }
     await this.prisma.paymentWebhookEvent
-      .updateMany({ where: { provider: PaymentProvider.MOLLIE, providerEventId: eventId }, data: { processed: true, processedAt: new Date() } })
+      .updateMany({ where: { provider: PaymentProvider.STRIPE, providerEventId: eventId }, data: { processed: true, processedAt: new Date() } })
       .catch(() => undefined);
   }
 
@@ -568,7 +562,7 @@ export class PaymentsService {
               where: { id: sub.id },
               data: {
                 status: SubscriptionStatus.ACTIVE,
-                provider: PaymentProvider.MOLLIE,
+                provider: PaymentProvider.STRIPE,
                 currentPeriodStart: renewing ? sub.currentPeriodStart : now,
                 currentPeriodEnd: new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000),
                 cancelledAt: null,

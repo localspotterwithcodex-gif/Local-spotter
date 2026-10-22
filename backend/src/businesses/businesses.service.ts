@@ -67,6 +67,7 @@ export class BusinessesService {
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
         panoramaAsset: { select: { url: true } },
+        videoAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -104,6 +105,7 @@ export class BusinessesService {
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
         panoramaAsset: { select: { url: true } },
+        videoAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: { include: { plan: true } },
       },
@@ -181,6 +183,7 @@ export class BusinessesService {
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
         panoramaAsset: { select: { url: true } },
+        videoAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -205,6 +208,7 @@ export class BusinessesService {
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
         panoramaAsset: { select: { url: true } },
+        videoAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },
@@ -247,6 +251,10 @@ export class BusinessesService {
       throw new BadRequestException('Schakel minimaal één leveringswijze in (afhalen, verzenden of lokale bezorging)');
     }
 
+    if (dto.videoAssetId) {
+      const video = await this.prisma.mediaAsset.findUnique({ where: { id: dto.videoAssetId }, select: { mimeType: true } });
+      if (!video || !video.mimeType?.startsWith('video/')) throw new BadRequestException('Video niet gevonden, upload de video opnieuw');
+    }
     for (const assetId of [dto.logoAssetId, dto.coverAssetId, dto.panoramaAssetId]) {
       if (assetId) {
         const asset = await this.prisma.mediaAsset.findUnique({ where: { id: assetId }, select: { id: true } });
@@ -261,6 +269,7 @@ export class BusinessesService {
         logoAssetId: dto.logoAssetId,
         coverAssetId: dto.coverAssetId,
         panoramaAssetId: dto.panoramaAssetId,
+        videoAssetId: dto.videoAssetId,
         ...(i18n ? { translations: i18n.translations ?? Prisma.DbNull, sourceLocale: i18n.sourceLocale } : {}),
         slug,
         description: dto.description !== undefined ? dto.description : undefined,
@@ -293,6 +302,7 @@ export class BusinessesService {
         logoAsset: { select: { url: true } },
         coverAsset: { select: { url: true } },
         panoramaAsset: { select: { url: true } },
+        videoAsset: { select: { url: true } },
         _count: { select: { products: { where: { active: true, deletedAt: null } } } },
         subscription: {
           include: { plan: true },

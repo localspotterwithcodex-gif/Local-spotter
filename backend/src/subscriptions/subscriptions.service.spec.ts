@@ -28,7 +28,7 @@ describe('SubscriptionsService.selectPlan', () => {
     process.env.NODE_ENV = 'development';
     const { service, prisma } = make({ configured: true });
     await service.selectPlan('b1', owner, { planSlug: 'WEBSHOP' } as never);
-    expect(prisma.businessSubscription.create.mock.calls[0][0].data).toMatchObject({ status: SubscriptionStatus.INCOMPLETE, provider: 'MOLLIE' });
+    expect(prisma.businessSubscription.create.mock.calls[0][0].data).toMatchObject({ status: SubscriptionStatus.INCOMPLETE, provider: 'STRIPE' });
   });
 
   it('activates a free (EUR 0) plan immediately, also in production and without a provider', async () => {

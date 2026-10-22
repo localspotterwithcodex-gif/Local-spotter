@@ -126,7 +126,7 @@ function SubscriptionPaymentContent() {
           </div>
         </div>
 
-        {/* Secure hosted checkout of the payment provider (iDEAL, card, ...) */}
+        {/* Secure hosted checkout of the payment provider (iDEAL) */}
         <p className="text-[11px] text-[#B7B7B7] text-center">{t("onb.pay.hostedNotice")}</p>
 
         {error && (

@@ -177,6 +177,18 @@ export interface UploadedImage {
   url: string;
 }
 
+/** Server-signed ticket for a direct browser → Cloudinary video upload (POST /media/videos/ticket). */
+export interface VideoUploadTicket {
+  uploadUrl: string;
+  apiKey: string;
+  timestamp: string;
+  folder: string;
+  allowedFormats: string;
+  signature: string;
+  maxBytes: number;
+  maxSeconds: number;
+}
+
 export interface CreateProductInput {
   name: string;
   description?: string;
@@ -224,6 +236,8 @@ export type UpdateBusinessInput = Partial<CreateBusinessInput> & {
   logoAssetId?: string | null;
   coverAssetId?: string | null;
   panoramaAssetId?: string | null;
+  /** MediaAsset id from api.uploadShopVideo; null removes the video. */
+  videoAssetId?: string | null;
   /** http(s) URLs; null clears the link. */
   websiteUrl?: string | null;
   instagramUrl?: string | null;
@@ -411,6 +425,44 @@ export const api = {
     const body = new FormData();
     body.append("file", file);
     return apiClient.post<UploadedImage>("/media/images", body);
+  },
+
+  /**
+   * Uploads the shop video. The file goes straight from the browser to Cloudinary with a short-lived,
+   * server-signed ticket (so it never passes through the Vercel proxy); the backend then re-checks the
+   * stored file (format, size, duration, ownership) and returns the MediaAsset.
+   */
+  async uploadShopVideo(file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal): Promise<UploadedImage> {
+    const ticket = await apiClient.post<VideoUploadTicket>("/media/videos/ticket", {});
+    if (file.size > ticket.maxBytes) throw new Error("VIDEO_TOO_LARGE");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("api_key", ticket.apiKey);
+    form.append("timestamp", ticket.timestamp);
+    form.append("folder", ticket.folder);
+    form.append("allowed_formats", ticket.allowedFormats);
+    form.append("signature", ticket.signature);
+    const publicId = await new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", ticket.uploadUrl);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        try {
+          const body = JSON.parse(xhr.responseText) as { public_id?: string };
+          if (xhr.status >= 200 && xhr.status < 300 && body.public_id) resolve(body.public_id);
+          else reject(new Error("VIDEO_UPLOAD_FAILED"));
+        } catch {
+          reject(new Error("VIDEO_UPLOAD_FAILED"));
+        }
+      };
+      xhr.onerror = () => reject(new Error("VIDEO_UPLOAD_FAILED"));
+      xhr.onabort = () => reject(new Error("VIDEO_UPLOAD_ABORTED"));
+      signal?.addEventListener("abort", () => xhr.abort());
+      xhr.send(form);
+    });
+    return apiClient.post<UploadedImage>("/media/videos", { publicId });
   },
 
   // ---------------- PRODUCTS ----------------

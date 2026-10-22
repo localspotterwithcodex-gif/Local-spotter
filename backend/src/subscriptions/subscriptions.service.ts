@@ -74,7 +74,7 @@ export class SubscriptionsService {
         status: initialStatus,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-        provider: activateNow ? PaymentProvider.MANUAL : PaymentProvider.MOLLIE,
+        provider: activateNow ? PaymentProvider.MANUAL : PaymentProvider.STRIPE,
       },
       include: { plan: true },
     });

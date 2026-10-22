@@ -7,7 +7,7 @@ import { useLocale } from "@/i18n/LocaleContext";
 
 const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "").trim();
 
-/** Public data-deletion instructions (required by Facebook Login). Requests are handled by email, manually. */
+/** Public data-deletion instructions (linked from the sign-in pages). Requests are handled by email, manually. */
 export default function DataDeletionPage() {
   const { t } = useLocale();
   return (
@@ -29,10 +29,6 @@ export default function DataDeletionPage() {
           <section>
             <h2 className="text-sm font-bold text-[#121F3E] mb-1">{t("manage.deletion.step3.title")}</h2>
             <p className="text-xs leading-relaxed text-[#555555]">{t("manage.deletion.step3.body")}</p>
-          </section>
-          <section>
-            <h2 className="text-sm font-bold text-[#121F3E] mb-1">{t("manage.deletion.facebook.title")}</h2>
-            <p className="text-xs leading-relaxed text-[#555555]">{t("manage.deletion.facebook.body")}</p>
           </section>
         </div>
         {SUPPORT_EMAIL ? (

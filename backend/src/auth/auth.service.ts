@@ -264,7 +264,7 @@ export class AuthService {
   }
 
   /**
-   * Completes a login that a provider (Google/Facebook) already verified.
+   * Completes a login that a provider (Google) already verified.
    * - known provider account  -> log in
    * - known verified email    -> link provider to that account, log in
    * - otherwise               -> create account (role required, else 409 ROLE_REQUIRED)

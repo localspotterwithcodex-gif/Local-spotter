@@ -106,8 +106,7 @@ export const common = defineDict({
     "method.TIKKIE": "Tikkie",
     "method.CARD": "Card",
     "method.BANK_TRANSFER": "Bank transfer",
-    "method.MOLLIE": "Mollie",
-    "method.STRIPE": "Stripe",
+    "method.STRIPE": "Stripe (iDEAL)",
     "method.MANUAL": "Manual",
 
     "purpose.BUSINESS_SUBSCRIPTION": "Subscription",
@@ -218,8 +217,7 @@ export const common = defineDict({
     "method.TIKKIE": "Tikkie",
     "method.CARD": "Kaart",
     "method.BANK_TRANSFER": "Bankoverschrijving",
-    "method.MOLLIE": "Mollie",
-    "method.STRIPE": "Stripe",
+    "method.STRIPE": "Stripe (iDEAL)",
     "method.MANUAL": "Handmatig",
 
     "purpose.BUSINESS_SUBSCRIPTION": "Abonnement",

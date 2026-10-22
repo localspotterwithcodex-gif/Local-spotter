@@ -12,7 +12,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { PAYMENT_GATEWAY } from './payments/payment-gateway';
-import { MollieGateway } from './payments/mollie.gateway';
+import { StripeGateway } from './payments/stripe.gateway';
 import { UnconfiguredPaymentGateway } from './payments/payment-gateway';
 
 /**
@@ -22,8 +22,8 @@ import { UnconfiguredPaymentGateway } from './payments/payment-gateway';
 describe('AppModule dependency graph', () => {
   const prismaStub = { onModuleInit: jest.fn(), onModuleDestroy: jest.fn(), $connect: jest.fn(), $disconnect: jest.fn() };
 
-  it('resolves every provider and binds no payment provider without MOLLIE_API_KEY', async () => {
-    delete process.env.MOLLIE_API_KEY;
+  it('resolves every provider and binds no payment provider without STRIPE_SECRET_KEY', async () => {
+    delete process.env.STRIPE_SECRET_KEY;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prismaStub)
@@ -32,14 +32,14 @@ describe('AppModule dependency graph', () => {
     await moduleRef.close();
   });
 
-  it('binds the Mollie gateway when MOLLIE_API_KEY is set', async () => {
-    process.env.MOLLIE_API_KEY = 'test_abcdefghijklmnopqrstuvwxyz123456';
+  it('binds the Stripe gateway when STRIPE_SECRET_KEY is set', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_abcdefghijklmnopqrstuvwxyz123456';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prismaStub)
       .compile();
-    expect(moduleRef.get(PAYMENT_GATEWAY, { strict: false })).toBeInstanceOf(MollieGateway);
+    expect(moduleRef.get(PAYMENT_GATEWAY, { strict: false })).toBeInstanceOf(StripeGateway);
     await moduleRef.close();
-    delete process.env.MOLLIE_API_KEY;
+    delete process.env.STRIPE_SECRET_KEY;
   });
 });

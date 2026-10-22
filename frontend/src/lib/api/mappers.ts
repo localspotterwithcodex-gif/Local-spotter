@@ -73,6 +73,8 @@ export interface RawBusiness {
   coverAssetId?: string | null;
   panoramaAssetId?: string | null;
   panoramaAsset?: { url: string } | null;
+  videoAssetId?: string | null;
+  videoAsset?: { url: string } | null;
   logoAsset?: { url: string } | null;
   coverAsset?: { url: string } | null;
   state: string;
@@ -158,6 +160,8 @@ export function toBusiness(r: RawBusiness): Business {
     coverAssetId: r.coverAssetId ?? undefined,
     panoramaUrl: r.panoramaAsset?.url ?? undefined,
     panoramaAssetId: r.panoramaAssetId ?? undefined,
+    videoUrl: r.videoAsset?.url ?? undefined,
+    videoAssetId: r.videoAssetId ?? undefined,
     category: r.category?.name ?? "",
     shopType: r.category?.name ?? "",
     subscriptionTier: subscriptionActive ? (slug.toUpperCase() as Business["subscriptionTier"]) : undefined,

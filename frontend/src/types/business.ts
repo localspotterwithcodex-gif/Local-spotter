@@ -42,6 +42,9 @@ export interface Business {
   /** Equirectangular 360° photo of the shop (virtual store). */
   panoramaUrl?: string;
   panoramaAssetId?: string;
+  /** Optional shop video (one per shop), shown on the public shop page. */
+  videoUrl?: string;
+  videoAssetId?: string;
   category: string;
   shopType: string;
   /** Real value should come from GET /businesses/:id/subscription (backend/src/subscriptions) — see PROMPT.md items 5 & 6. */

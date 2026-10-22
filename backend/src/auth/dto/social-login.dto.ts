@@ -3,11 +3,11 @@ import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validato
 import { UserRole } from '@prisma/client';
 
 export class SocialLoginDto {
-  @ApiProperty({ enum: ['google', 'facebook'] })
-  @IsIn(['google', 'facebook'])
-  provider: 'google' | 'facebook';
+  @ApiProperty({ enum: ['google'] })
+  @IsIn(['google'])
+  provider: 'google';
 
-  @ApiProperty({ description: 'Google ID token or Facebook access token obtained in the browser' })
+  @ApiProperty({ description: 'Google ID token obtained in the browser' })
   @IsString()
   @MinLength(10)
   @MaxLength(4096)

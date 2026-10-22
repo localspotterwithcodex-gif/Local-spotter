@@ -55,8 +55,8 @@ interface AuthContextType {
   pendingVerification: PendingVerification | null;
   /** Logs in with an email, mobile number, or username (admins use username). */
   login: (identifier: string, password: string) => Promise<User>;
-  /** Signs in / up with a Google ID token or Facebook access token. `role` is only needed for a brand-new account. */
-  socialLogin: (provider: "google" | "facebook", token: string, role?: UserRole) => Promise<User>;
+  /** Signs in / up with a Google ID token. `role` is only needed for a brand-new account. */
+  socialLogin: (provider: "google", token: string, role?: UserRole) => Promise<User>;
   register: (payload: RegisterPayload) => Promise<void>;
   /** Starts a password-less guest session for checkout (after the visitor accepted the terms). */
   startGuest: (payload: { name: string; email: string; phone?: string; acceptTerms: boolean }) => Promise<User>;
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return mapped;
   }, []);
 
-  const socialLogin = useCallback(async (provider: "google" | "facebook", token: string, role?: UserRole) => {
+  const socialLogin = useCallback(async (provider: "google", token: string, role?: UserRole) => {
     const res = await apiClient.post<{ user: BackendUser }>("/auth/social", { provider, token, role });
     const mapped = mapBackendUser(res.user);
     setUser(mapped);

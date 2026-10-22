@@ -9,7 +9,7 @@ import { useLocale } from "@/i18n/LocaleContext";
 // Public build-time setting; shown on the page when configured.
 const SUPPORT_EMAIL = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "").trim();
 
-/** Public privacy policy (needed for Facebook/Google login). Draft text: have it legally reviewed before launch. */
+/** Public privacy policy (needed for Google login). Draft text: have it legally reviewed before launch. */
 export default function PrivacyPolicyPage() {
   const { t } = useLocale();
   return (

@@ -65,6 +65,18 @@ export default function OwnerProductsPage() {
           <ul className="space-y-3">
             {products.map((p) => (
               <li key={p.id} className="flex items-center gap-3 rounded-2xl border border-[#EAEAEA] bg-white p-3">
+                <div className="flex shrink-0 gap-1" aria-label={p.images.length === 0 ? t("ownerx.products.noPhotos") : undefined}>
+                  {p.images.length === 0 ? (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-[#EAEAEA] text-[9px] text-[#B7B7B7]">
+                      {t("ownerx.products.noPhotos")}
+                    </span>
+                  ) : (
+                    p.images.slice(0, 3).map((src, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={`${src}-${i}`} src={src} alt={t("ownerx.products.thumbAlt", { name: p.name, n: i + 1 })} loading="lazy" className="h-10 w-10 rounded-lg border border-[#EAEAEA] object-cover" />
+                    ))
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-[#111111]">{p.name}</p>
                   <p className="text-xs text-[#B7B7B7]">

@@ -6,7 +6,7 @@ import { PaymentsWebhookController } from './payments-webhook.controller';
 import { PaymentsJobsController } from './payments-jobs.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { PAYMENT_GATEWAY, UnconfiguredPaymentGateway } from './payment-gateway';
-import { MollieGateway } from './mollie.gateway';
+import { StripeGateway } from './stripe.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CronSecretGuard } from '../common/guards/cron-secret.guard';
 
@@ -17,12 +17,12 @@ import { CronSecretGuard } from '../common/guards/cron-secret.guard';
     PaymentsService,
     PrismaService,
     CronSecretGuard,
-    MollieGateway,
+    StripeGateway,
     {
       provide: PAYMENT_GATEWAY,
-      inject: [ConfigService, MollieGateway],
-      useFactory: (config: ConfigService, mollie: MollieGateway) =>
-        config.get<string>('MOLLIE_API_KEY')?.trim() ? mollie : new UnconfiguredPaymentGateway(),
+      inject: [ConfigService, StripeGateway],
+      useFactory: (config: ConfigService, stripe: StripeGateway) =>
+        config.get<string>('STRIPE_SECRET_KEY')?.trim() ? stripe : new UnconfiguredPaymentGateway(),
     },
   ],
   exports: [PaymentsService, PAYMENT_GATEWAY],

@@ -5,7 +5,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // the Stripe webhook signature is computed over the exact raw request body
+  });
   app.disable('x-powered-by');
   // Behind a reverse proxy / the Next.js rewrite, trust X-Forwarded-For so
   // rate limiting sees the real client IP (set TRUST_PROXY=1 in that case).
