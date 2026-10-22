@@ -2,6 +2,7 @@ import { TranslationService } from './translation.service';
 import { TranslationProvider } from './translation.provider';
 import { localizeDeep } from './localize.interceptor';
 import { resolveLocale } from './locale';
+import { Prisma } from '@prisma/client';
 
 function provider(overrides: Partial<TranslationProvider> = {}): TranslationProvider {
   return { isConfigured: () => true, translate: jest.fn(), ...overrides } as TranslationProvider;
@@ -58,6 +59,13 @@ describe('localizeDeep', () => {
     expect(out.items[0].name).toBe('Leather bag');
     expect(out.items[0].description).toBe('Mooi'); // no translation stored → original kept
     expect(out.items[0].translations).toBeDefined(); // kept for owner edit forms
+  });
+
+  it('keeps class instances such as Prisma Decimals intact so prices still serialise as numbers', () => {
+    const price = new Prisma.Decimal('12.50');
+    const out = localizeDeep({ monthlyPrice: price, plans: [{ price }] }, 'en') as any;
+    expect(out.monthlyPrice).toBe(price);
+    expect(JSON.parse(JSON.stringify(out))).toEqual({ monthlyPrice: '12.5', plans: [{ price: '12.5' }] });
   });
 
   it('leaves objects without translations, dates and primitives untouched', () => {

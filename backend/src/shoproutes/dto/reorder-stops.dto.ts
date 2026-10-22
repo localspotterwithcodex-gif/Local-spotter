@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsInt, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsString, Min, ValidateNested } from 'class-validator';
 import { Type as ClassType } from 'class-transformer';
 
 export class ReorderStopsDto {
@@ -12,6 +12,8 @@ export class ReorderStopsDto {
 
 export class ReorderStopItem {
   @ApiProperty({ example: 'uuid-stop-id', description: 'Stop ID' })
+  @IsString()
+  @IsNotEmpty()
   id: string;
 
   @ApiProperty({ example: 1, description: 'New sequence order' })

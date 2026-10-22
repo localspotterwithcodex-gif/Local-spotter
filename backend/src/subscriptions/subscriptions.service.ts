@@ -45,11 +45,14 @@ export class SubscriptionsService {
     // paid period). The one exception is local development without a payment provider
     // configured, so the app can still be worked on end to end; production never skips payment.
     const devActivation = process.env.NODE_ENV !== 'production' && !this.gateway.isConfigured();
-    if (devActivation) {
+    // A plan that costs nothing has nothing to pay: it is active right away, in every environment.
+    const freePlan = Number(plan.monthlyPrice) <= 0;
+    const activateNow = devActivation || freePlan;
+    if (devActivation && !freePlan) {
       this.logger.warn('No payment provider configured: activating the subscription without payment (development only)');
     }
     const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    const initialStatus = devActivation ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INCOMPLETE;
+    const initialStatus = activateNow ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INCOMPLETE;
 
     if (existingSub) {
       return this.prisma.businessSubscription.update({
@@ -71,7 +74,7 @@ export class SubscriptionsService {
         status: initialStatus,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-        provider: devActivation ? PaymentProvider.MANUAL : PaymentProvider.MOLLIE,
+        provider: activateNow ? PaymentProvider.MANUAL : PaymentProvider.MOLLIE,
       },
       include: { plan: true },
     });

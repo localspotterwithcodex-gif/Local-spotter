@@ -3,11 +3,11 @@ import { SubscriptionsService } from './subscriptions.service';
 
 const owner = { id: 'owner-1', role: UserRole.BUSINESS_OWNER };
 
-function make(opts: { configured: boolean; existing?: Record<string, unknown> | null }) {
+function make(opts: { configured: boolean; existing?: Record<string, unknown> | null; price?: number }) {
   const prisma = {
     business: { findUnique: jest.fn().mockResolvedValue({ id: 'b1', ownerProfileId: 'op-1', deletedAt: null }) },
     businessOwnerProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'op-1' }) },
-    subscriptionPlan: { findUnique: jest.fn().mockResolvedValue({ id: 'plan-2', slug: 'WEBSHOP', active: true }) },
+    subscriptionPlan: { findUnique: jest.fn().mockResolvedValue({ id: 'plan-2', slug: 'WEBSHOP', active: true, monthlyPrice: opts.price ?? 9.99 }) },
     businessSubscription: {
       findUnique: jest.fn().mockResolvedValue(opts.existing ?? null),
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
@@ -29,6 +29,13 @@ describe('SubscriptionsService.selectPlan', () => {
     const { service, prisma } = make({ configured: true });
     await service.selectPlan('b1', owner, { planSlug: 'WEBSHOP' } as never);
     expect(prisma.businessSubscription.create.mock.calls[0][0].data).toMatchObject({ status: SubscriptionStatus.INCOMPLETE, provider: 'MOLLIE' });
+  });
+
+  it('activates a free (EUR 0) plan immediately, also in production and without a provider', async () => {
+    process.env.NODE_ENV = 'production';
+    const { service, prisma } = make({ configured: false, price: 0 });
+    await service.selectPlan('b1', owner, { planSlug: 'WEBSHOP' } as never);
+    expect(prisma.businessSubscription.create.mock.calls[0][0].data).toMatchObject({ status: SubscriptionStatus.ACTIVE, provider: 'MANUAL' });
   });
 
   it('never activates without payment in production, even without a provider', async () => {

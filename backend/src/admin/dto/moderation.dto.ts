@@ -4,6 +4,7 @@ import { ReviewStatus, RouteStatus } from '@prisma/client';
 
 export class ModerateProductDto {
   @ApiProperty({ example: false })
+  @IsBoolean({ message: 'active moet true of false zijn' })
   active: boolean;
 }
 
