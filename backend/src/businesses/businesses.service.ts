@@ -8,6 +8,7 @@ import { Prisma, BusinessStatus, SubscriptionStatus, UserRole, ReviewStatus } fr
 import { boundingBox, haversineKm, hasGeo, toNum } from '../common/geo';
 import { QueryBusinessDto } from './dto/query-business.dto';
 import { TranslationService } from '../translation/translation.service';
+import { normalizeSocialLinks } from './social-links';
 
 @Injectable()
 export class BusinessesService {
@@ -262,6 +263,8 @@ export class BusinessesService {
       }
     }
 
+    const socialLinks = dto.socialLinks ? normalizeSocialLinks(dto.socialLinks) : undefined;
+
     return this.prisma.business.update({
       where: { id },
       data: {
@@ -279,6 +282,15 @@ export class BusinessesService {
         instagramUrl: dto.instagramUrl !== undefined ? dto.instagramUrl || null : undefined,
         facebookUrl: dto.facebookUrl !== undefined ? dto.facebookUrl || null : undefined,
         tiktokUrl: dto.tiktokUrl !== undefined ? dto.tiktokUrl || null : undefined,
+        ...(socialLinks
+          ? {
+              socialLinks: socialLinks as unknown as Prisma.InputJsonValue,
+              // Legacy single-link columns stay in sync for older clients.
+              instagramUrl: socialLinks.find((l) => l.platform === 'instagram')?.url ?? null,
+              facebookUrl: socialLinks.find((l) => l.platform === 'facebook')?.url ?? null,
+              tiktokUrl: socialLinks.find((l) => l.platform === 'tiktok')?.url ?? null,
+            }
+          : {}),
         kvkNumber: dto.kvkNumber !== undefined ? dto.kvkNumber : undefined,
         categoryId: dto.categoryId !== undefined ? dto.categoryId : undefined,
         state: dto.state !== undefined ? dto.state : undefined,

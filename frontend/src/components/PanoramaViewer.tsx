@@ -38,7 +38,7 @@ function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLSha
  * Drag-to-look 360° viewer for an equirectangular (2:1) photo. Plain WebGL, no library.
  * Mouse/touch drag, wheel and pinch zoom, arrow keys. Falls back to a message when WebGL or the image is unavailable.
  */
-export function PanoramaViewer({ src, alt }: { src: string; alt: string }) {
+export function PanoramaViewer({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const { t } = useLocale();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -217,7 +217,7 @@ export function PanoramaViewer({ src, alt }: { src: string; alt: string }) {
   }, []);
 
   return (
-    <div ref={wrapRef} className="relative w-full aspect-[16/10] md:aspect-[2/1] bg-[#111111] rounded-2xl overflow-hidden">
+    <div ref={wrapRef} className={`relative w-full ${className ?? "aspect-[16/10] md:aspect-[2/1]"} bg-[#111111] rounded-2xl overflow-hidden`}>
       <canvas
         ref={canvasRef}
         role="img"

@@ -3,6 +3,7 @@
  * Prisma serialises Decimal as a string and DateTime as an ISO string, so all
  * money/coordinates are converted here once instead of inside pages.
  */
+import { readSocialLinks } from "@/lib/social-links";
 import type { Product, ProductVariant } from "@/types/product";
 import type { Business, BusinessHours } from "@/types/business";
 import type { Workshop, WorkshopBooking, WorkshopSession } from "@/types/workshop";
@@ -61,6 +62,7 @@ export interface RawBusiness {
   instagramUrl?: string | null;
   facebookUrl?: string | null;
   tiktokUrl?: string | null;
+  socialLinks?: unknown;
   pickupEnabled?: boolean;
   shippingEnabled?: boolean;
   localDeliveryEnabled?: boolean;
@@ -173,6 +175,7 @@ export function toBusiness(r: RawBusiness): Business {
     instagramUrl: r.instagramUrl ?? undefined,
     facebookUrl: r.facebookUrl ?? undefined,
     tiktokUrl: r.tiktokUrl ?? undefined,
+    socialLinks: readSocialLinks(r.socialLinks, { instagram: r.instagramUrl, facebook: r.facebookUrl, tiktok: r.tiktokUrl }),
     fulfilment:
       r.pickupEnabled === undefined
         ? undefined

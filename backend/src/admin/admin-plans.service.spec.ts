@@ -37,4 +37,43 @@ describe('AdminPlansService', () => {
     missing.prisma.subscriptionPlan.findUnique.mockResolvedValue(null);
     await expect(missing.svc.setCommission('p1', 100, 'a')).rejects.toThrow(NotFoundException);
   });
+
+  describe('update', () => {
+    const existing = { id: 'p1', slug: 'WEBSHOP', name: 'Webshop', description: 'Old', monthlyPrice: { toString: () => '12.00' }, commissionBps: null, active: true };
+    const makeEdit = () => {
+      const m = make();
+      m.prisma.subscriptionPlan.findUnique.mockResolvedValue(existing);
+      m.prisma.subscriptionPlan.update.mockImplementation(async ({ data }: any) => ({ ...existing, ...data, monthlyPrice: { toString: () => String(data.monthlyPrice ?? 12) } }));
+      return m;
+    };
+
+    it('saves the edited fields, trims text, and audits before/after', async () => {
+      const { svc, prisma } = makeEdit();
+      const out = await svc.update('p1', { name: '  Webshop Plus ', description: ' New text ', monthlyPrice: 14.5, active: false }, 'admin-1');
+      expect(prisma.subscriptionPlan.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { name: 'Webshop Plus', description: 'New text', monthlyPrice: 14.5, active: false } });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: 'ADMIN_UPDATE_PLAN', targetId: 'p1', metadata: expect.objectContaining({ from: expect.objectContaining({ name: 'Webshop', monthlyPrice: 12 }) }) }),
+      });
+      expect(out).toMatchObject({ slug: 'WEBSHOP', name: 'Webshop Plus', monthlyPrice: 14.5, active: false });
+    });
+
+    it('allows a free plan (price 0) but never changes the slug', async () => {
+      const { svc, prisma } = makeEdit();
+      await svc.update('p1', { monthlyPrice: 0 }, 'a');
+      expect(prisma.subscriptionPlan.update.mock.calls[0][0].data).toEqual({ monthlyPrice: 0 });
+    });
+
+    it('rejects blank names, negative or absurd prices, empty edits and unknown plans', async () => {
+      const { svc, prisma } = makeEdit();
+      await expect(svc.update('p1', { name: '   ' }, 'a')).rejects.toThrow(BadRequestException);
+      await expect(svc.update('p1', { monthlyPrice: -1 }, 'a')).rejects.toThrow(BadRequestException);
+      await expect(svc.update('p1', { monthlyPrice: 10001 }, 'a')).rejects.toThrow(BadRequestException);
+      await expect(svc.update('p1', { monthlyPrice: NaN }, 'a')).rejects.toThrow(BadRequestException);
+      await expect(svc.update('p1', {}, 'a')).rejects.toThrow(BadRequestException);
+      expect(prisma.subscriptionPlan.update).not.toHaveBeenCalled();
+      const missing = make();
+      missing.prisma.subscriptionPlan.findUnique.mockResolvedValue(null);
+      await expect(missing.svc.update('p1', { name: 'x' }, 'a')).rejects.toThrow(NotFoundException);
+    });
+  });
 });

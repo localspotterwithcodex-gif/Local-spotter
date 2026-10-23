@@ -8,7 +8,8 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { adminApi } from "@/lib/api/admin";
+import { adminApi, type ReviewStatus } from "@/lib/api/admin";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -17,9 +18,10 @@ const PAGE_SIZE = 20;
 
 export default function AdminReviewsPage() {
   const { t, label } = useLocale();
+  const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, error, loading, reload } = useApiResource(`admin-reviews-${offset}`, () =>
-    adminApi.getReviews({ limit: PAGE_SIZE, offset })
+  const { data, error, loading, reload } = useApiResource(`admin-reviews-${status}-${offset}`, () =>
+    adminApi.getReviews({ status: (status || undefined) as ReviewStatus | undefined, limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const reviews = data?.items ?? [];
@@ -31,6 +33,11 @@ export default function AdminReviewsPage() {
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.reviewModeration")}</h1>
           <p className="text-xs text-[#B7B7B7]">{t("adminx.reviews.subtitle")}</p>
         </div>
+
+        <AdminFilters
+          selects={[{ key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: (["PENDING", "PUBLISHED", "HIDDEN", "REJECTED"] as const).map((v) => ({ value: v, label: label("status", v) })) }]}
+          onReset={() => { setStatus(""); setOffset(0); }}
+        />
 
         <ActionError message={action.error} />
 

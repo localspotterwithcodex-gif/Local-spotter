@@ -1,18 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Search } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
-import { Input } from "@/components/ui/Input";
+import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { adminApi } from "@/lib/api/admin";
+import { adminApi, type UserRole, type UserStatus } from "@/lib/api/admin";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -24,6 +24,8 @@ export default function AdminUsersPage() {
   const f = useFormat();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
 
   useEffect(() => {
@@ -34,8 +36,8 @@ export default function AdminUsersPage() {
     return () => clearTimeout(id);
   }, [search]);
 
-  const { data, error, loading, reload } = useApiResource(`admin-users-${query}-${offset}`, () =>
-    adminApi.getUsers({ search: query, limit: PAGE_SIZE, offset })
+  const { data, error, loading, reload } = useApiResource(`admin-users-${query}-${role}-${status}-${offset}`, () =>
+    adminApi.getUsers({ search: query, role: (role || undefined) as UserRole | undefined, status: (status || undefined) as UserStatus | undefined, limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const users = data?.items ?? [];
@@ -49,15 +51,16 @@ export default function AdminUsersPage() {
             <p className="text-xs text-[#B7B7B7]">{t("adminx.users.subtitle")}</p>
           </div>
 
-          <div className="w-full sm:w-64">
-            <Input
-              placeholder={t("adminx.users.searchPlaceholder")}
-              icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
         </div>
+
+        <AdminFilters
+          search={{ value: search, onChange: setSearch, placeholder: t("adminx.users.searchPlaceholder") }}
+          selects={[
+            { key: "role", label: t("adminx.filters.role"), value: role, onChange: (v) => { setRole(v); setOffset(0); }, options: (["CONSUMER", "BUSINESS_OWNER", "SUPER_ADMIN"] as const).map((v) => ({ value: v, label: label("role", v) })) },
+            { key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: (["ACTIVE", "PENDING_VERIFICATION", "SUSPENDED"] as const).map((v) => ({ value: v, label: label("status", v) })) },
+          ]}
+          onReset={() => { setSearch(""); setQuery(""); setRole(""); setStatus(""); setOffset(0); }}
+        />
 
         <ActionError message={action.error} />
 
@@ -84,7 +87,12 @@ export default function AdminUsersPage() {
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4 font-bold text-[#111111]">{u.displayName}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar src={u.avatarUrl} name={u.displayName} />
+                          <span className="font-bold text-[#111111]">{u.displayName}</span>
+                        </div>
+                      </td>
                       <td className="p-4 text-[#555555]">{u.email}</td>
                       <td className="p-4">
                         <Badge variant={u.role === "SUPER_ADMIN" ? "pink" : u.role === "BUSINESS_OWNER" ? "completed" : "default"}>

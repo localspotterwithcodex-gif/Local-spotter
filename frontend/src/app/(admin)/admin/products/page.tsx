@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Trash2, Eye } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
@@ -11,6 +11,7 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { adminApi } from "@/lib/api/admin";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -20,9 +21,21 @@ const PAGE_SIZE = 20;
 export default function AdminProductsPage() {
   const { t } = useLocale();
   const f = useFormat();
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, error, loading, reload } = useApiResource(`admin-products-${offset}`, () =>
-    adminApi.getProducts({ limit: PAGE_SIZE, offset })
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const { data, error, loading, reload } = useApiResource(`admin-products-${query}-${active}-${offset}`, () =>
+    adminApi.getProducts({ search: query, active: active === "" ? undefined : active === "true", limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const products = data?.items ?? [];
@@ -34,6 +47,12 @@ export default function AdminProductsPage() {
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.productModeration")}</h1>
           <p className="text-xs text-[#B7B7B7]">{t("adminx.products.subtitle")}</p>
         </div>
+
+        <AdminFilters
+          search={{ value: search, onChange: setSearch, placeholder: t("adminx.products.searchPlaceholder") }}
+          selects={[{ key: "active", label: t("common.status"), value: active, onChange: (v) => { setActive(v); setOffset(0); }, options: [{ value: "true", label: t("adminx.filters.visible") }, { value: "false", label: t("adminx.filters.hidden") }] }]}
+          onReset={() => { setSearch(""); setQuery(""); setActive(""); setOffset(0); }}
+        />
 
         <ActionError message={action.error} />
 

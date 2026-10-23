@@ -105,44 +105,50 @@ describe('AdminService', () => {
   });
 
   describe('getUsers', () => {
-    it('should return paginated users', async () => {
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'user-a', email: 'a@example.com', role: UserRole.CONSUMER, status: UserStatus.ACTIVE, createdAt: new Date(), updatedAt: new Date(), deletedAt: null },
-      ]);
+    const baseUser = { id: 'user-a', email: 'a@example.com', role: UserRole.CONSUMER, status: UserStatus.ACTIVE, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, consumerProfile: null, businessOwnerProfile: null };
+
+    it('returns paginated users with their display name and profile picture', async () => {
+      prisma.user.findMany.mockResolvedValue([{ ...baseUser, consumerProfile: { displayName: 'Alice', profileImageAsset: { url: 'https://img/a.webp' } } }]);
       prisma.user.count.mockResolvedValue(1);
-      prisma.consumerProfile.findUnique.mockResolvedValue({ displayName: 'Alice' });
-      prisma.businessOwnerProfile.findUnique.mockResolvedValue(null);
 
       const result = await service.getUsers({ limit: '10', offset: '0' });
 
-      expect(result.data.users.length).toBe(1);
+      expect(result.data.users).toHaveLength(1);
+      expect(result.data.users[0]).toMatchObject({ displayName: 'Alice', avatarUrl: 'https://img/a.webp' });
       expect(result.data.meta.total).toBe(1);
+      // one query for the page, no per-user lookups
+      expect(prisma.consumerProfile.findUnique).not.toHaveBeenCalled();
     });
 
-    it('should filter by role', async () => {
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'user-a', email: 'a@example.com', role: UserRole.BUSINESS_OWNER, status: UserStatus.ACTIVE, createdAt: new Date(), updatedAt: new Date(), deletedAt: null },
-      ]);
+    it('falls back to the owner profile and to no avatar', async () => {
+      prisma.user.findMany.mockResolvedValue([{ ...baseUser, role: UserRole.BUSINESS_OWNER, businessOwnerProfile: { displayName: 'Bob', profileImageAsset: null } }]);
       prisma.user.count.mockResolvedValue(1);
-      prisma.consumerProfile.findUnique.mockResolvedValue(null);
-      prisma.businessOwnerProfile.findUnique.mockResolvedValue({ displayName: 'Bob' });
 
       const result = await service.getUsers({ role: UserRole.BUSINESS_OWNER });
 
-      expect(result.data.users[0].role).toBe(UserRole.BUSINESS_OWNER);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { role: UserRole.BUSINESS_OWNER } }));
+      expect(result.data.users[0]).toMatchObject({ role: UserRole.BUSINESS_OWNER, displayName: 'Bob', avatarUrl: null });
     });
 
-    it('should filter by status', async () => {
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'user-a', email: 'a@example.com', role: UserRole.CONSUMER, status: UserStatus.SUSPENDED, createdAt: new Date(), updatedAt: new Date(), deletedAt: null },
-      ]);
+    it('filters by status', async () => {
+      prisma.user.findMany.mockResolvedValue([{ ...baseUser, status: UserStatus.SUSPENDED }]);
       prisma.user.count.mockResolvedValue(1);
-      prisma.consumerProfile.findUnique.mockResolvedValue(null);
-      prisma.businessOwnerProfile.findUnique.mockResolvedValue(null);
 
       const result = await service.getUsers({ status: UserStatus.SUSPENDED });
 
+      expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: UserStatus.SUSPENDED } }));
       expect(result.data.users[0].status).toBe(UserStatus.SUSPENDED);
+    });
+
+    it('searches e-mail and both profile names, ignoring blank input', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.count.mockResolvedValue(0);
+      await service.getUsers({ search: '  priya ' });
+      const where = prisma.user.findMany.mock.calls.at(-1)[0].where;
+      expect(where.OR).toHaveLength(3);
+      expect(JSON.stringify(where.OR)).toContain('priya');
+      await service.getUsers({ search: '   ' });
+      expect(prisma.user.findMany.mock.calls.at(-1)[0].where).toEqual({});
     });
   });
 
@@ -268,6 +274,17 @@ describe('AdminService', () => {
       const result = await service.getBusinesses({ search: 'coffee' });
 
       expect(result.data.businesses[0].name).toBe('Coffee Shop');
+    });
+
+    it('filters by plan (only known plan slugs) and includes the shop logo', async () => {
+      prisma.business.findMany.mockResolvedValue([]);
+      prisma.business.count.mockResolvedValue(0);
+      await service.getBusinesses({ plan: 'workshop' });
+      const call = prisma.business.findMany.mock.calls.at(-1)[0];
+      expect(call.where.subscription).toEqual({ is: { plan: { slug: 'WORKSHOP' } } });
+      expect(call.include.logoAsset).toEqual({ select: { url: true } });
+      await service.getBusinesses({ plan: 'nonsense' });
+      expect(prisma.business.findMany.mock.calls.at(-1)[0].where.subscription).toBeUndefined();
     });
   });
 

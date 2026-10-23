@@ -12,6 +12,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { TranslationService } from '../translation/translation.service';
+import { AdminAnalyticsService } from './admin-analytics.service';
+import { AdminAnalyticsQueryDto } from './dto/admin-analytics-query.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -22,6 +24,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly translation: TranslationService,
+    private readonly analytics: AdminAnalyticsService,
   ) {}
 
   @Get('translation/status')
@@ -35,6 +38,12 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Platform dashboard metrics.' })
   async getDashboard(@Query() query: { startDate?: string; endDate?: string }) {
     return this.adminService.getDashboard(query);
+  }
+
+  @Get('analytics')
+  @ApiOperation({ summary: 'Platform analytics: KPIs, revenue/orders trend, revenue by category, shop growth, users, top shops' })
+  async getAnalytics(@Query() query: AdminAnalyticsQueryDto) {
+    return { data: await this.analytics.getAnalytics(query) };
   }
 
   @Get('users')
@@ -84,7 +93,7 @@ export class AdminController {
   @Get('businesses')
   @ApiOperation({ summary: 'List all businesses with pagination and filtering' })
   @ApiResponse({ status: 200, description: 'Paginated list of businesses.' })
-  async getBusinesses(@Query() query: { search?: string; status?: string; categoryId?: string; limit?: string; offset?: string }) {
+  async getBusinesses(@Query() query: { search?: string; status?: string; categoryId?: string; plan?: string; limit?: string; offset?: string }) {
     return this.adminService.getBusinesses(query);
   }
 

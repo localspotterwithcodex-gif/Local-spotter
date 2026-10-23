@@ -4,7 +4,7 @@ import { PanoramaViewer } from "@/components/PanoramaViewer";
 import React, { useState, use } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Star, Heart, MapPin, Phone, FileText, ShoppingBag, Calendar, Lock, Check, MessageCircle } from "lucide-react";
+import { Star, Heart, MapPin, Phone, FileText, ShoppingBag, Calendar, Lock, Check, MessageCircle, Globe, Store, Video, Orbit, Navigation } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
@@ -17,6 +17,13 @@ import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { googleDirectionsUrl, googleMapsUrl, hasCoords, osmEmbedUrl } from "@/lib/geocode";
+import { SOCIAL_LABEL } from "@/lib/social-links";
+
+/** "https://www.example.com/path/" → "example.com/path" for compact display. */
+function displayUrl(url: string): string {
+  return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
+}
 
 export default function BusinessDetailPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
@@ -122,7 +129,8 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
 
   return (
     <ConsumerLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
         {/* Hero & Profile Header */}
         <div className="bg-white rounded-3xl overflow-hidden border border-[#EAEAEA] shadow-2xs">
           {/* Cover Image */}
@@ -215,68 +223,85 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
               </div>
             </div>
 
-            {business.panoramaUrl && (
-              <section className="my-4 space-y-2" aria-label={t("panorama.title")}>
-                <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("panorama.title")}</h2>
-                <PanoramaViewer src={business.panoramaUrl} alt={t("panorama.alt", { name: business.name })} />
-              </section>
-            )}
-            {business.videoUrl && (
-              <section className="my-4 space-y-2" aria-label={t("manage.video.publicTitle")}>
-                <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("manage.video.publicTitle")}</h2>
-                <video
-                  src={business.videoUrl}
-                  controls
-                  preload="metadata"
-                  playsInline
-                  className="w-full rounded-xl border border-[#EEEEEE] bg-black aspect-video"
-                  aria-label={t("manage.video.publicAlt", { name: business.name })}
-                />
-              </section>
-            )}
-
-            {/* Description & Contact Meta */}
-            <div className="space-y-3 text-xs text-[#555555]">
-              <p className="text-sm leading-relaxed">{business.description}</p>
-              <div className="flex flex-wrap gap-4 pt-2 border-t border-[#F9F9F9] text-xs text-[#111111] font-medium">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-[#54D1CA]" />
-                  {business.location.street} {business.location.houseNumber}, {business.location.city}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-4 h-4 text-[#B7B7B7]" />
-                  {business.phone}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-[#B7B7B7]" />
-                  {t("shops.detail.kvk", { n: business.kvkNumber })}
-                </span>
-              </div>
-              {[
-                [business.websiteUrl, t("ownerx.settings.website")],
-                [business.instagramUrl, "Instagram"],
-                [business.facebookUrl, "Facebook"],
-                [business.tiktokUrl, "TikTok"],
-              ].some(([u]) => !!u) && (
-                <div className="flex flex-wrap gap-3 pt-2 text-xs font-bold">
-                  {([
-                    [business.websiteUrl, t("ownerx.settings.website")],
-                    [business.instagramUrl, "Instagram"],
-                    [business.facebookUrl, "Facebook"],
-                    [business.tiktokUrl, "TikTok"],
-                  ] as [string | undefined, string][])
-                    .filter(([u]) => !!u)
-                    .map(([u, label]) => (
-                      <a key={label} href={u} target="_blank" rel="noopener noreferrer nofollow" className="text-[#FA1EFF] hover:underline">
-                        {label}
-                      </a>
-                    ))}
-                </div>
-              )}
-            </div>
+            {business.description && <p className="text-sm leading-relaxed text-[#555555]">{business.description}</p>}
           </div>
         </div>
+      </div>
 
+      {/* Right sidebar: 360° view, shop video and shop details */}
+      <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:sticky lg:top-24" aria-label={t("manage.shop.details")}>
+        {business.panoramaUrl && (
+          <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("panorama.title")}>
+            <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Orbit className="h-4 w-4" aria-hidden="true" /></span>
+              {t("panorama.title")}
+            </h2>
+            <PanoramaViewer src={business.panoramaUrl} alt={t("panorama.alt", { name: business.name })} className="aspect-[16/10]" />
+          </section>
+        )}
+
+        {business.videoUrl && (
+          <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("manage.video.publicTitle")}>
+            <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Video className="h-4 w-4" aria-hidden="true" /></span>
+              {t("manage.video.publicTitle")}
+            </h2>
+            <video
+              src={business.videoUrl}
+              controls
+              preload="metadata"
+              playsInline
+              className="w-full rounded-xl border border-[#EEEEEE] bg-black aspect-video"
+              aria-label={t("manage.video.publicAlt", { name: business.name })}
+            />
+          </section>
+        )}
+
+        <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("manage.shop.details")}>
+          <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Store className="h-4 w-4" aria-hidden="true" /></span>
+            {t("manage.shop.details")}
+          </h2>
+          <dl className="divide-y divide-[#F2F2F2] text-xs">
+            <div className="flex items-start justify-between gap-3 py-2.5">
+              <dt className="flex items-center gap-2 text-[#6B6B6B] shrink-0"><MapPin className="h-4 w-4" aria-hidden="true" /> {t("manage.shop.address")}</dt>
+              <dd className="text-right font-medium text-[#111111] break-words min-w-0">
+                {business.location.street} {business.location.houseNumber}, {business.location.city}
+              </dd>
+            </div>
+            {business.phone && (
+              <div className="flex items-start justify-between gap-3 py-2.5">
+                <dt className="flex items-center gap-2 text-[#6B6B6B] shrink-0"><Phone className="h-4 w-4" aria-hidden="true" /> {t("ownerx.settings.phone")}</dt>
+                <dd className="text-right font-medium text-[#111111]">{business.phone}</dd>
+              </div>
+            )}
+            {business.kvkNumber && (
+              <div className="flex items-start justify-between gap-3 py-2.5">
+                <dt className="flex items-center gap-2 text-[#6B6B6B] shrink-0"><FileText className="h-4 w-4" aria-hidden="true" /> {t("ownerx.settings.kvk")}</dt>
+                <dd className="text-right font-medium text-[#111111]">{business.kvkNumber}</dd>
+              </div>
+            )}
+            {business.websiteUrl && (
+              <div className="flex items-start justify-between gap-3 py-2.5">
+                <dt className="flex items-center gap-2 text-[#6B6B6B] shrink-0"><Globe className="h-4 w-4" aria-hidden="true" /> {t("ownerx.settings.website")}</dt>
+                <dd className="text-right font-bold text-[#FA1EFF] min-w-0 truncate">
+                  <a href={business.websiteUrl} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline">{displayUrl(business.websiteUrl)}</a>
+                </dd>
+              </div>
+            )}
+            {(business.socialLinks ?? []).map((l) => (
+              <div key={l.platform} className="flex items-start justify-between gap-3 py-2.5">
+                <dt className="text-[#6B6B6B] shrink-0">{SOCIAL_LABEL[l.platform]}</dt>
+                <dd className="text-right font-bold text-[#FA1EFF] min-w-0 truncate">
+                  <a href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline">{displayUrl(l.url)}</a>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </aside>
+
+      <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-2">
         {/* Tab Navigation */}
         <div className="flex items-center border-b border-[#EAEAEA] gap-2 overflow-x-auto">
           <button
@@ -387,15 +412,40 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
               </div>
             ) : (
               <div className="bg-white rounded-2xl p-4 border border-[#EAEAEA] space-y-4">
-                <div className="h-64 w-full bg-[#54D1CA]/10 rounded-xl flex flex-col items-center justify-center relative overflow-hidden border border-[#54D1CA]/30">
-                  <div className="w-10 h-10 rounded-full bg-[#54D1CA] text-white flex items-center justify-center shadow-md mb-2 animate-bounce">
-                    <MapPin className="w-6 h-6" />
+                {hasCoords(business.location.lat, business.location.lng) ? (
+                  <>
+                    <iframe
+                      title={t("shops.detail.mapHere")}
+                      src={osmEmbedUrl(business.location.lat, business.location.lng)}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="h-72 w-full rounded-xl border border-[#EAEAEA]"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="flex items-center gap-1.5 text-xs text-[#555555]">
+                        <MapPin className="w-4 h-4 text-[#54D1CA]" aria-hidden="true" />
+                        {business.location.street} {business.location.houseNumber}, {business.location.city}
+                      </p>
+                      <div className="flex gap-2">
+                        <a href={googleMapsUrl(business.location.lat, business.location.lng)} target="_blank" rel="noopener noreferrer" className="rounded-full border border-[#EAEAEA] px-3 py-1.5 text-xs font-bold text-[#111111] hover:bg-[#F9F9F9]">
+                          {t("manage.geo.openMap")}
+                        </a>
+                        <a href={googleDirectionsUrl(business.location.lat, business.location.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-[#FA1EFF] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
+                          <Navigation className="w-3.5 h-3.5" aria-hidden="true" /> {t("manage.geo.directions")}
+                        </a>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-48 w-full bg-[#54D1CA]/10 rounded-xl flex flex-col items-center justify-center border border-[#54D1CA]/30 text-center px-4">
+                    <MapPin className="w-6 h-6 text-[#54D1CA] mb-2" aria-hidden="true" />
+                    <span className="text-sm font-bold text-[#111111]">{t("shops.detail.mapHere")}</span>
+                    <span className="text-xs text-[#555555]">
+                      {business.location.street} {business.location.houseNumber}, {business.location.city}
+                    </span>
+                    <span className="mt-1 text-[11px] text-[#B7B7B7]">{t("manage.geo.noPin")}</span>
                   </div>
-                  <span className="text-sm font-bold text-[#111111]">{t("shops.detail.mapHere")}</span>
-                  <span className="text-xs text-[#555555]">
-                    {business.location.street} {business.location.houseNumber}, {business.location.city}
-                  </span>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -442,6 +492,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             )}
           </div>
         )}
+      </div>
       </div>
     </ConsumerLayout>
   );

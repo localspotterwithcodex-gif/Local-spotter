@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { useLocale } from "@/i18n/LocaleContext";
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { adminApi } from "@/lib/api/admin";
+import { adminApi, type BusinessStatus } from "@/lib/api/admin";
+import { api } from "@/lib/api";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -18,9 +21,24 @@ const PAGE_SIZE = 20;
 
 export default function AdminBusinessesPage() {
   const { t, label } = useLocale();
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [plan, setPlan] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, error, loading, reload } = useApiResource(`admin-businesses-${offset}`, () =>
-    adminApi.getBusinesses({ limit: PAGE_SIZE, offset })
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const categories = useApiResource("admin-biz-categories", () => api.getBusinessCategories());
+  const { data, error, loading, reload } = useApiResource(`admin-businesses-${query}-${status}-${categoryId}-${plan}-${offset}`, () =>
+    adminApi.getBusinesses({ search: query, status: (status || undefined) as BusinessStatus | undefined, categoryId: categoryId || undefined, plan: plan || undefined, limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const businesses = data?.items ?? [];
@@ -34,6 +52,16 @@ export default function AdminBusinessesPage() {
             <p className="text-xs text-[#B7B7B7]">{t("adminx.biz.subtitle")}</p>
           </div>
         </div>
+
+        <AdminFilters
+          search={{ value: search, onChange: setSearch, placeholder: t("adminx.biz.searchPlaceholder") }}
+          selects={[
+            { key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: (["PENDING_APPROVAL", "ACTIVE", "SUSPENDED", "DRAFT", "DISABLED"] as const).map((v) => ({ value: v, label: label("status", v) })) },
+            { key: "category", label: t("common.category"), value: categoryId, onChange: (v) => { setCategoryId(v); setOffset(0); }, options: (categories.data ?? []).map((c) => ({ value: c.id, label: c.name })) },
+            { key: "plan", label: t("adminx.filters.plan"), value: plan, onChange: (v) => { setPlan(v); setOffset(0); }, options: [{ value: "WEBSHOP", label: "Webshop" }, { value: "SHOPROUTES", label: "Shoproutes" }, { value: "WORKSHOP", label: "Workshop" }] },
+          ]}
+          onReset={() => { setSearch(""); setQuery(""); setStatus(""); setCategoryId(""); setPlan(""); setOffset(0); }}
+        />
 
         <ActionError message={action.error} />
 
@@ -61,7 +89,15 @@ export default function AdminBusinessesPage() {
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {businesses.map((b) => (
                     <tr key={b.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4 font-bold text-[#111111]">{b.name}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar src={b.logoUrl} name={b.name} shape="square" />
+                          <div>
+                            <div className="font-bold text-[#111111]">{b.name}</div>
+                            {b.ownerName && <div className="text-[11px] text-[#B7B7B7]">{b.ownerName}</div>}
+                          </div>
+                        </div>
+                      </td>
                       <td className="p-4 text-[#555555]">{b.category}</td>
                       <td className="p-4 font-mono text-[#111111]">{b.kvkNumber}</td>
                       <td className="p-4 text-[#555555]">{b.city}</td>

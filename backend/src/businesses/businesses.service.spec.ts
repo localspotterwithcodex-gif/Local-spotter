@@ -134,3 +134,53 @@ describe('BusinessesService.update shop video', () => {
     expect(prisma.business.update).not.toHaveBeenCalled();
   });
 });
+
+describe('BusinessesService.update social links', () => {
+  it('stores one link per platform in a stable order and mirrors the legacy columns', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await service.update('b1', owner, {
+      socialLinks: [
+        { platform: 'youtube', url: 'https://youtube.com/@shop' },
+        { platform: 'instagram', url: 'https://instagram.com/old' },
+        { platform: 'instagram', url: ' https://instagram.com/new ' },
+      ],
+    } as any);
+    const data = (prisma.business.update as jest.Mock).mock.calls.at(-1)[0].data;
+    expect(data.socialLinks).toEqual([
+      { platform: 'instagram', url: 'https://instagram.com/new' },
+      { platform: 'youtube', url: 'https://youtube.com/@shop' },
+    ]);
+    expect(data.instagramUrl).toBe('https://instagram.com/new');
+    expect(data.facebookUrl).toBeNull();
+    expect(data.tiktokUrl).toBeNull();
+  });
+
+  it('an empty list clears every link, and omitting the field leaves them untouched', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE);
+    await service.update('b1', owner, { socialLinks: [] } as any);
+    expect((prisma.business.update as jest.Mock).mock.calls.at(-1)[0].data.socialLinks).toEqual([]);
+    await service.update('b1', owner, { phone: '0201234567' } as any);
+    expect((prisma.business.update as jest.Mock).mock.calls.at(-1)[0].data).not.toHaveProperty('socialLinks');
+  });
+});
+
+describe('UpdateBusinessDto social links validation', () => {
+  const run = async (socialLinks: unknown) => {
+    const { plainToInstance } = await import('class-transformer');
+    const { validate } = await import('class-validator');
+    const { UpdateBusinessDto } = await import('./dto/update-business.dto');
+    return validate(plainToInstance(UpdateBusinessDto, { socialLinks }), { whitelist: true, forbidNonWhitelisted: true });
+  };
+
+  it('accepts known platforms with http(s) URLs', async () => {
+    expect(await run([{ platform: 'tiktok', url: 'https://tiktok.com/@shop' }])).toHaveLength(0);
+  });
+
+  it('rejects unknown platforms, javascript: URLs, extra properties and too many entries', async () => {
+    expect((await run([{ platform: 'myspace', url: 'https://x.nl' }])).length).toBeGreaterThan(0);
+    expect((await run([{ platform: 'x', url: 'javascript:alert(1)' }])).length).toBeGreaterThan(0);
+    expect((await run([{ platform: 'x', url: 'https://x.com/a', admin: true }])).length).toBeGreaterThan(0);
+    const many = Array.from({ length: 11 }, () => ({ platform: 'x', url: 'https://x.com/a' }));
+    expect((await run(many)).length).toBeGreaterThan(0);
+  });
+});

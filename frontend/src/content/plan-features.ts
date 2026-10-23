@@ -46,3 +46,21 @@ export const PLAN_DESCRIPTION_KEYS: Record<PlanSlug, TranslationKey> = {
   shoproutes: "plans.shoproutes.desc",
   workshop: "plans.workshop.desc",
 };
+
+/** The Dutch descriptions the seed script stores. While a plan still has one of these, the UI shows the translated text. */
+const SEEDED_PLAN_DESCRIPTIONS: Record<PlanSlug, string> = {
+  webshop: "Online winkelprofiel, productcatalogus, voorraadbeheer en directe verkoop.",
+  shoproutes: "Alle Webshop functies + GPS kaartweergave, winkelroutes en lokale ontdekking.",
+  workshop: "Alle Webshop & Shoproutes functies + workshop organisatie, reviews & community.",
+};
+
+/**
+ * Text to show for a plan description: the translation while the stored text is the seeded default
+ * (or empty), otherwise exactly what an admin typed in the plan editor.
+ */
+export function planDescriptionText(slug: string, stored: string | null | undefined, t: (key: TranslationKey) => string): string {
+  const key = PLAN_DESCRIPTION_KEYS[slug as PlanSlug];
+  const text = (stored ?? "").trim();
+  if (key && (text === "" || text === SEEDED_PLAN_DESCRIPTIONS[slug as PlanSlug])) return t(key);
+  return text;
+}

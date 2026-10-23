@@ -8,6 +8,8 @@ process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
 process.env.MAIL_TRANSPORT = 'dev-file';
 process.env.NODE_ENV = 'test';
 
+import { readdirSync, existsSync } from 'fs';
+import { join } from 'path';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
@@ -41,5 +43,30 @@ describe('AppModule dependency graph', () => {
     expect(moduleRef.get(PAYMENT_GATEWAY, { strict: false })).toBeInstanceOf(StripeGateway);
     await moduleRef.close();
     delete process.env.STRIPE_SECRET_KEY;
+  });
+
+  it('registers every feature module that exposes controllers (a missing import makes its routes 404)', () => {
+    const reachable = new Set<unknown>();
+    const walk = (m: unknown) => {
+      if (!m || reachable.has(m)) return;
+      reachable.add(m);
+      for (const child of (Reflect.getMetadata('imports', m as object) ?? []) as unknown[]) walk(child);
+    };
+    walk(AppModule);
+
+    const missing: string[] = [];
+    for (const dir of readdirSync(__dirname, { withFileTypes: true })) {
+      if (!dir.isDirectory()) continue;
+      for (const file of readdirSync(join(__dirname, dir.name))) {
+        if (!file.endsWith('.module.ts')) continue;
+        const exported = require(join(__dirname, dir.name, file)) as Record<string, unknown>;
+        for (const cls of Object.values(exported)) {
+          if (typeof cls !== 'function') continue;
+          const controllers = Reflect.getMetadata('controllers', cls) as unknown[] | undefined;
+          if (controllers?.length && !reachable.has(cls)) missing.push(`${dir.name}/${file}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

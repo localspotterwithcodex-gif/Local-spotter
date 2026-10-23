@@ -10,8 +10,9 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { adminApi, type AdminPayout } from "@/lib/api/admin";
+import { adminApi, type AdminPayout, type PayoutStatus } from "@/lib/api/admin";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -24,9 +25,10 @@ export default function AdminPayoutsPage() {
   const { t, label } = useLocale();
   const f = useFormat();
   const errMsg = useErrorMessage();
+  const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, error, loading, reload } = useApiResource(`admin-payouts-${offset}`, () =>
-    adminApi.getPayouts({ limit: PAGE_SIZE, offset })
+  const { data, error, loading, reload } = useApiResource(`admin-payouts-${status}-${offset}`, () =>
+    adminApi.getPayouts({ status: (status || undefined) as PayoutStatus | undefined, limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const payouts = data?.items ?? [];
@@ -105,6 +107,11 @@ export default function AdminPayoutsPage() {
         </div>
 
         <p className="text-[11px] text-[#B7B7B7]">{t("adminx.payouts.manualNote")}</p>
+        <AdminFilters
+          selects={[{ key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: (["PENDING", "APPROVED", "PAID", "REJECTED", "FAILED"] as const).map((v) => ({ value: v, label: label("status", v) })) }]}
+          onReset={() => { setStatus(""); setOffset(0); }}
+        />
+
         <ActionError message={action.error ?? toolError} />
         {notice && <p role="status" className="text-xs text-[#3B9B52] font-bold">{notice}</p>}
 

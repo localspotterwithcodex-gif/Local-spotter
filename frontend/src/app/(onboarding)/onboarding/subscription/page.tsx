@@ -13,7 +13,7 @@ import { useApiResource } from "@/lib/hooks/useApiResource";
 import { PlanSlug } from "@/types/subscription";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
-import { PLAN_DESCRIPTION_KEYS, PLAN_FEATURE_KEYS } from "@/content/plan-features";
+import { planDescriptionText, PLAN_FEATURE_KEYS } from "@/content/plan-features";
 
 export default function SubscriptionSelectionPage() {
   const router = useRouter();
@@ -91,7 +91,7 @@ export default function SubscriptionSelectionPage() {
                     <span className="text-xs text-[#B7B7B7]">{t("onb.sub.perMonthExVat")}</span>
                   </div>
 
-                  <p className="text-xs text-[#555555] leading-relaxed">{PLAN_DESCRIPTION_KEYS[plan.slug] ? t(PLAN_DESCRIPTION_KEYS[plan.slug]) : plan.description}</p>
+                  <p className="text-xs text-[#555555] leading-relaxed">{planDescriptionText(plan.slug, plan.description, t)}</p>
 
                   <ul className="space-y-2 pt-2 border-t border-[#F9F9F9]">
                     {(PLAN_FEATURE_KEYS[plan.slug]?.map((k) => t(k)) ?? plan.features).map((feat, idx) => (

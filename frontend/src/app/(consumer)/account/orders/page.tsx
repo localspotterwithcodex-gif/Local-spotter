@@ -16,6 +16,7 @@ import { useFormat } from "@/i18n/useFormat";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { PAID_STATES, type Order } from "@/types/order";
 import { GuestClaimCard } from "@/features/guest/GuestClaimCard";
+import { OrderTracker } from "@/components/orders/OrderTracker";
 import { OrderReturns } from "@/features/returns/OrderReturns";
 
 export default function ConsumerOrdersPage() {
@@ -126,6 +127,8 @@ export default function ConsumerOrdersPage() {
                     </div>
                   ))}
                 </div>
+
+                <OrderTracker status={order.status} method={order.fulfilmentMethod} businessName={order.businessName} defaultOpen={isOpen(order)} />
 
                 {/* Total */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#F9F9F9] text-xs">

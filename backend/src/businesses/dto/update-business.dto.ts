@@ -1,5 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
+import { SocialLinkDto } from './social-link.dto';
+import { MAX_SOCIAL_LINKS } from '../social-links';
+import { ArrayMaxSize, IsArray, ValidateNested, IsBoolean, IsEmail, IsNumber, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 
 export class UpdateBusinessDto {
   @ApiPropertyOptional({ example: 'Boetiek Amsterdam' })
@@ -105,6 +108,14 @@ export class UpdateBusinessDto {
   @IsUrl({ require_protocol: true, protocols: ['http', 'https'] }, { message: 'Ongeldige website-URL' })
   @MaxLength(300)
   tiktokUrl?: string;
+
+  @ApiPropertyOptional({ type: [SocialLinkDto], description: 'Social media profiles, one per platform. Replaces the whole list.' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_SOCIAL_LINKS)
+  @ValidateNested({ each: true })
+  @Type(() => SocialLinkDto)
+  socialLinks?: SocialLinkDto[];
 
   // ---- Fulfilment (what customers can choose at checkout) ----
 

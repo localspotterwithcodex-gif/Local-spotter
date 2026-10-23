@@ -330,6 +330,8 @@ model Business {
   instagramUrl   String?        @map("instagram_url")
   facebookUrl    String?        @map("facebook_url")
   tiktokUrl      String?        @map("tiktok_url")
+  // [{ platform, url }], one per platform; supersedes the three single-link columns above.
+  socialLinks    Json?          @map("social_links")
   // Fulfilment settings (per shop). shippingFee null = platform default (FLAT_SHIPPING_FEE).
   pickupEnabled         Boolean  @default(true) @map("pickup_enabled")
   shippingEnabled       Boolean  @default(true) @map("shipping_enabled")

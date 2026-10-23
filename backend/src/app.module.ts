@@ -30,6 +30,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { TranslationModule } from './translation/translation.module';
 import { GuestModule } from './guest/guest.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { GuestModule } from './guest/guest.module';
     WorkshopsModule,
     ShopRoutesModule,
     FollowersModule,
+    ReviewsModule,
     FavoritesModule,
     AddressesModule,
     NotificationsModule,

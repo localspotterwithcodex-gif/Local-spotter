@@ -8,6 +8,11 @@ export class AdminOrderQueryDto {
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
+  @ApiProperty({ example: 'LS-ABC', required: false, description: 'Order number, shop name or customer name' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiProperty({ example: 20, required: false, description: 'Number of results per page' })
   @IsOptional()
   @IsString()

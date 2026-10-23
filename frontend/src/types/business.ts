@@ -1,3 +1,4 @@
+import type { SocialLink } from "@/lib/social-links";
 import { PlanSlug } from "./subscription";
 
 export interface BusinessLocation {
@@ -57,6 +58,8 @@ export interface Business {
   instagramUrl?: string;
   facebookUrl?: string;
   tiktokUrl?: string;
+  /** One link per platform, shown on the shop page. */
+  socialLinks?: SocialLink[];
   location: BusinessLocation;
   /** How customers can receive orders (owner settings; also returned for the public shop). */
   fulfilment?: BusinessFulfilment;

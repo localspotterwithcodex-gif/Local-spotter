@@ -10,13 +10,16 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { api, type BusinessCategory, type NotificationPreferences, type UploadedImage } from "@/lib/api";
 import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
 import { ShopVideoUploader } from "@/components/ui/ShopVideoUploader";
+import { SocialLinksEditor, type SocialRow } from "@/components/ui/SocialLinksEditor";
+import { isHttpUrl } from "@/lib/social-links";
+import { geocodeFirst, hasCoords, osmEmbedUrl } from "@/lib/geocode";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useMyBusiness } from "@/features/business/useMyBusiness";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import type { TranslationKey } from "@/i18n/dictionaries";
 import type { Business, BusinessHours } from "@/types/business";
-import { Store, Clock, MapPin, Bell, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { Store, Clock, MapPin, Bell, Save, CheckCircle2, AlertCircle, LocateFixed, Search } from "lucide-react";
 
 const DAY_ORDER: BusinessHours["day"][] = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
 
@@ -50,7 +53,7 @@ function initialHours(business: Business): DayRow[] {
 }
 
 function SettingsForm({ business, categories }: { business: Business; categories: BusinessCategory[] }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const errMsg = useErrorMessage();
   const [activeTab, setActiveTab] = useState<"profile" | "hours" | "notifications">("profile");
   const [storeName, setStoreName] = useState(business.name);
@@ -59,15 +62,63 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const [phone, setPhone] = useState(business.phone);
   const [kvk, setKvk] = useState(business.kvkNumber);
   const [websiteUrl, setWebsiteUrl] = useState(business.websiteUrl ?? "");
-  const [instagramUrl, setInstagramUrl] = useState(business.instagramUrl ?? "");
-  const [facebookUrl, setFacebookUrl] = useState(business.facebookUrl ?? "");
-  const [tiktokUrl, setTiktokUrl] = useState(business.tiktokUrl ?? "");
+  const [socials, setSocials] = useState<SocialRow[]>(() => (business.socialLinks ?? []).map((l) => ({ platform: l.platform, url: l.url })));
   const [street, setStreet] = useState(business.location.street);
   const [city, setCity] = useState(business.location.city);
   const [province, setProvince] = useState(business.location.province);
   const hasGps = business.location.lat !== 0 || business.location.lng !== 0;
   const [lat, setLat] = useState(hasGps ? String(business.location.lat) : "");
   const [lng, setLng] = useState(hasGps ? String(business.location.lng) : "");
+  const [coordsTouched, setCoordsTouched] = useState(false);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoMsg, setGeoMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const addressBaseline = React.useRef(`${business.location.street}|${business.location.city}|${business.location.province}`);
+  const addressQueries = () => [
+    [street, city, province].filter((s) => s.trim()).join(", "),
+    [street, city].filter((s) => s.trim()).join(", "),
+    [city, province].filter((s) => s.trim()).join(", "),
+  ];
+  const previewLat = Number(lat.replace(",", "."));
+  const previewLng = Number(lng.replace(",", "."));
+  const previewOk = lat.trim() !== "" && lng.trim() !== "" && hasCoords(previewLat, previewLng);
+
+  const findOnMap = async () => {
+    setGeoBusy(true);
+    setGeoMsg(null);
+    const hit = await geocodeFirst(addressQueries(), locale);
+    setGeoBusy(false);
+    if (!hit) {
+      setGeoMsg({ ok: false, text: t("manage.geo.notFound") });
+      return;
+    }
+    setLat(hit.lat.toFixed(6));
+    setLng(hit.lng.toFixed(6));
+    setCoordsTouched(true);
+    setGeoMsg({ ok: true, text: t("manage.geo.found") });
+  };
+
+  const useMyLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoMsg({ ok: false, text: t("manage.geo.unsupported") });
+      return;
+    }
+    setGeoBusy(true);
+    setGeoMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
+        setCoordsTouched(true);
+        setGeoBusy(false);
+        setGeoMsg({ ok: true, text: t("manage.geo.located") });
+      },
+      () => {
+        setGeoBusy(false);
+        setGeoMsg({ ok: false, text: t("manage.geo.denied") });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Shop images (logo + cover). Uploaded immediately; the asset ids are saved with the form.
   const toImages = (id?: string, url?: string): UploadedImage[] => (id && url ? [{ id, url }] : []);
@@ -120,9 +171,13 @@ function SettingsForm({ business, categories }: { business: Business; categories
     setError("");
     setIsSaved(false);
 
-    const latNum = lat.trim() === "" ? undefined : Number(lat.replace(",", "."));
-    const lngNum = lng.trim() === "" ? undefined : Number(lng.replace(",", "."));
-    if ((latNum !== undefined && Number.isNaN(latNum)) || (lngNum !== undefined && Number.isNaN(lngNum))) {
+    let latNum = lat.trim() === "" ? undefined : Number(lat.replace(",", "."));
+    let lngNum = lng.trim() === "" ? undefined : Number(lng.replace(",", "."));
+    if (
+      (latNum !== undefined && (Number.isNaN(latNum) || Math.abs(latNum) > 90)) ||
+      (lngNum !== undefined && (Number.isNaN(lngNum) || Math.abs(lngNum) > 180)) ||
+      (latNum === undefined) !== (lngNum === undefined)
+    ) {
       setError(t("ownerx.settings.errorLatLng"));
       return;
     }
@@ -131,19 +186,30 @@ function SettingsForm({ business, categories }: { business: Business; categories
       return;
     }
 
-    const links = [websiteUrl, instagramUrl, facebookUrl, tiktokUrl].map((v) => v.trim());
-    if (links.some((v) => v !== "" && !/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(v))) {
+    const socialValues = socials.map((s) => s.url.trim());
+    const links = [websiteUrl.trim(), ...socialValues];
+    if (links.some((v) => v !== "" && !isHttpUrl(v))) {
       setError(t("ownerx.settings.errorLinks"));
       return;
     }
 
     setIsLoading(true);
     try {
+      // The address changed (or there are no coordinates yet) and the owner did not pick a point
+      // themselves: look the address up so the public map pin follows the saved address.
+      const addressNow = `${street}|${city}|${province}`;
+      if (!coordsTouched && (addressNow !== addressBaseline.current || latNum === undefined)) {
+        const hit = await geocodeFirst(addressQueries(), locale);
+        if (hit) {
+          latNum = Number(hit.lat.toFixed(6));
+          lngNum = Number(hit.lng.toFixed(6));
+          setLat(String(latNum));
+          setLng(String(lngNum));
+        }
+      }
       await api.updateBusiness(business.id, {
         websiteUrl: links[0] || null,
-        instagramUrl: links[1] || null,
-        facebookUrl: links[2] || null,
-        tiktokUrl: links[3] || null,
+        socialLinks: socials.map((s) => ({ platform: s.platform, url: s.url.trim() })).filter((s) => s.url !== ""),
         name: storeName.trim(),
         description,
         phone,
@@ -170,6 +236,8 @@ function SettingsForm({ business, categories }: { business: Business; categories
         );
         setHoursDirty(false);
       }
+      addressBaseline.current = addressNow;
+      setCoordsTouched(false);
       setIsSaved(true);
     } catch (err) {
       setError(errMsg(err));
@@ -328,12 +396,9 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label={t("ownerx.settings.website")} type="url" placeholder="https://" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
-                <Input label="Instagram" type="url" placeholder="https://instagram.com/…" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
-                <Input label="Facebook" type="url" placeholder="https://facebook.com/…" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} />
-                <Input label="TikTok" type="url" placeholder="https://tiktok.com/@…" value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} />
-              </div>
+              <Input label={t("ownerx.settings.website")} type="url" placeholder="https://" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+
+              <SocialLinksEditor value={socials} onChange={setSocials} />
 
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pt-2 pb-2 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-[#54D1CA]" /> {t("ownerx.settings.locationGps")}
@@ -365,13 +430,44 @@ function SettingsForm({ business, categories }: { business: Business; categories
                 <Input
                   label={t("ownerx.settings.lat")}
                   value={lat}
-                  onChange={(e) => setLat(e.target.value)}
+                  onChange={(e) => {
+                    setLat(e.target.value);
+                    setCoordsTouched(true);
+                  }}
                 />
                 <Input
                   label={t("ownerx.settings.lng")}
                   value={lng}
-                  onChange={(e) => setLng(e.target.value)}
+                  onChange={(e) => {
+                    setLng(e.target.value);
+                    setCoordsTouched(true);
+                  }}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={findOnMap} isLoading={geoBusy} className="gap-2">
+                    <Search className="w-4 h-4" aria-hidden="true" /> {t("manage.geo.find")}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={useMyLocation} disabled={geoBusy} className="gap-2">
+                    <LocateFixed className="w-4 h-4" aria-hidden="true" /> {t("manage.geo.useMine")}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-[#B7B7B7]">{t("manage.geo.help")}</p>
+                {geoMsg && (
+                  <p role="status" className={`text-xs font-bold ${geoMsg.ok ? "text-green-700" : "text-red-600"}`}>
+                    {geoMsg.text}
+                  </p>
+                )}
+                {previewOk && (
+                  <iframe
+                    title={t("manage.geo.previewTitle")}
+                    src={osmEmbedUrl(previewLat, previewLng)}
+                    loading="lazy"
+                    className="h-56 w-full rounded-xl border border-[#EAEAEA]"
+                  />
+                )}
               </div>
             </div>
           )}

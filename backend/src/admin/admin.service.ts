@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole, UserStatus, BusinessStatus, ReviewStatus, OrderStatus, PaymentStatus, SubscriptionStatus, PayoutStatus, RouteStatus, Product, Order, Payment, BusinessSubscription, BusinessLedgerEntry } from '@prisma/client';
+import { Prisma, UserRole, UserStatus, BusinessStatus, ReviewStatus, OrderStatus, PaymentStatus, SubscriptionStatus, PayoutStatus, RouteStatus, Product, Order, Payment, BusinessSubscription, BusinessLedgerEntry } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -74,43 +74,46 @@ export class AdminService {
     const limit = query.limit ? parseInt(query.limit, 10) : 20;
     const offset = query.offset ? parseInt(query.offset, 10) : 0;
 
-    const where: Record<string, any> = {};
+    const where: Prisma.UserWhereInput = {};
     if (query.role) {
       where.role = query.role;
     }
     if (query.status) {
       where.status = query.status;
     }
-    if (query.search) {
-      where.OR = [{ email: { contains: query.search, mode: 'insensitive' as any } }];
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { consumerProfile: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
+        { businessOwnerProfile: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
+      ];
     }
 
     const [users, total] = await Promise.all([
-      this.prisma.user.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const } }),
+      this.prisma.user.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' as const },
+        include: {
+          consumerProfile: { select: { displayName: true, profileImageAsset: { select: { url: true } } } },
+          businessOwnerProfile: { select: { displayName: true, profileImageAsset: { select: { url: true } } } },
+        },
+      }),
       this.prisma.user.count({ where }),
     ]);
 
-    const formattedUsers = await Promise.all(
-      users.map(async (user) => {
-        const consumerProfile = await this.prisma.consumerProfile.findUnique({
-          where: { userId: user.id },
-          select: { displayName: true, firstName: true, lastName: true },
-        });
-        const businessOwnerProfile = await this.prisma.businessOwnerProfile.findUnique({
-          where: { userId: user.id },
-          select: { displayName: true },
-        });
-        return {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          status: user.status,
-          displayName: consumerProfile?.displayName || businessOwnerProfile?.displayName || null,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        };
-      }),
-    );
+    const formattedUsers = users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      displayName: user.consumerProfile?.displayName || user.businessOwnerProfile?.displayName || null,
+      avatarUrl: user.consumerProfile?.profileImageAsset?.url ?? user.businessOwnerProfile?.profileImageAsset?.url ?? null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
 
     return { data: { users: formattedUsers, meta: { total, page: Math.floor(offset / limit) + 1, limit } } };
   }
@@ -228,7 +231,7 @@ export class AdminService {
     return { data: { businesses } };
   }
 
-  async getBusinesses(query: { search?: string; status?: string; categoryId?: string; limit?: string; offset?: string }) {
+  async getBusinesses(query: { search?: string; status?: string; categoryId?: string; plan?: string; limit?: string; offset?: string }) {
     const limit = query.limit ? parseInt(query.limit, 10) : 20;
     const offset = query.offset ? parseInt(query.offset, 10) : 0;
 
@@ -239,15 +242,21 @@ export class AdminService {
     if (query.categoryId) {
       where.categoryId = query.categoryId;
     }
+    const planSlug = query.plan?.toUpperCase();
+    if (planSlug && ['WEBSHOP', 'SHOPROUTES', 'WORKSHOP'].includes(planSlug)) {
+      where.subscription = { is: { plan: { slug: planSlug } } };
+    }
     if (query.search) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' as any } },
         { slug: { contains: query.search, mode: 'insensitive' as any } },
+        { city: { contains: query.search, mode: 'insensitive' as any } },
+        { kvkNumber: { contains: query.search, mode: 'insensitive' as any } },
       ];
     }
 
     const [businesses, total] = await Promise.all([
-      this.prisma.business.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const }, include: { ownerProfile: { select: { displayName: true } }, category: { select: { name: true } }, subscription: { select: { status: true, plan: { select: { name: true } } } } } }),
+      this.prisma.business.findMany({ where, skip: offset, take: limit, orderBy: { createdAt: 'desc' as const }, include: { logoAsset: { select: { url: true } }, ownerProfile: { select: { displayName: true } }, category: { select: { name: true } }, subscription: { select: { status: true, plan: { select: { name: true } } } } } }),
       this.prisma.business.count({ where }),
     ]);
 
@@ -554,13 +563,21 @@ export class AdminService {
     return { data: { id: updated.id, status: updated.status } };
   }
 
-  async getOrders(query: { status?: OrderStatus; limit?: string; offset?: string }) {
+  async getOrders(query: { status?: OrderStatus; search?: string; limit?: string; offset?: string }) {
     const limit = query.limit ? parseInt(query.limit, 10) : 20;
     const offset = query.offset ? parseInt(query.offset, 10) : 0;
 
     const where: Record<string, any> = {};
     if (query.status) {
       where.status = query.status;
+    }
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { business: { is: { name: { contains: search, mode: 'insensitive' } } } },
+        { consumerProfile: { is: { displayName: { contains: search, mode: 'insensitive' } } } },
+      ];
     }
 
     const [orders, total] = await Promise.all([

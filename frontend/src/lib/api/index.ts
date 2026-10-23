@@ -243,6 +243,8 @@ export type UpdateBusinessInput = Partial<CreateBusinessInput> & {
   instagramUrl?: string | null;
   facebookUrl?: string | null;
   tiktokUrl?: string | null;
+  /** Replaces the whole list of social profiles (one per platform). */
+  socialLinks?: { platform: string; url: string }[];
   pickupEnabled?: boolean;
   shippingEnabled?: boolean;
   localDeliveryEnabled?: boolean;

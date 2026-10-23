@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { adminApi } from "@/lib/api/admin";
 import type { OrderStatus } from "@/types/order";
+import { AdminFilters } from "../_components/AdminFilters";
 import { AdminPager } from "../_components/AdminPager";
 import { ActionError } from "../_components/ActionError";
 import { useAdminAction } from "../_components/useAdminAction";
@@ -31,9 +32,21 @@ const ADMIN_REASON = "Beheerderscorrectie via platformbeheer";
 export default function AdminOrdersPage() {
   const { t, label } = useLocale();
   const f = useFormat();
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
-  const { data, error, loading, reload } = useApiResource(`admin-orders-${offset}`, () =>
-    adminApi.getOrders({ limit: PAGE_SIZE, offset })
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const { data, error, loading, reload } = useApiResource(`admin-orders-${query}-${status}-${offset}`, () =>
+    adminApi.getOrders({ search: query, status: (status || undefined) as OrderStatus | undefined, limit: PAGE_SIZE, offset })
   );
   const action = useAdminAction(reload);
   const orders = data?.items ?? [];
@@ -45,6 +58,12 @@ export default function AdminOrdersPage() {
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.ordersOverview")}</h1>
           <p className="text-xs text-[#B7B7B7]">{t("adminx.orders.subtitle")}</p>
         </div>
+
+        <AdminFilters
+          search={{ value: search, onChange: setSearch, placeholder: t("adminx.orders.searchPlaceholder") }}
+          selects={[{ key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: ORDER_STATUSES.map((v) => ({ value: v, label: label("status", v) })) }]}
+          onReset={() => { setSearch(""); setQuery(""); setStatus(""); setOffset(0); }}
+        />
 
         <ActionError message={action.error} />
 

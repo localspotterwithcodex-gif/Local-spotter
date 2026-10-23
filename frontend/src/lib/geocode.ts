@@ -17,3 +17,17 @@ export async function geocodeFirst(queries: string[], language: string): Promise
   }
   return null;
 }
+
+/** Valid WGS84 coordinates that are not the (0, 0) "no location yet" placeholder. */
+export function hasCoords(lat: number | null | undefined, lng: number | null | undefined): lat is number {
+  return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0);
+}
+
+/** Embeddable OpenStreetMap view centred on the pin (no API key needed). */
+export function osmEmbedUrl(lat: number, lng: number, span = 0.006): string {
+  const bbox = [lng - span, lat - span * 0.66, lng + span, lat + span * 0.66].map((n) => n.toFixed(6)).join("%2C");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat.toFixed(6)}%2C${lng.toFixed(6)}`;
+}
+
+export const googleMapsUrl = (lat: number, lng: number) => `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)}%2C${lng.toFixed(6)}`;
+export const googleDirectionsUrl = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)}%2C${lng.toFixed(6)}`;

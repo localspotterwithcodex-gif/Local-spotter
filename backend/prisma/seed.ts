@@ -145,6 +145,15 @@ async function main() {
     },
   });
 
+  // Further shop categories (also added to existing databases by migration 20261025110000).
+  for (const [name, slug, sortOrder] of [
+    ['Jewelry', 'jewelry', 20],
+    ['Shoes', 'shoes', 30],
+    ['Home Ware', 'home-ware', 40],
+  ] as const) {
+    await prisma.businessCategory.upsert({ where: { slug }, update: {}, create: { name, slug, sortOrder } });
+  }
+
   // 5. Create Business 1
   console.log('🏪 Seeding Business 1 (Boetiek Amsterdam)...');
   const business1 = await prisma.business.upsert({

@@ -51,6 +51,7 @@ export interface AdminUser {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string;
@@ -59,6 +60,8 @@ export interface AdminUser {
 export interface AdminBusiness {
   id: string;
   name: string;
+  logoUrl: string | null;
+  ownerName: string;
   category: string;
   kvkNumber: string;
   city: string;
@@ -158,6 +161,36 @@ export interface AdminPlanCommission {
   monthlyPrice: number;
   commissionBps: number | null;
   active: boolean;
+  description?: string;
+}
+
+export interface PlanEditInput {
+  name?: string;
+  description?: string;
+  monthlyPrice?: number;
+  active?: boolean;
+}
+
+export interface AnalyticsKpi {
+  value: number;
+  deltaPct: number | null;
+}
+export interface AdminAnalytics {
+  period: { days: number; from: string; to: string };
+  regions: string[];
+  kpis: {
+    totalUsers: AnalyticsKpi;
+    activeShops: AnalyticsKpi;
+    totalOrders: AnalyticsKpi;
+    grossRevenue: AnalyticsKpi;
+    conversionRate: AnalyticsKpi;
+    averageOrderValue: AnalyticsKpi;
+  };
+  trend: { date: string; revenue: number; orders: number }[];
+  revenueByCategory: { name: string; revenue: number; share: number }[];
+  shopGrowth: { date: string; newShops: number; activeShops: number }[];
+  userDistribution: { role: UserRole; count: number; share: number }[];
+  topShops: { id: string; name: string; logoUrl: string | null; orders: number; revenue: number; growthPct: number | null }[];
 }
 
 export interface AdminPlan {
@@ -173,6 +206,7 @@ interface RawUser {
   id: string;
   email: string | null;
   displayName: string | null;
+  avatarUrl?: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string;
@@ -180,6 +214,8 @@ interface RawUser {
 interface RawBusiness {
   id: string;
   name: string;
+  logoAsset?: { url: string } | null;
+  ownerProfile?: { displayName: string | null } | null;
   kvkNumber: string;
   city: string;
   status: BusinessStatus;
@@ -264,6 +300,7 @@ const toUser = (r: RawUser): AdminUser => ({
   id: r.id,
   email: r.email ?? DASH,
   displayName: r.displayName ?? DASH,
+  avatarUrl: r.avatarUrl ?? null,
   role: r.role,
   status: r.status,
   createdAt: r.createdAt,
@@ -271,6 +308,8 @@ const toUser = (r: RawUser): AdminUser => ({
 const toBusiness = (r: RawBusiness): AdminBusiness => ({
   id: r.id,
   name: r.name,
+  logoUrl: r.logoAsset?.url ?? null,
+  ownerName: r.ownerProfile?.displayName ?? DASH,
   category: r.category?.name ?? DASH,
   kvkNumber: r.kvkNumber,
   city: r.city,
@@ -371,6 +410,11 @@ export interface AdminChatReport {
 }
 
 export const adminApi = {
+  async getAnalytics(q: { days?: number; region?: string; categoryId?: string } = {}): Promise<AdminAnalytics> {
+    const res = await apiClient.get<Envelope<AdminAnalytics>>(`/admin/analytics${qs({ days: q.days, region: q.region, categoryId: q.categoryId })}`);
+    return res.data;
+  },
+
   async getDashboard(range?: { startDate?: string; endDate?: string }): Promise<AdminDashboard> {
     const res = await apiClient.get<Envelope<AdminDashboard>>(`/admin/dashboard${qs(range)}`);
     return res.data;
@@ -386,9 +430,9 @@ export const adminApi = {
     await apiClient.patch(`/admin/users/${id}/status`, { status });
   },
 
-  async getBusinesses(q: PageQuery & { search?: string; status?: BusinessStatus } = {}): Promise<Paged<AdminBusiness>> {
+  async getBusinesses(q: PageQuery & { search?: string; status?: BusinessStatus; categoryId?: string; plan?: string } = {}): Promise<Paged<AdminBusiness>> {
     const res = await apiClient.get<Envelope<{ businesses: RawBusiness[]; meta: PageMeta }>>(
-      `/admin/businesses${qs({ search: q.search, status: q.status, limit: q.limit, offset: q.offset })}`
+      `/admin/businesses${qs({ search: q.search, status: q.status, categoryId: q.categoryId, plan: q.plan, limit: q.limit, offset: q.offset })}`
     );
     return paged(res.data.businesses, res.data.meta, toBusiness);
   },
@@ -475,9 +519,9 @@ export const adminApi = {
     await apiClient.patch(`/admin/reviews/${id}/moderation`, { status });
   },
 
-  async getOrders(q: PageQuery & { status?: OrderStatus } = {}): Promise<Paged<AdminOrder>> {
+  async getOrders(q: PageQuery & { status?: OrderStatus; search?: string } = {}): Promise<Paged<AdminOrder>> {
     const res = await apiClient.get<Envelope<{ orders: RawOrder[]; meta: PageMeta }>>(
-      `/admin/orders${qs({ status: q.status, limit: q.limit, offset: q.offset })}`
+      `/admin/orders${qs({ status: q.status, search: q.search, limit: q.limit, offset: q.offset })}`
     );
     return paged(res.data.orders, res.data.meta, toOrder);
   },
@@ -532,6 +576,9 @@ export const adminApi = {
   },
   async getPlanCommissions(): Promise<{ defaultBps: number; plans: AdminPlanCommission[] }> {
     return apiClient.get("/admin/plans");
+  },
+  async updatePlan(planId: string, input: PlanEditInput): Promise<{ id: string; slug: string; name: string; description: string; monthlyPrice: number; active: boolean }> {
+    return apiClient.patch(`/admin/plans/${planId}`, input);
   },
   async setPlanCommission(planId: string, commissionBps: number | null): Promise<void> {
     await apiClient.patch(`/admin/plans/${planId}/commission`, { commissionBps });
