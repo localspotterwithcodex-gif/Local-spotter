@@ -169,6 +169,20 @@ describe('PaymentsService', () => {
       expect(result.amount).toBe(50);
     });
 
+    it('lets an owner pay for a different plan although an earlier plan of the same subscription row was paid', async () => {
+      prisma.businessSubscription.findUnique.mockResolvedValue({ ...subscriptionA, status: 'INCOMPLETE', currentPeriodStart: new Date(), currentPeriodEnd: new Date(Date.now() + 86_400_000) });
+      prisma.payment.findMany.mockResolvedValue([{ ...subscriptionPayment, status: PaymentStatus.PAID, createdAt: new Date('2026-01-01') }]);
+      const result = await service.createPaymentIntent(ownerA, intent(PaymentPurpose.BUSINESS_SUBSCRIPTION, 'sub-1'));
+      expect(result.amount).toBe(50);
+      expect(prisma.payment.create).toHaveBeenCalled();
+    });
+
+    it('still refuses to charge a subscription that is active and not yet expired', async () => {
+      prisma.businessSubscription.findUnique.mockResolvedValue({ ...subscriptionA, status: 'ACTIVE', currentPeriodStart: new Date('2026-01-01'), currentPeriodEnd: new Date(Date.now() + 86_400_000) });
+      prisma.payment.findMany.mockResolvedValue([]);
+      await expect(service.createPaymentIntent(ownerA, intent(PaymentPurpose.BUSINESS_SUBSCRIPTION, 'sub-1'))).rejects.toThrow('already been paid');
+    });
+
     it.each([
       ['another consumer', consumerB, PaymentPurpose.PRODUCT_ORDER, 'order-1'],
       ['a business owner for an order', ownerA, PaymentPurpose.PRODUCT_ORDER, 'order-1'],

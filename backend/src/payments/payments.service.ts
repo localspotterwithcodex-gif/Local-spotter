@@ -81,6 +81,12 @@ interface PaymentTarget {
   scope: { customerOrderId: string } | { orderId: string } | { workshopBookingId: string } | { businessSubscriptionId: string };
   scopeId: string;
   description: string;
+  /**
+   * Subscriptions only: one row per shop is reused across plan changes and renewals, so earlier PAID
+   * payments say nothing about the current choice. `alreadyPaid` is derived from the subscription state
+   * (active, period not over) and `since` limits reusable open checkouts to the current selection.
+   */
+  subscription?: { alreadyPaid: boolean; since: Date };
 }
 
 /** Unpaid orders and bookings are released after this many minutes. */
@@ -150,11 +156,17 @@ export class PaymentsService {
         where: { purpose: dto.purpose, ...target.scope },
         orderBy: { createdAt: 'desc' },
       });
-      if (existing.some((p) => p.status === PaymentStatus.PAID || p.status === PaymentStatus.PARTIALLY_REFUNDED)) {
+      const paidBefore = existing.some((p) => p.status === PaymentStatus.PAID || p.status === PaymentStatus.PARTIALLY_REFUNDED);
+      if (target.subscription ? target.subscription.alreadyPaid : paidBefore) {
         throw new ConflictException('This item has already been paid');
       }
       const open = existing.find(
-        (p) => (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.AUTHORIZED) && !!p.providerTransactionId && !!p.checkoutUrl,
+        (p) =>
+          (p.status === PaymentStatus.PENDING || p.status === PaymentStatus.AUTHORIZED) &&
+          !!p.providerTransactionId &&
+          !!p.checkoutUrl &&
+          // A checkout opened for an earlier plan choice must not be reused for the current one.
+          (!target.subscription || p.createdAt >= target.subscription.since),
       );
       if (open) return { kind: 'open' as const, payment: open, totalCents };
 
@@ -327,6 +339,10 @@ export class PaymentsService {
           scope: { businessSubscriptionId: sub.id },
           scopeId: sub.id,
           description: `LocalSpotter ${sub.plan.name}`.slice(0, 120),
+          subscription: {
+            alreadyPaid: sub.status === SubscriptionStatus.ACTIVE && sub.currentPeriodEnd > new Date(),
+            since: sub.currentPeriodStart,
+          },
         };
       }
 
