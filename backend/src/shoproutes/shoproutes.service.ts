@@ -41,10 +41,7 @@ export class ShopRoutesService {
         throw new BadRequestException('Geen bedrijfsprofiel gevonden voor deze gebruiker');
       }
 
-      const business = await this.prisma.business.findUnique({
-        where: { id: ownerProfile.id === '' ? undefined : undefined },
-      });
-      // Find business by ownerProfileId
+      // The owner's shop is found through the owner profile.
       const businesses = await this.prisma.business.findMany({
         where: { ownerProfileId: ownerProfile.id },
       });

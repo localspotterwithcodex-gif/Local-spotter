@@ -140,6 +140,21 @@ describe('ShopRoutesService', () => {
       expect(result.businessId).toBe('bus-2');
     });
 
+    it('never runs a business lookup with an undefined key (Prisma rejects it, which was the 500 on every new route)', async () => {
+      prisma.businessOwnerProfile.findUnique.mockResolvedValue(mockOwnerProfile);
+      prisma.business.findMany.mockResolvedValue([mockBusiness]);
+      prisma.business.findUnique.mockImplementation(async (args: any) => {
+        if (!args?.where || Object.values(args.where).every((v) => v === undefined)) throw new Error('Argument `where` needs at least one unique field');
+        return mockBusiness;
+      });
+      prisma.shopRoute.findFirst.mockResolvedValue(undefined);
+      prisma.shopRoute.create.mockResolvedValue(mockRoute);
+      prisma.shopRoute.findUnique.mockResolvedValue(mockRoute);
+      entitlementService.hasFeature.mockResolvedValue(true);
+
+      await expect(service.createRoute(mockUserOwner, { title: 'Test', city: 'Amsterdam' })).resolves.toBeDefined();
+    });
+
     it('should reject unauthorized user from managing route', async () => {
       prisma.shopRoute.findUnique.mockResolvedValue(mockRoute);
 
