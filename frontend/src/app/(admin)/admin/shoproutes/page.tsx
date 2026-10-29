@@ -1,5 +1,6 @@
 "use client";
 
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import React, { useState } from "react";
 import { Star } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
@@ -62,6 +63,18 @@ export default function AdminRoutesPage() {
                       <td className="p-4">{r.stopCount}</td>
                       <td className="p-4">{r.status}</td>
                       <td className="p-4 text-right space-x-3 whitespace-nowrap">
+                        <EditIconButton
+                          title={r.title}
+                          fields={[
+                            { key: "title", label: t("ownerx.routes.titleLabel"), value: r.title },
+                            { key: "city", label: t("ownerx.routes.city"), value: r.city },
+                            { key: "description", label: t("common.description"), value: "", type: "textarea" },
+                          ]}
+                          onSave={async (c) => {
+                            await adminApi.updateRouteDetails(r.id, c);
+                            reload();
+                          }}
+                        />
                         <button
                           onClick={() => action.run(r.id, () => adminApi.moderateRoute(r.id, { featured: !r.featured }))}
                           disabled={action.busyId !== null}

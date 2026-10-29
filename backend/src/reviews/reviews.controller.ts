@@ -2,7 +2,9 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
+  ParseUUIDPipe,
   Body,
   UseGuards,
 } from '@nestjs/common';
@@ -72,5 +74,23 @@ export class ReviewsController {
   @ApiOperation({ summary: 'Eigen reviews van de ingelogde consument' })
   async getMyReviews(@CurrentUser() user: any) {
     return this.reviewsService.getConsumerReviews(user.profileId);
+  }
+
+  @Get('reviews/reviewable')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Afgeleverde bestellingen en bijgewoonde workshops die nog niet beoordeeld zijn' })
+  async getReviewable(@CurrentUser() user: any) {
+    return this.reviewsService.getReviewable(user.profileId);
+  }
+
+  @Delete('reviews/:reviewId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eigen review verwijderen' })
+  async deleteMyReview(@Param('reviewId', ParseUUIDPipe) reviewId: string, @CurrentUser() user: any) {
+    return this.reviewsService.deleteOwnReview(reviewId, user.profileId);
   }
 }

@@ -92,6 +92,7 @@ export interface RawBusiness {
   averageRating?: Dec;
   ratingCount?: number;
   followerCount?: number;
+  viewCount?: number;
   createdAt: string;
   hours?: { dayOfWeek: number; openTime?: string | null; closeTime?: string | null; isClosed: boolean }[];
   subscription?: { status: string; plan?: { slug: string } | null } | null;
@@ -207,6 +208,7 @@ export function toBusiness(r: RawBusiness): Business {
     rating: num(r.averageRating),
     reviewCount: r.ratingCount ?? 0,
     followerCount: r.followerCount ?? 0,
+    viewCount: r.viewCount ?? 0,
     productCount: r._count?.products ?? 0,
     subscriptionPlan: slug,
     status: r.status === "ACTIVE" ? "ACTIVE" : r.status === "PENDING_APPROVAL" ? "PENDING_APPROVAL" : "INACTIVE",

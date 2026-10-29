@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -46,6 +47,13 @@ export class ChatController {
   @ApiOperation({ summary: 'My conversations with last message and unread count (businessId: the shop inbox for owner/employees)' })
   list(@CurrentUser() user: AuthUser, @Query('businessId', new ParseUUIDPipe({ optional: true })) businessId?: string) {
     return this.chat.list(user, businessId);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.CONSUMER)
+  @ApiOperation({ summary: 'Customer removes a conversation from their own list' })
+  hide(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.chat.hideForConsumer(user, id);
   }
 
   @Get('unread-count')

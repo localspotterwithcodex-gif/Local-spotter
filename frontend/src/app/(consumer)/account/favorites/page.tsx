@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -45,7 +46,17 @@ export default function FavoritesPage() {
                 <h2 id="fav-products" className="text-sm font-bold text-[#111111]">{t("favorites.products")}</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {products.map((p) => (
-                    <ProductCard key={p.id} product={p} />
+                    <div key={p.id} className="space-y-2">
+                      <ProductCard product={p} />
+                      <DeleteButton
+                        label={t("common.remove")}
+                        confirmText={t("manage.del.favourite")}
+                        onConfirm={async () => {
+                          await api.setFavorite("product", p.id, false);
+                          reload();
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -55,7 +66,19 @@ export default function FavoritesPage() {
                 <h2 id="fav-shops" className="text-sm font-bold text-[#111111]">{t("favorites.stores")}</h2>
                 <div className="grid grid-cols-1 gap-4">
                   {businesses.map((b) => (
-                    <BusinessCard key={b.id} business={b} />
+                    <div key={b.id} className="space-y-2">
+                      <BusinessCard business={b} />
+                      <div className="flex justify-end">
+                        <DeleteButton
+                          label={t("common.remove")}
+                          confirmText={t("manage.del.favourite")}
+                          onConfirm={async () => {
+                            await api.setFavorite("business", b.id, false);
+                            reload();
+                          }}
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>

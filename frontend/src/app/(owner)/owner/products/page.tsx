@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import React, { useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -83,8 +84,8 @@ export default function OwnerProductsPage() {
                     {f.currency(p.price)} · {t("ownerx.products.stock", { n: p.stock })} · {p.isActive ? t("ownerx.products.active") : t("ownerx.products.hidden")}
                   </p>
                 </div>
-                <Link href={`/owner/products/${p.id}/edit`} className="text-xs font-bold text-[#FA1EFF]">
-                  {t("common.edit")}
+                <Link href={`/owner/products/${p.id}/edit`} className="p-1.5 text-[#FA1EFF] hover:bg-[#FAE2F0] rounded-lg" title={t("common.edit")} aria-label={`${t("common.edit")}: ${p.name}`}>
+                  <Pencil className="w-4 h-4" />
                 </Link>
                 <button
                   type="button"

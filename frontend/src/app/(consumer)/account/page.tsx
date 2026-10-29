@@ -2,11 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
-import { User, MapPin, ShoppingBag, Heart, Star, Languages, Bell, FileText, LifeBuoy, ChevronRight, type LucideIcon, Users, ShieldCheck } from "lucide-react";
+import { User, MapPin, ShoppingBag, Heart, Star, Languages, Bell, FileText, LifeBuoy, ChevronRight, type LucideIcon, Users, ShieldCheck, Trash2 } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { ReviewReminders } from "@/features/reviews/ReviewReminders";
 import { GuestClaimCard } from "@/features/guest/GuestClaimCard";
 
 interface Row {
@@ -37,6 +38,7 @@ export default function AccountPage() {
     { label: t("manage.settings.notifications"), href: "/notifications", icon: Bell, tint: "bg-[#FAE2F0] text-[#FA1EFF]" },
     { label: t("staff.title"), href: "/staff", icon: Users, tint: "bg-[#DDE4FA] text-[#4D5BD6]" },
     { label: t("privacySettings.title"), href: "/privacy-settings", icon: ShieldCheck, tint: "bg-[#D5F2E3] text-[#2E9E6B]" },
+    { label: t("privacySettings.deleteTitle"), href: "/privacy-settings", icon: Trash2, tint: "bg-[#F2D9DE] text-[#ED4C5C]" },
     { label: t("manage.settings.terms"), href: "/terms", icon: FileText, tint: "bg-[#E4E4E4] text-[#121F3E]" },
     { label: t("manage.settings.help"), href: "/help", icon: LifeBuoy, tint: "bg-[#CFF1F1] text-[#1E9AA0]" },
     { label: t("account.language"), icon: Languages, tint: "bg-[#DDE4FA] text-[#4D5BD6]" },
@@ -57,6 +59,8 @@ export default function AccountPage() {
         </div>
 
         <GuestClaimCard />
+
+        {!user?.isGuest && <ReviewReminders />}
 
         <ul className="space-y-3">
           {rows.map((r) => {

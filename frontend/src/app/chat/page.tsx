@@ -3,13 +3,14 @@
 import React, { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Trash2 } from "lucide-react";
 import { RoleLayout } from "@/layouts/RoleLayout";
 import { api } from "@/lib/api";
 import { usePolling } from "@/lib/hooks/usePolling";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 /** Conversation list (consumers see their shops, owners see their customers). */
 function ChatList() {
@@ -19,6 +20,19 @@ function ChatList() {
   const shopId = useSearchParams().get("shop") || undefined;
   const list = usePolling(`chat:list:${shopId ?? "me"}`, () => api.getConversations(shopId), 10000);
   const isOwner = role === "BUSINESS_OWNER" || !!shopId;
+  const [removing, setRemoving] = React.useState<string | null>(null);
+  const [removeError, setRemoveError] = React.useState<string | null>(null);
+  const errMsg = useErrorMessage();
+  const remove = async (id: string) => {
+    setRemoveError(null);
+    try {
+      await api.hideConversation(id);
+      setRemoving(null);
+      await list.reload();
+    } catch (err) {
+      setRemoveError(errMsg(err));
+    }
+  };
 
   return (
     <RoleLayout>
@@ -50,11 +64,13 @@ function ChatList() {
           </div>
         )}
 
+        {removeError && <p role="alert" className="text-xs font-bold text-[#E54666]">{removeError}</p>}
+
         <ul className="space-y-3">
           {(list.data ?? []).map((c) => {
             const name = isOwner ? c.consumerName : c.businessName;
             return (
-              <li key={c.id}>
+              <li key={c.id} className="space-y-1">
                 <Link href={`/chat/${c.id}`} className="flex items-center gap-3 bg-white rounded-xl shadow-sm px-4 py-3 hover:shadow-md transition-shadow">
                   <span className="w-11 h-11 rounded-full bg-[#FAE2F0] text-[#FA1EFF] font-bold flex items-center justify-center shrink-0">
                     {name.charAt(0).toUpperCase()}
@@ -77,6 +93,21 @@ function ChatList() {
                     </span>
                   )}
                 </Link>
+                {!isOwner && (
+                  <div className="flex justify-end items-center gap-2 text-xs">
+                    {removing === c.id ? (
+                      <>
+                        <span className="font-bold text-[#555555]">{t("manage.del.chat")}</span>
+                        <button type="button" onClick={() => setRemoving(null)} className="rounded-xl border border-[#EAEAEA] px-3 py-1 font-bold text-[#555555]">{t("common.cancel")}</button>
+                        <button type="button" onClick={() => void remove(c.id)} className="rounded-xl bg-[#ED4C5C] px-3 py-1 font-bold text-white">{t("common.delete")}</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => setRemoving(c.id)} className="inline-flex items-center gap-1 rounded-xl border border-[#ED4C5C]/40 px-3 py-1 font-bold text-[#ED4C5C] hover:bg-[#F2D9DE]/50">
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> {t("common.delete")}
+                      </button>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}

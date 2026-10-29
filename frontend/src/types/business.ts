@@ -67,6 +67,8 @@ export interface Business {
   rating: number;
   reviewCount: number;
   followerCount: number;
+  /** Public shop-page views. */
+  viewCount?: number;
   productCount: number;
   subscriptionPlan: PlanSlug;
   status: "ACTIVE" | "PENDING_APPROVAL" | "INACTIVE";

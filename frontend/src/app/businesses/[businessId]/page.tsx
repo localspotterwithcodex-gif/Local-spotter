@@ -13,6 +13,7 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { api } from "@/lib/api";
+import { usePageView } from "@/lib/hooks/usePageView";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -45,6 +46,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
   const reviewsRes = useApiResource(resolvedId ? `business-reviews:${resolvedId}` : null, () =>
     api.getBusinessReviews(resolvedId as string)
   );
+  const liveViews = usePageView("shop", resolvedId);
   const isConsumer = isAuthenticated && role === "CONSUMER";
   const followRes = useApiResource(resolvedId && isConsumer ? `follow-status:${resolvedId}` : null, () =>
     api.getFollowStatus(resolvedId as string)
@@ -201,7 +203,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             )}
 
             {/* Stats Row */}
-            <div className="grid grid-cols-4 gap-2 py-3 px-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] text-center my-4">
+            <div className="grid grid-cols-5 gap-2 py-3 px-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] text-center my-4">
               <div>
                 <div className="flex items-center justify-center gap-1 text-sm font-bold text-[#111111]">
                   <Star className="w-4 h-4 fill-[#D4B011] text-[#D4B011]" />
@@ -220,6 +222,10 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{products.length}</span>
                 <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.products")}</span>
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-[#111111]">{liveViews ?? business.viewCount ?? 0}</span>
+                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.views")}</span>
               </div>
             </div>
 

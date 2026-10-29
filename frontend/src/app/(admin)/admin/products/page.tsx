@@ -1,5 +1,6 @@
 "use client";
 
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Trash2, Eye } from "lucide-react";
@@ -91,7 +92,20 @@ export default function AdminProductsPage() {
                       <td className="p-4">{p.category}</td>
                       <td className="p-4 font-bold">{f.currency(p.price)}</td>
                       <td className="p-4">{t("adminx.products.stockUnits", { n: p.stock })}</td>
-                      <td className="p-4 text-right">
+                      <td className="p-4 text-right whitespace-nowrap">
+                        <EditIconButton
+                          title={p.name}
+                          fields={[
+                            { key: "name", label: t("common.name"), value: p.name },
+                            { key: "price", label: t("common.price"), value: p.price, type: "number" },
+                            { key: "stock", label: t("manage.edit.stock"), value: p.stock, type: "number" },
+                            { key: "description", label: t("common.description"), value: "", type: "textarea" },
+                          ]}
+                          onSave={async (c) => {
+                            await adminApi.updateProductDetails(p.id, c);
+                            reload();
+                          }}
+                        />
                         {p.active ? (
                           <button
                             onClick={() => action.run(p.id, () => adminApi.setProductActive(p.id, false))}

@@ -233,6 +233,22 @@ export class OrdersService {
   }
 
   // ==========================================
+  // CUSTOMER REMOVES A FINISHED ORDER FROM THEIR OWN LIST
+  // ==========================================
+  private static readonly HIDEABLE: OrderStatus[] = [OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REJECTED];
+
+  async hideConsumerOrder(user: any, orderId: string) {
+    const consumerProfile = await this.getConsumerProfile(user);
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, consumerProfileId: true } });
+    if (!order || order.consumerProfileId !== consumerProfile.id) throw new NotFoundException('Bestelling niet gevonden');
+    if (!OrdersService.HIDEABLE.includes(order.status)) {
+      throw new BadRequestException('Alleen afgeronde of geannuleerde bestellingen kunnen worden verwijderd');
+    }
+    await this.prisma.order.update({ where: { id: order.id }, data: { consumerHiddenAt: new Date() } });
+    return { success: true };
+  }
+
+  // ==========================================
   // GET ORDERS FOR CONSUMER
   // ==========================================
   async getConsumerOrders(user: any, query: OrderQueryDto) {
@@ -243,6 +259,7 @@ export class OrdersService {
 
     const where: any = {
       consumerProfileId: consumerProfile.id,
+      consumerHiddenAt: null,
     };
 
     if (query.status) {

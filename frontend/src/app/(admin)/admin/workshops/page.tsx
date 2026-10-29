@@ -1,5 +1,6 @@
 "use client";
 
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import React, { useState } from "react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -45,6 +46,7 @@ export default function AdminWorkshopsPage() {
                     <th className="p-4">{t("adminx.workshops.colStart")}</th>
                     <th className="p-4">{t("adminx.workshops.colBooked")}</th>
                     <th className="p-4">{t("adminx.routes.colStatus")}</th>
+                    <th className="p-4 text-right">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
@@ -55,6 +57,20 @@ export default function AdminWorkshopsPage() {
                       <td className="p-4">{f.dateTime(w.startTime)}</td>
                       <td className="p-4">{w.bookedCount} / {w.capacity}</td>
                       <td className="p-4">{w.status}</td>
+                      <td className="p-4 text-right">
+                        <EditIconButton
+                          title={w.title}
+                          fields={[
+                            { key: "title", label: t("common.name"), value: w.title },
+                            { key: "capacity", label: t("manage.edit.capacity"), value: w.capacity, type: "number" },
+                            { key: "description", label: t("common.description"), value: "", type: "textarea" },
+                          ]}
+                          onSave={async (c) => {
+                            await adminApi.updateWorkshopDetails(w.id, c);
+                            reload();
+                          }}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

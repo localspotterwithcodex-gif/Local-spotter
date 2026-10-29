@@ -5,6 +5,7 @@ import { AdminLayout } from "@/layouts/AdminLayout";
 import { useLocale } from "@/i18n/LocaleContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -110,6 +111,20 @@ export default function AdminBusinessesPage() {
                         <Badge variant={b.status === "ACTIVE" ? "completed" : "processing"}>{label("status", b.status)}</Badge>
                       </td>
                       <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                        <EditIconButton
+                          title={b.name}
+                          fields={[
+                            { key: "name", label: t("common.name"), value: b.name },
+                            { key: "city", label: t("manage.edit.city"), value: b.city },
+                            { key: "kvkNumber", label: t("manage.edit.kvk"), value: b.kvkNumber },
+                            { key: "description", label: t("common.description"), value: "", type: "textarea" },
+                          ]}
+                          onSave={async (c) => {
+                            await adminApi.updateBusinessDetails(b.id, c);
+                            reload();
+                          }}
+                        />
                         {b.status !== "ACTIVE" ? (
                           <Button
                             variant="primary"
@@ -136,6 +151,7 @@ export default function AdminBusinessesPage() {
                             </Button>
                           </div>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))}

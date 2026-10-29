@@ -326,6 +326,8 @@ model Business {
   averageRating  Decimal        @default(0) @map("average_rating") @db.Decimal(3, 2)
   ratingCount    Int            @default(0) @map("rating_count")
   followerCount  Int            @default(0) @map("follower_count")
+  /// Public shop-page views (see ViewsService for what counts).
+  viewCount      Int            @default(0) @map("view_count")
   websiteUrl     String?        @map("website_url")
   instagramUrl   String?        @map("instagram_url")
   facebookUrl    String?        @map("facebook_url")
@@ -640,6 +642,8 @@ model Order {
   confirmedAt             DateTime?     @map("confirmed_at")
   deliveredAt             DateTime?     @map("delivered_at")
   cancelledAt             DateTime?     @map("cancelled_at")
+  /// Set when the customer removed a finished order from their own list. The shop keeps the record.
+  consumerHiddenAt        DateTime?     @map("consumer_hidden_at")
   createdAt               DateTime      @default(now()) @map("created_at")
   updatedAt               DateTime      @updatedAt @map("updated_at")
 
@@ -705,6 +709,7 @@ model Workshop {
   price       Decimal        @db.Decimal(10, 2)
   capacity    Int
   bookedCount Int            @default(0) @map("booked_count")
+  viewCount   Int            @default(0) @map("view_count")
   startTime   DateTime       @map("start_time")
   endTime     DateTime       @map("end_time")
   location    String?
@@ -774,6 +779,7 @@ model ShopRoute {
   distanceKm          Decimal?    @map("distance_km") @db.Decimal(6, 2)
   durationMinutes     Int?        @map("duration_minutes")
   statsManual         Boolean     @default(false) @map("stats_manual")
+  viewCount           Int         @default(0) @map("view_count")
   featured            Boolean     @default(false)
   translations        Json?
   sourceLocale        String?     @map("source_locale")
@@ -1202,6 +1208,8 @@ model Conversation {
   /// Set when the consumer / the shop blocked the conversation. While either is set nobody can send.
   consumerBlockedAt DateTime? @map("consumer_blocked_at")
   businessBlockedAt DateTime? @map("business_blocked_at")
+  /// Set when the customer removed the chat from their list; a newer message brings it back.
+  consumerHiddenAt  DateTime? @map("consumer_hidden_at")
   /// Set when the recipient was notified of unread messages; cleared when they read. One notification per unread burst.
   consumerNotifiedAt DateTime? @map("consumer_notified_at")
   businessNotifiedAt DateTime? @map("business_notified_at")

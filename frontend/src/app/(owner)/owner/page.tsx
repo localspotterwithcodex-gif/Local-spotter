@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Plus, Pencil, Star, Users, Package, X, ImageOff } from "lucide-react";
+import { Plus, Pencil, Star, Users, Package, Eye, X, ImageOff } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -62,6 +62,7 @@ export default function OwnerDashboardPage() {
     { icon: <Star className="w-5 h-5 fill-[#D4B011] text-[#D4B011]" />, value: `${business.rating} (${business.reviewCount})`, label: t("manage.shop.rating") },
     { icon: <Users className="w-5 h-5 text-[#FA1EFF]" />, value: String(business.followerCount), label: t("manage.shop.followers") },
     { icon: <Package className="w-5 h-5 text-[#FA1EFF]" />, value: String(productList.length), label: t("manage.shop.productsStat") },
+    { icon: <Eye className="w-5 h-5 text-[#FA1EFF]" />, value: String(business.viewCount ?? 0), label: t("shops.detail.views") },
   ];
   const addLinks = [
     { href: "/owner/products/new", label: t("owner.addProduct") },

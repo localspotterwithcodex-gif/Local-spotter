@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Plus, XCircle, Users } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -84,6 +85,20 @@ export default function OwnerWorkshopsPage() {
                     {w.sessions.length > 1 ? ` · ${t("ownerx.workshops.sessionsCount", { n: w.sessions.length })}` : ""}
                   </p>
                 </div>
+                {w.status !== "CANCELLED" && w.status !== "COMPLETED" && (
+                  <EditIconButton
+                    title={w.title}
+                    fields={[
+                      { key: "title", label: t("common.name"), value: w.title },
+                      { key: "price", label: t("common.price"), value: w.price, type: "number" },
+                      { key: "capacity", label: t("manage.edit.capacity"), value: w.capacity, type: "number" },
+                    ]}
+                    onSave={async (c) => {
+                      await api.updateWorkshopDetails(w.id, c);
+                      list.reload();
+                    }}
+                  />
+                )}
                 <Link
                   href={`/owner/workshops/${w.id}/participants`}
                   className="ml-auto flex items-center gap-1 text-xs font-bold text-[#FA1EFF] shrink-0"

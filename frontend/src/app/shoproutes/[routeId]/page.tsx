@@ -2,12 +2,13 @@
 
 import React, { useState, use } from "react";
 import Link from "next/link";
-import { MapPin, Navigation, Store, ArrowLeft, Compass } from "lucide-react";
+import { MapPin, Navigation, Store, ArrowLeft, Compass, Eye } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
+import { usePageView } from "@/lib/hooks/usePageView";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
@@ -21,6 +22,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
   const { data: route, error, loading: isLoading, reload } = useApiResource(`shoproute:${routeId}`, () =>
     api.getShoprouteById(routeId)
   );
+  const liveViews = usePageView("route", route?.id);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -99,6 +101,11 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
               {route.cityName}
             </div>
             <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{route.title}</h1>
+            {liveViews !== null && (
+              <p className="inline-flex items-center gap-1 text-[11px] text-[#B7B7B7] mt-1">
+                <Eye className="w-3.5 h-3.5" /> {t("shops.detail.viewsN", { n: liveViews })}
+              </p>
+            )}
             <p className="text-xs text-[#555555] mt-1">{route.description}</p>
           </div>
 

@@ -509,6 +509,19 @@ export const adminApi = {
   async createCategory(kind: CategoryKind, input: { name: string; description?: string; sortOrder?: number }): Promise<void> {
     await apiClient.post(`/admin/categories/${kind}`, input);
   },
+  /** Admin edits of a shop / product / route / workshop go through the same owner endpoints (they accept SUPER_ADMIN). */
+  async updateBusinessDetails(id: string, input: Record<string, string | number>): Promise<void> {
+    await apiClient.patch(`/businesses/${id}`, input);
+  },
+  async updateProductDetails(id: string, input: Record<string, string | number>): Promise<void> {
+    await apiClient.patch(`/products/${id}`, input);
+  },
+  async updateRouteDetails(id: string, input: Record<string, string | number>): Promise<void> {
+    await apiClient.patch(`/shop-routes/${id}`, input);
+  },
+  async updateWorkshopDetails(id: string, input: Record<string, string | number>): Promise<void> {
+    await apiClient.patch(`/workshops/${id}`, input);
+  },
   async updateCategory(kind: CategoryKind, id: string, input: { name?: string; description?: string; sortOrder?: number; active?: boolean }): Promise<void> {
     await apiClient.patch(`/admin/categories/${kind}/${id}`, input);
   },

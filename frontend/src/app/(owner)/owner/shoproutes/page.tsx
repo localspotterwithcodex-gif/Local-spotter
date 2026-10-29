@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MapPin, Plus, Trash2, Eye, EyeOff } from "lucide-react";
 import { OwnerLayout } from "@/layouts/OwnerLayout";
 import { Input } from "@/components/ui/Input";
+import { EditIconButton } from "@/components/ui/EditIconButton";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -224,6 +225,19 @@ export default function OwnerShoproutesPage() {
                   >
                     {r.status === "PUBLISHED" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
+                  <EditIconButton
+                    title={r.title}
+                    className="p-2 text-[#FA1EFF]"
+                    fields={[
+                      { key: "title", label: t("ownerx.routes.titleLabel"), value: r.title },
+                      { key: "city", label: t("ownerx.routes.city"), value: r.cityName },
+                      { key: "description", label: t("common.description"), value: "", type: "textarea" },
+                    ]}
+                    onSave={async (c) => {
+                      await api.updateRouteDetails(r.id, c);
+                      routes.reload();
+                    }}
+                  />
                   <button type="button" className="p-2 text-red-600" aria-label={t("ownerx.routes.delete")} onClick={() => run(() => api.deleteShoproute(r.id))}>
                     <Trash2 className="w-4 h-4" />
                   </button>

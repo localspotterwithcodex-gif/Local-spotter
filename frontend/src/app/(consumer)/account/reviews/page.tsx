@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star, MessageSquare, ArrowLeft, Store, ExternalLink } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { api } from "@/lib/api";
@@ -119,7 +120,14 @@ export default function ConsumerReviewsPage() {
                   </p>
 
 
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                    <DeleteButton
+                      confirmText={t("manage.del.review")}
+                      onConfirm={async () => {
+                        await api.deleteReview(review.id);
+                        reload();
+                      }}
+                    />
                     <Link
                       href={`/businesses/${review.businessId}`}
                       className="text-xs text-[#FA1EFF] hover:underline font-bold flex items-center gap-1"

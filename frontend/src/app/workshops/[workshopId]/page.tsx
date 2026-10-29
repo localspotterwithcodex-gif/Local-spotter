@@ -4,7 +4,7 @@ import React, { useState, use } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Clock, MapPin, Users, Calendar as CalendarIcon, Store, Check, ArrowLeft, Info } from "lucide-react";
+import { Clock, MapPin, Users, Calendar as CalendarIcon, Store, Check, ArrowLeft, Info, Eye } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useFormat } from "@/i18n/useFormat";
+import { usePageView } from "@/lib/hooks/usePageView";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useAuth } from "@/features/auth/AuthContext";
 
@@ -29,6 +30,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   const { data: workshop, error, loading: isLoading, reload } = useApiResource(`workshop:${workshopId}`, () =>
     api.getWorkshopById(workshopId)
   );
+  const liveViews = usePageView("workshop", workshop?.id);
   const [ticketQuantity, setTicketQuantity] = useState(1);
   const [isBooking, setIsBooking] = useState(false);
   const [isBooked, setIsBooked] = useState(false);
@@ -129,6 +131,11 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
           <div className="p-6 md:p-8 space-y-6">
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{workshop.title}</h1>
+              {liveViews !== null && (
+                <p className="inline-flex items-center gap-1 text-[11px] text-[#B7B7B7] mt-1">
+                  <Eye className="w-3.5 h-3.5" /> {t("shops.detail.viewsN", { n: liveViews })}
+                </p>
+              )}
               <Link href={`/businesses/${workshop.businessId}`} className="inline-flex items-center gap-1 text-xs font-bold text-[#FA1EFF] mt-1 hover:underline">
                 <Store className="w-3.5 h-3.5" /> {t("workshops.detail.organizedBy", { name: workshop.businessName })}
               </Link>

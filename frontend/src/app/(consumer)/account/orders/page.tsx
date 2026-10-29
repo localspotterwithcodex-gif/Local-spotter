@@ -2,10 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Store, CreditCard } from "lucide-react";
+import { ArrowLeft, Store, CreditCard, Star } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DeleteButton } from "@/components/ui/DeleteButton";
+import { ReviewModal } from "@/features/reviews/ReviewModal";
+import type { ReviewableItem } from "@/types/review";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -26,12 +29,16 @@ export default function ConsumerOrdersPage() {
   const orders = data ?? [];
   const returnsRes = useApiResource("my-returns", () => api.getMyReturns());
   const errMsg = useErrorMessage();
+  const reviewable = useApiResource("my-reviewable", () => api.getReviewable());
+  const [reviewing, setReviewing] = useState<ReviewableItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const isOpen = (o: Order) => o.status !== "CANCELLED" && o.status !== "REJECTED" && o.status !== "DELIVERED";
   const needsPayment = (o: Order) => isOpen(o) && !PAID_STATES.includes(o.paymentStatus);
+  const canRemove = (o: Order) => o.status === "DELIVERED" || o.status === "CANCELLED" || o.status === "REJECTED";
+  const reviewItem = (o: Order) => (reviewable.data ?? []).find((r) => r.kind === "order" && r.id === o.id);
   const canCancel = (o: Order) => o.status === "PENDING" || o.status === "CONFIRMED";
 
   const pay = async (o: Order) => {
@@ -138,6 +145,25 @@ export default function ConsumerOrdersPage() {
 
                 <OrderReturns order={order} returns={(returnsRes.data ?? []).filter((r) => r.orderId === order.id)} onChanged={returnsRes.reload} />
 
+                {(reviewItem(order) || canRemove(order)) && (
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                    {reviewItem(order) && (
+                      <Button variant="primary" size="sm" className="gap-1.5" onClick={() => setReviewing(reviewItem(order)!)}>
+                        <Star className="w-3.5 h-3.5" /> {t("manage.review.button")}
+                      </Button>
+                    )}
+                    {canRemove(order) && (
+                      <DeleteButton
+                        confirmText={t("manage.del.order")}
+                        onConfirm={async () => {
+                          await api.hideOrder(order.id);
+                          reload();
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
                 {(needsPayment(order) || canCancel(order)) && (
                   <div className="flex flex-wrap gap-2 justify-end pt-1">
                     {needsPayment(order) && (
@@ -167,6 +193,7 @@ export default function ConsumerOrdersPage() {
           </div>
         )}
       </div>
+      {reviewing && <ReviewModal item={reviewing} onClose={() => setReviewing(null)} onSubmitted={reviewable.reload} />}
     </ConsumerLayout>
   );
 }

@@ -51,7 +51,7 @@ export class ChatService {
     const where = await this.participantFilter(user, businessId);
     const viewerIsConsumer = !businessId && user.role === UserRole.CONSUMER;
     const rows = await this.prisma.conversation.findMany({
-      where,
+      where: viewerIsConsumer ? { ...where, consumerHiddenAt: null } : where,
       orderBy: { lastMessageAt: 'desc' },
       take: 100,
       include: {
@@ -78,6 +78,14 @@ export class ChatService {
       unreadCount: c._count.messages,
       blocked: !!(c.consumerBlockedAt || c.businessBlockedAt),
     }));
+  }
+
+  /** The customer removes a chat from their own list. The shop keeps the history; a new message brings it back. */
+  async hideForConsumer(user: AuthUser, conversationId: string) {
+    const { conversation, side } = await this.assertParticipant(user, conversationId);
+    if (side !== 'consumer') throw new ForbiddenException('Alleen de klant kan een gesprek uit de eigen lijst verwijderen');
+    await this.prisma.conversation.update({ where: { id: conversation.id }, data: { consumerHiddenAt: new Date() } });
+    return { success: true };
   }
 
   async messages(user: AuthUser, conversationId: string) {
@@ -109,7 +117,7 @@ export class ChatService {
     this.assertNotBlocked(conversation);
     const [message] = await this.prisma.$transaction([
       this.prisma.chatMessage.create({ data: { conversationId, senderUserId: user.id, body, fromBusiness: side === 'business' } }),
-      this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } }),
+      this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date(), consumerHiddenAt: null } }),
     ]);
     await this.notifyRecipient(side, conversation, body);
     return this.toDto({ ...message, attachment: null }, side);
@@ -134,7 +142,7 @@ export class ChatService {
       this.prisma.chatMessage.create({
         data: { conversationId, senderUserId: user.id, body: caption, attachmentAssetId: asset.id, fromBusiness: side === 'business' },
       }),
-      this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } }),
+      this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date(), consumerHiddenAt: null } }),
     ]);
     await this.notifyRecipient(side, conversation, caption || '📷');
     return this.toDto({ ...message, attachment: { url: asset.url } }, side);

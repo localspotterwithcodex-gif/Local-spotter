@@ -334,4 +334,39 @@ describe('ReviewsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('verified reviews and deletion', () => {
+    beforeEach(() => {
+      prisma.order = { findUnique: jest.fn() };
+      prisma.review.update = jest.fn();
+      (service as any).notifications = { notifyBusinessOwner: jest.fn() };
+    });
+
+    it('publishes a review for the own delivered order without the WORKSHOPS feature or a title', async () => {
+      prisma.order.findUnique.mockResolvedValue({ consumerProfileId: 'consumer-profile-1', businessId: 'bus-1', status: 'DELIVERED' });
+      prisma.review.count.mockResolvedValue(0);
+      prisma.review.create.mockResolvedValue(mockReview);
+      await service.createReview('bus-1', 'consumer-profile-1', { rating: 4, orderId: 'order-1' });
+      expect(entitlementService.hasFeature).not.toHaveBeenCalled();
+      expect(prisma.review.create.mock.calls[0][0].data).toMatchObject({ status: ReviewStatus.PUBLISHED, orderId: 'order-1', comment: '' });
+    });
+
+    it('rejects an order that is not delivered, belongs to someone else, or was already reviewed', async () => {
+      prisma.order.findUnique.mockResolvedValue({ consumerProfileId: 'consumer-profile-1', businessId: 'bus-1', status: 'PENDING' });
+      await expect(service.createReview('bus-1', 'consumer-profile-1', { rating: 4, orderId: 'o' })).rejects.toThrow(BadRequestException);
+      prisma.order.findUnique.mockResolvedValue({ consumerProfileId: 'other', businessId: 'bus-1', status: 'DELIVERED' });
+      await expect(service.createReview('bus-1', 'consumer-profile-1', { rating: 4, orderId: 'o' })).rejects.toThrow(NotFoundException);
+      prisma.order.findUnique.mockResolvedValue({ consumerProfileId: 'consumer-profile-1', businessId: 'bus-1', status: 'DELIVERED' });
+      prisma.review.count.mockResolvedValue(1);
+      await expect(service.createReview('bus-1', 'consumer-profile-1', { rating: 4, orderId: 'o' })).rejects.toThrow('al beoordeeld');
+    });
+
+    it('lets the author soft-delete a review and hides it from everyone else', async () => {
+      prisma.review.findUnique.mockResolvedValue({ consumerProfileId: 'consumer-profile-1', deletedAt: null });
+      await service.deleteOwnReview('r1', 'consumer-profile-1');
+      expect(prisma.review.update.mock.calls[0][0].data.deletedAt).toBeInstanceOf(Date);
+      prisma.review.findUnique.mockResolvedValue({ consumerProfileId: 'someone-else', deletedAt: null });
+      await expect(service.deleteOwnReview('r1', 'consumer-profile-1')).rejects.toThrow(NotFoundException);
+    });
+  });
 });

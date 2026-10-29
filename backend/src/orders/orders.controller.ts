@@ -1,5 +1,7 @@
 import {
   Controller,
+  Delete,
+  ParseUUIDPipe,
   Get,
   Post,
   Patch,
@@ -63,6 +65,13 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Paginated list of consumer orders.' })
   async getConsumerOrders(@CurrentUser() user: any, @Query() query: OrderQueryDto) {
     return this.ordersService.getConsumerOrders(user, query);
+  }
+
+  @Delete('orders/:orderId')
+  @Roles(UserRole.CONSUMER)
+  @ApiOperation({ summary: 'Customer removes a finished order from their own list (the shop keeps the record)' })
+  async hideOrder(@Param('orderId', ParseUUIDPipe) orderId: string, @CurrentUser() user: any) {
+    return this.ordersService.hideConsumerOrder(user, orderId);
   }
 
   @Get('orders/:orderId')

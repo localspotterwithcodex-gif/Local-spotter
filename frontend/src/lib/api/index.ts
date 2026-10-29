@@ -3,6 +3,7 @@
  * request; nothing here reads local mock data. Errors propagate as ApiError so
  * pages can render an error state (never a silent fallback).
  */
+import type { ReviewableItem } from "@/types/review";
 import { apiClient, ApiError, qs } from "./client";
 import {
   RawBooking, RawBusiness, RawOrder, RawPlan, RawProduct, RawReview, RawRoute, RawSubscription, RawWorkshop, RawWorkshopSession,
@@ -492,6 +493,9 @@ export const api = {
   },
 
   /** Fire-and-forget: counts one view of the product page (the backend de-duplicates). */
+  async recordView(kind: "shop" | "route" | "workshop", id: string): Promise<{ viewCount: number; counted: boolean }> {
+    return apiClient.post(`/views/${kind}/${id}`, {});
+  },
   async recordProductView(productId: string): Promise<{ viewCount: number; counted: boolean }> {
     return apiClient.post(`/products/${productId}/view`, {});
   },
@@ -742,6 +746,26 @@ export const api = {
 
   createReview: (businessId: string, input: { rating: number; title: string; comment: string }) =>
     apiClient.post(`/businesses/${businessId}/reviews`, input),
+
+  /** Review after a delivered order / attended workshop (stars + optional remark). */
+  createReviewFor: (item: ReviewableItem, rating: number, comment: string) =>
+    apiClient.post(`/businesses/${item.businessId}/reviews`, {
+      rating,
+      ...(comment ? { comment } : {}),
+      ...(item.kind === "order" ? { orderId: item.id } : { workshopId: item.id }),
+    }),
+
+  async getReviewable(): Promise<ReviewableItem[]> {
+    const res = await apiClient.get<{ items: ReviewableItem[] }>("/reviews/reviewable");
+    return res.items;
+  },
+
+  /** Details edit for a workshop / shop route (owner of the shop, or admin). */
+  updateWorkshopDetails: (id: string, input: Record<string, string | number>) => apiClient.patch(`/workshops/${id}`, input),
+  updateRouteDetails: (id: string, input: Record<string, string | number>) => apiClient.patch(`/shop-routes/${id}`, input),
+  deleteReview: (reviewId: string) => apiClient.delete<{ success: true }>(`/reviews/${reviewId}`),
+  hideOrder: (orderId: string) => apiClient.delete<{ success: true }>(`/orders/${orderId}`),
+  hideConversation: (conversationId: string) => apiClient.delete<{ success: true }>(`/conversations/${conversationId}`),
 
   // ---------------- CONSUMER PROFILE & FOLLOWING ----------------
   async getConsumerProfile(): Promise<ConsumerProfileInfo> {

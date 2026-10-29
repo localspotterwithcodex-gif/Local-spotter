@@ -19,16 +19,16 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const adminLinks = adminNavLinks(t);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F9F9]">
+    <div className="h-dvh flex flex-col overflow-hidden bg-[#F9F9F9]">
       <div className="md:hidden">
         <AppHeader />
       </div>
       <TopNav />
 
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 min-h-0 flex max-w-7xl w-full mx-auto">
         {/* Admin Sidebar */}
-        <aside className="w-64 bg-white border-r border-[#EAEAEA] min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between hidden md:flex">
+        <aside className="w-64 shrink-0 bg-white border-r border-[#EAEAEA] p-4 flex-col justify-between overflow-y-auto hidden md:flex">
           <div className="space-y-4">
             <div className="p-3 bg-[#790166] text-white rounded-2xl flex items-center gap-2.5">
               <ShieldCheck className="w-6 h-6 text-[#FA1EFF]" />
@@ -72,7 +72,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </button>
         </aside>
 
-        <main className="flex-1 p-4 md:p-8 pb-28 md:pb-12 w-full overflow-x-hidden">
+        <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 md:pb-12 w-full overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </div>

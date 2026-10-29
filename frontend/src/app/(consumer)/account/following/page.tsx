@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -42,7 +43,19 @@ export default function ConsumerFollowingPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {businesses.map((business) => (
-              <BusinessCard key={business.id} business={business} />
+              <div key={business.id} className="space-y-2">
+                <BusinessCard business={business} />
+                <div className="flex justify-end">
+                  <DeleteButton
+                    label={t("manage.del.unfollow")}
+                    confirmText={t("manage.del.unfollowAsk")}
+                    onConfirm={async () => {
+                      await api.unfollowBusiness(business.id);
+                      reload();
+                    }}
+                  />
+                </div>
+              </div>
             ))}
           </div>
         )}
