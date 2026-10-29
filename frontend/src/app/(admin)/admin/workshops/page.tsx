@@ -37,27 +37,27 @@ export default function AdminWorkshopsPage() {
           <EmptyState title={t("adminx.workshops.emptyTitle")} description={t("adminx.workshops.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.workshops.colWorkshop")}</th>
-                    <th className="p-4">{t("adminx.routes.colShop")}</th>
-                    <th className="p-4">{t("adminx.workshops.colStart")}</th>
-                    <th className="p-4">{t("adminx.workshops.colBooked")}</th>
-                    <th className="p-4">{t("adminx.routes.colStatus")}</th>
-                    <th className="p-4 text-right">{t("common.actions")}</th>
+                    <th className="p-3">{t("adminx.workshops.colWorkshop")}</th>
+                    <th className="p-3">{t("adminx.routes.colShop")}</th>
+                    <th className="p-3">{t("adminx.workshops.colStart")}</th>
+                    <th className="p-3">{t("adminx.workshops.colBooked")}</th>
+                    <th className="p-3">{t("adminx.routes.colStatus")}</th>
+                    <th className="p-3 text-right">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {items.map((w) => (
                     <tr key={w.id}>
-                      <td className="p-4 font-bold text-[#111111]">{w.title}</td>
-                      <td className="p-4 text-[#555555]">{w.businessName}</td>
-                      <td className="p-4">{f.dateTime(w.startTime)}</td>
-                      <td className="p-4">{w.bookedCount} / {w.capacity}</td>
-                      <td className="p-4">{w.status}</td>
-                      <td className="p-4 text-right">
+                      <td className="p-3 font-bold text-[#111111]">{w.title}</td>
+                      <td className="p-3 text-[#555555]">{w.businessName}</td>
+                      <td className="p-3">{f.dateTime(w.startTime)}</td>
+                      <td className="p-3">{w.bookedCount} / {w.capacity}</td>
+                      <td className="p-3">{w.status}</td>
+                      <td className="p-3 text-right">
                         <EditIconButton
                           title={w.title}
                           fields={[

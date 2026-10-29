@@ -41,28 +41,28 @@ export default function AdminRoutesPage() {
           <EmptyState title={t("adminx.routes.emptyTitle")} description={t("adminx.routes.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.routes.colRoute")}</th>
-                    <th className="p-4">{t("adminx.routes.colShop")}</th>
-                    <th className="p-4">{t("adminx.routes.colStops")}</th>
-                    <th className="p-4">{t("adminx.routes.colStatus")}</th>
-                    <th className="p-4 text-right">{t("common.actions")}</th>
+                    <th className="p-3">{t("adminx.routes.colRoute")}</th>
+                    <th className="p-3">{t("adminx.routes.colShop")}</th>
+                    <th className="p-3">{t("adminx.routes.colStops")}</th>
+                    <th className="p-3">{t("adminx.routes.colStatus")}</th>
+                    <th className="p-3 text-right">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {routes.map((r) => (
                     <tr key={r.id}>
-                      <td className="p-4 font-bold text-[#111111]">
+                      <td className="p-3 font-bold text-[#111111]">
                         {r.title}
                         <span className="block font-normal text-[#B7B7B7]">{r.city}</span>
                       </td>
-                      <td className="p-4 text-[#555555]">{r.businessName}</td>
-                      <td className="p-4">{r.stopCount}</td>
-                      <td className="p-4">{r.status}</td>
-                      <td className="p-4 text-right space-x-3 whitespace-nowrap">
+                      <td className="p-3 text-[#555555]">{r.businessName}</td>
+                      <td className="p-3">{r.stopCount}</td>
+                      <td className="p-3">{r.status}</td>
+                      <td className="p-3 text-right space-x-3 whitespace-nowrap">
                         <EditIconButton
                           title={r.title}
                           fields={[

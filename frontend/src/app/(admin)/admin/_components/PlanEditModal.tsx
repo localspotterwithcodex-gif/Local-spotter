@@ -57,7 +57,7 @@ export function PlanEditModal({ plan, descriptionText, onClose, onSaved }: Props
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="plan-edit-title">
-      <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-md sm:rounded-3xl">
+      <div className="max-h-[90vh] w-full overflow-y-auto no-scrollbar rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-md sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-[#EAEAEA] pb-4">
           <h2 id="plan-edit-title" className="font-rubik text-lg font-bold text-[#111111]">{t("adminx.subs.editTitle", { name: plan.name })}</h2>
           <button type="button" onClick={onClose} disabled={busy} aria-label={t("common.close")} className="rounded-full p-1.5 text-[#6B6B6B] hover:bg-[#F9F9F9]">

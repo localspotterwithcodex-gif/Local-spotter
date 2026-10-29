@@ -72,40 +72,40 @@ export default function AdminUsersPage() {
           <EmptyState title={t("adminx.users.emptyTitle")} description={t("adminx.users.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.users.colName")}</th>
-                    <th className="p-4">{t("adminx.users.colEmail")}</th>
-                    <th className="p-4">{t("adminx.users.colRole")}</th>
-                    <th className="p-4">{t("common.status")}</th>
-                    <th className="p-4">{t("adminx.users.colRegistered")}</th>
-                    <th className="p-4 text-right">{t("adminx.users.colAction")}</th>
+                    <th className="p-3">{t("adminx.users.colName")}</th>
+                    <th className="p-3">{t("adminx.users.colEmail")}</th>
+                    <th className="p-3">{t("adminx.users.colRole")}</th>
+                    <th className="p-3">{t("common.status")}</th>
+                    <th className="p-3">{t("adminx.users.colRegistered")}</th>
+                    <th className="p-3 text-right">{t("adminx.users.colAction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4">
+                      <td className="p-3">
                         <div className="flex items-center gap-3">
                           <Avatar src={u.avatarUrl} name={u.displayName} />
                           <span className="font-bold text-[#111111]">{u.displayName}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-[#555555]">{u.email}</td>
-                      <td className="p-4">
+                      <td className="p-3 text-[#555555]">{u.email}</td>
+                      <td className="p-3">
                         <Badge variant={u.role === "SUPER_ADMIN" ? "pink" : u.role === "BUSINESS_OWNER" ? "completed" : "default"}>
                           {label("role", u.role)}
                         </Badge>
                       </td>
-                      <td className="p-4">
+                      <td className="p-3">
                         <Badge variant={u.status === "ACTIVE" ? "completed" : u.status === "SUSPENDED" ? "cancelled" : "processing"}>
                           {label("status", u.status)}
                         </Badge>
                       </td>
-                      <td className="p-4 text-[#B7B7B7]">{f.date(u.createdAt)}</td>
-                      <td className="p-4 text-right">
+                      <td className="p-3 text-[#B7B7B7]">{f.date(u.createdAt)}</td>
+                      <td className="p-3 text-right">
                         {u.role !== "SUPER_ADMIN" &&
                           (u.status === "SUSPENDED" ? (
                             <Button

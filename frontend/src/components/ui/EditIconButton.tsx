@@ -78,7 +78,7 @@ export function EditIconButton({ title, fields, onSave, className }: Props) {
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={title}>
-          <form onSubmit={save} className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl bg-white p-6 shadow-xl space-y-4 text-left">
+          <form onSubmit={save} className="w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden no-scrollbar rounded-3xl bg-white p-6 shadow-xl space-y-4 text-left">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-base font-bold font-rubik text-[#111111] truncate">{title}</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="text-[#B7B7B7] hover:text-[#111111]">
@@ -87,13 +87,13 @@ export function EditIconButton({ title, fields, onSave, className }: Props) {
             </div>
             {fields.map((f) =>
               f.type === "textarea" ? (
-                <div key={f.key} className="space-y-1.5">
-                  <label className="text-sm font-bold text-[#111111]">{f.label}</label>
+                <div key={f.key} className="block space-y-1.5">
+                  <label className="block text-sm font-bold text-[#111111]">{f.label}</label>
                   <textarea
                     rows={4}
                     value={values[f.key] ?? ""}
                     onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                    className="w-full bg-[#EAEAEA] text-[#111111] text-sm p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white"
+                    className="block w-full max-w-full resize-none bg-[#EAEAEA] text-[#111111] text-sm p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white"
                   />
                 </div>
               ) : (

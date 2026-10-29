@@ -75,26 +75,26 @@ export default function AdminOrdersPage() {
           <EmptyState title={t("adminx.orders.emptyTitle")} description={t("adminx.orders.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.orders.colNumber")}</th>
-                    <th className="p-4">{t("adminx.orders.colCustomer")}</th>
-                    <th className="p-4">{t("adminx.orders.colShop")}</th>
-                    <th className="p-4">{t("common.total")}</th>
-                    <th className="p-4">{t("common.status")}</th>
-                    <th className="p-4">{t("common.date")}</th>
+                    <th className="p-3">{t("adminx.orders.colNumber")}</th>
+                    <th className="p-3">{t("adminx.orders.colCustomer")}</th>
+                    <th className="p-3">{t("adminx.orders.colShop")}</th>
+                    <th className="p-3">{t("common.total")}</th>
+                    <th className="p-3">{t("common.status")}</th>
+                    <th className="p-3">{t("common.date")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {orders.map((o) => (
                     <tr key={o.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4 font-bold text-[#111111]">{o.orderNumber}</td>
-                      <td className="p-4 text-[#555555]">{o.consumerName}</td>
-                      <td className="p-4 font-bold text-[#111111]">{o.businessName}</td>
-                      <td className="p-4 font-bold">{f.currency(o.total)}</td>
-                      <td className="p-4">
+                      <td className="p-3 font-bold text-[#111111]">{o.orderNumber}</td>
+                      <td className="p-3 text-[#555555]">{o.consumerName}</td>
+                      <td className="p-3 font-bold text-[#111111]">{o.businessName}</td>
+                      <td className="p-3 font-bold">{f.currency(o.total)}</td>
+                      <td className="p-3">
                         <div className="flex items-center gap-2">
                           <Badge status={o.status}>{label("status", o.status)}</Badge>
                           <select
@@ -117,7 +117,7 @@ export default function AdminOrdersPage() {
                           </select>
                         </div>
                       </td>
-                      <td className="p-4 text-[#B7B7B7]">{f.date(o.createdAt)}</td>
+                      <td className="p-3 text-[#B7B7B7]">{f.date(o.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

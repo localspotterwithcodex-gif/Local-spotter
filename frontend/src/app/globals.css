@@ -108,3 +108,9 @@ h1, h2, h3, .font-rubik {
 .ls-status-ontheway { background-color: #F0E9DF; color: #E8A74A; }
 .ls-status-cancelled { background-color: #D9DFF2; color: #344DB1; }
 .ls-status-new { background-color: #E8D1ED; color: #C04BDA; }
+
+/* Admin portal: no visible scroll bars (content still scrolls with wheel / touch / keyboard). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
+html.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+html.hide-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }

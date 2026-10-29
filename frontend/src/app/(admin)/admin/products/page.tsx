@@ -65,22 +65,22 @@ export default function AdminProductsPage() {
           <EmptyState title={t("adminx.products.emptyTitle")} description={t("adminx.products.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.products.colProduct")}</th>
-                    <th className="p-4">{t("adminx.products.colShop")}</th>
-                    <th className="p-4">{t("common.category")}</th>
-                    <th className="p-4">{t("common.price")}</th>
-                    <th className="p-4">{t("adminx.products.colStock")}</th>
-                    <th className="p-4 text-right">{t("common.actions")}</th>
+                    <th className="p-3">{t("adminx.products.colProduct")}</th>
+                    <th className="p-3">{t("adminx.products.colShop")}</th>
+                    <th className="p-3">{t("common.category")}</th>
+                    <th className="p-3">{t("common.price")}</th>
+                    <th className="p-3">{t("adminx.products.colStock")}</th>
+                    <th className="p-3 text-right">{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {products.map((p) => (
                     <tr key={p.id} className={`hover:bg-[#F9F9F9]/50 transition-colors ${p.active ? "" : "opacity-60"}`}>
-                      <td className="p-4 font-bold text-[#111111]">
+                      <td className="p-3 font-bold text-[#111111]">
                         <div className="flex items-center gap-3">
                           <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-[#F9F9F9] shrink-0">
                             {p.imageUrl && <Image src={p.imageUrl} alt={p.name} fill unoptimized className="object-cover" />}
@@ -88,11 +88,11 @@ export default function AdminProductsPage() {
                           <span className="truncate max-w-xs">{p.name}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-[#555555]">{p.businessName}</td>
-                      <td className="p-4">{p.category}</td>
-                      <td className="p-4 font-bold">{f.currency(p.price)}</td>
-                      <td className="p-4">{t("adminx.products.stockUnits", { n: p.stock })}</td>
-                      <td className="p-4 text-right whitespace-nowrap">
+                      <td className="p-3 text-[#555555]">{p.businessName}</td>
+                      <td className="p-3">{p.category}</td>
+                      <td className="p-3 font-bold">{f.currency(p.price)}</td>
+                      <td className="p-3">{t("adminx.products.stockUnits", { n: p.stock })}</td>
+                      <td className="p-3 text-right whitespace-nowrap">
                         <EditIconButton
                           title={p.name}
                           fields={[

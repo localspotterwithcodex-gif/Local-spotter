@@ -74,23 +74,23 @@ export default function AdminBusinessesPage() {
           <EmptyState title={t("adminx.biz.emptyTitle")} description={t("adminx.biz.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">{t("adminx.biz.colName")}</th>
-                    <th className="p-4">{t("common.category")}</th>
-                    <th className="p-4">{t("adminx.biz.colKvk")}</th>
-                    <th className="p-4">{t("adminx.biz.colCity")}</th>
-                    <th className="p-4">{t("adminx.biz.colPlan")}</th>
-                    <th className="p-4">{t("common.status")}</th>
-                    <th className="p-4 text-right">{t("adminx.biz.colAction")}</th>
+                    <th className="p-3">{t("adminx.biz.colName")}</th>
+                    <th className="p-3">{t("common.category")}</th>
+                    <th className="p-3">{t("adminx.biz.colKvk")}</th>
+                    <th className="p-3">{t("adminx.biz.colCity")}</th>
+                    <th className="p-3">{t("adminx.biz.colPlan")}</th>
+                    <th className="p-3">{t("common.status")}</th>
+                    <th className="p-3 text-right">{t("adminx.biz.colAction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {businesses.map((b) => (
                     <tr key={b.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4">
+                      <td className="p-3">
                         <div className="flex items-center gap-3">
                           <Avatar src={b.logoUrl} name={b.name} shape="square" />
                           <div>
@@ -99,18 +99,18 @@ export default function AdminBusinessesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-[#555555]">{b.category}</td>
-                      <td className="p-4 font-mono text-[#111111]">{b.kvkNumber}</td>
-                      <td className="p-4 text-[#555555]">{b.city}</td>
-                      <td className="p-4">
+                      <td className="p-3 text-[#555555]">{b.category}</td>
+                      <td className="p-3 font-mono text-[#111111]">{b.kvkNumber}</td>
+                      <td className="p-3 text-[#555555]">{b.city}</td>
+                      <td className="p-3">
                         <span className="bg-[#FAE2F0] text-[#FA1EFF] font-bold px-2 py-0.5 rounded-full text-[10px]">
                           {b.planName}
                         </span>
                       </td>
-                      <td className="p-4">
+                      <td className="p-3">
                         <Badge variant={b.status === "ACTIVE" ? "completed" : "processing"}>{label("status", b.status)}</Badge>
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                         <EditIconButton
                           title={b.name}

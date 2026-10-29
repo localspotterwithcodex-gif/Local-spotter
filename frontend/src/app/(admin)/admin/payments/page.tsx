@@ -76,28 +76,28 @@ export default function AdminPaymentsPage() {
           <EmptyState title={t("adminx.pay.emptyTitle")} description={t("adminx.pay.emptyDesc")} />
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto no-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                   <tr>
-                    <th className="p-4">ID</th>
-                    <th className="p-4">{t("adminx.pay.colCustomerShop")}</th>
-                    <th className="p-4">{t("adminx.pay.colType")}</th>
-                    <th className="p-4">{t("adminx.pay.colMethod")}</th>
-                    <th className="p-4">{t("adminx.pay.colAmount")}</th>
-                    <th className="p-4">{t("common.status")}</th>
-                    <th className="p-4">{t("common.date")}</th>
+                    <th className="p-3">ID</th>
+                    <th className="p-3">{t("adminx.pay.colCustomerShop")}</th>
+                    <th className="p-3">{t("adminx.pay.colType")}</th>
+                    <th className="p-3">{t("adminx.pay.colMethod")}</th>
+                    <th className="p-3">{t("adminx.pay.colAmount")}</th>
+                    <th className="p-3">{t("common.status")}</th>
+                    <th className="p-3">{t("common.date")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F9F9F9]">
                   {payments.map((p) => (
                     <tr key={p.id} className="hover:bg-[#F9F9F9]/50 transition-colors">
-                      <td className="p-4 font-mono font-bold">{p.id.slice(0, 8)}</td>
-                      <td className="p-4 font-bold text-[#111111]">{p.businessName}</td>
-                      <td className="p-4 text-[#555555]">{label("purpose", p.type)}</td>
-                      <td className="p-4">{label("method", p.method)}</td>
-                      <td className="p-4 font-extrabold">{f.currency(p.amount)}</td>
-                      <td className="p-4">
+                      <td className="p-3 font-mono font-bold">{p.id.slice(0, 8)}</td>
+                      <td className="p-3 font-bold text-[#111111]">{p.businessName}</td>
+                      <td className="p-3 text-[#555555]">{label("purpose", p.type)}</td>
+                      <td className="p-3">{label("method", p.method)}</td>
+                      <td className="p-3 font-extrabold">{f.currency(p.amount)}</td>
+                      <td className="p-3">
                         <Badge
                           variant={
                             p.status === "PAID"
@@ -110,7 +110,7 @@ export default function AdminPaymentsPage() {
                           {label("status", p.status)}
                         </Badge>
                       </td>
-                      <td className="p-4 text-[#B7B7B7]">{f.date(p.createdAt)}</td>
+                      <td className="p-3 text-[#B7B7B7]">{f.date(p.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -30,33 +30,33 @@ export default function AdminReturnsPage() {
         ) : !data || data.length === 0 ? (
           <EmptyState title={t("returns.shop.emptyTitle")} description={t("adminx.returns.empty")} />
         ) : (
-          <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-x-auto">
+          <div className="bg-white rounded-3xl border border-[#EAEAEA] shadow-2xs overflow-x-auto no-scrollbar">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F9F9F9] border-b border-[#EAEAEA] font-bold text-[#111111]">
                 <tr>
-                  <th className="p-4">{t("adminx.returns.colReturn")}</th>
-                  <th className="p-4">{t("adminx.payouts.colShop")}</th>
-                  <th className="p-4">{t("adminx.returns.colCustomer")}</th>
-                  <th className="p-4">{t("common.status")}</th>
-                  <th className="p-4">{t("adminx.returns.colRefund")}</th>
-                  <th className="p-4">{t("common.date")}</th>
+                  <th className="p-3">{t("adminx.returns.colReturn")}</th>
+                  <th className="p-3">{t("adminx.payouts.colShop")}</th>
+                  <th className="p-3">{t("adminx.returns.colCustomer")}</th>
+                  <th className="p-3">{t("common.status")}</th>
+                  <th className="p-3">{t("adminx.returns.colRefund")}</th>
+                  <th className="p-3">{t("common.date")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F9F9F9]">
                 {data.map((r) => (
                   <tr key={r.id}>
-                    <td className="p-4 font-bold text-[#111111]">
+                    <td className="p-3 font-bold text-[#111111]">
                       {r.returnNumber}
                       <span className="block text-[11px] font-normal text-[#B7B7B7]">{r.orderNumber}</span>
                     </td>
-                    <td className="p-4">{r.businessName}</td>
-                    <td className="p-4">{r.customerName}</td>
-                    <td className="p-4"><ReturnStatusBadge status={r.status} /></td>
-                    <td className="p-4">
+                    <td className="p-3">{r.businessName}</td>
+                    <td className="p-3">{r.customerName}</td>
+                    <td className="p-3"><ReturnStatusBadge status={r.status} /></td>
+                    <td className="p-3">
                       {r.refundAmountCents !== null ? f.currency(r.refundAmountCents / 100) : "-"}
                       {r.refundStatus === "FAILED" && <span className="block text-[11px] text-[#E54666] font-bold">{t("adminx.returns.refundFailed")}</span>}
                     </td>
-                    <td className="p-4 text-[#B7B7B7]">{f.date(r.requestedAt)}</td>
+                    <td className="p-3 text-[#B7B7B7]">{f.date(r.requestedAt)}</td>
                   </tr>
                 ))}
               </tbody>
