@@ -49,7 +49,7 @@ describe('StripeGateway', () => {
     expect(new StripeGateway(cfg({ STRIPE_SECRET_KEY: ' sk_test_abc1234567 ' })).isConfigured()).toBe(true);
   });
 
-  it('creates an iDEAL-only Checkout Session with the amount, metadata and idempotency key', async () => {
+  it('creates a Checkout Session (methods managed in the Dashboard) with the amount, metadata and idempotency key', async () => {
     const fetchFn = reply(200, { id: 'cs_test_1', url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
     const gw = new StripeGateway(cfg({ STRIPE_SECRET_KEY: 'sk_test_abc1234567' }));
     const out = await gw.createPayment({
@@ -68,8 +68,8 @@ describe('StripeGateway', () => {
     expect(init.headers['Idempotency-Key']).toBe('intent-pay-1');
     expect(init.headers.Authorization).toBe('Bearer sk_test_abc1234567');
     const params = new URLSearchParams(init.body);
-    expect(params.get('payment_method_types[0]')).toBe('ideal');
-    expect(params.get('payment_method_types[1]')).toBeNull();
+    // Current Stripe API versions refuse `payment_method_types`; the Dashboard decides which methods (iDEAL) are offered.
+    expect(params.has('payment_method_types[0]')).toBe(false);
     expect(params.get('line_items[0][price_data][unit_amount]')).toBe('10050');
     expect(params.get('line_items[0][price_data][currency]')).toBe('eur');
     expect(params.get('metadata[paymentId]')).toBe('pay-1');
@@ -123,27 +123,14 @@ describe('StripeGateway', () => {
   });
 });
 
-describe('StripeGateway iDEAL fallback', () => {
+describe('StripeGateway rejection', () => {
   const req: any = { amountCents: 1700, currency: 'EUR', description: 'LocalSpotter Webshop', redirectUrl: 'https://a.b/r', metadata: { paymentId: 'p1' }, idempotencyKey: 'intent-p1', locale: 'nl_NL' };
-  const gateway = () => new StripeGateway({ get: () => 'sk_test_x' } as any);
   afterEach(() => jest.restoreAllMocks());
 
-  it('retries without payment_method_types (new idempotency key) when Stripe says iDEAL is unavailable', async () => {
-    const seen: string[] = [];
-    jest.spyOn(globalThis, 'fetch').mockImplementation((async (_u: any, init: any) => {
-      const body = String(init.body);
-      seen.push(`${init.headers['Idempotency-Key']}:${body.includes('payment_method_types')}`);
-      return body.includes('payment_method_types')
-        ? { ok: false, status: 400, text: async () => JSON.stringify({ error: { type: 'invalid_request_error', param: 'payment_method_types', message: 'The payment method type provided: ideal is invalid.' } }) }
-        : { ok: true, status: 200, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) };
-    }) as any);
-    await expect(gateway().createPayment(req)).resolves.toEqual({ providerPaymentId: 'cs_1', checkoutUrl: 'https://checkout.stripe.com/x' });
-    expect(seen).toEqual(['intent-p1:true', 'intent-p1-auto:false']);
-  });
-
-  it('does not retry other 400s (e.g. a bad return URL) and answers with the coded 502', async () => {
+  it('answers a Stripe 400 with the coded 502, once, and never sends payment_method_types', async () => {
     const f = jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 400, text: async () => JSON.stringify({ error: { type: 'invalid_request_error', param: 'success_url', message: 'Not a valid URL' } }) } as any);
-    await expect(gateway().createPayment(req)).rejects.toMatchObject({ response: { code: 'PAYMENT_PROVIDER_ERROR' } });
+    await expect(new StripeGateway({ get: () => 'sk_test_x' } as any).createPayment(req)).rejects.toMatchObject({ response: { code: 'PAYMENT_PROVIDER_ERROR' } });
     expect(f).toHaveBeenCalledTimes(1);
+    expect(String((f.mock.calls[0][1] as any).body)).not.toContain('payment_method_types');
   });
 });

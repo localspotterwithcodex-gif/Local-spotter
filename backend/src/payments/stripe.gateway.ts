@@ -63,13 +63,10 @@ class StripeRejected extends Error {
   constructor(readonly status: number, readonly param: string, readonly detail: string) {
     super('Stripe rejected the request');
   }
-  get paymentMethodProblem(): boolean {
-    return this.status === 400 && (/payment_method_types/.test(this.param) || /payment method|ideal/i.test(this.detail));
-  }
 }
 
 /**
- * Stripe adapter (Checkout Sessions, iDEAL only). The platform account collects all payments; the
+ * Stripe adapter (Checkout Sessions; payment methods such as iDEAL are managed in the Stripe Dashboard, because `payment_method_types` is no longer accepted by current API versions). The platform account collects all payments; the
  * stores' share is tracked in the ledger and paid out separately. The provider payment id stored in
  * our database is the Checkout Session id (`cs_...`); the secret key is read from STRIPE_SECRET_KEY
  * and never logged.
@@ -91,26 +88,13 @@ export class StripeGateway implements PaymentGateway {
 
   async createPayment(req: GatewayCreatePaymentRequest): Promise<GatewayCreatePaymentResult> {
     const params = this.checkoutParams(req);
-    let json: any;
-    try {
-      json = await this.callRaw('POST', '/checkout/sessions', params, req.idempotencyKey);
-    } catch (err) {
-      // iDEAL not available for this Stripe account/mode: let Stripe offer whatever methods the dashboard enables
-      // for EUR instead of failing every payment. Different params need a different idempotency key.
-      if (!(err instanceof StripeRejected) || !err.paymentMethodProblem) throw providerError('The payment provider rejected the request');
-      this.logger.warn('iDEAL is not available on this Stripe account; retrying with the dashboard payment methods');
-      delete params['payment_method_types[0]'];
-      json = await this.callRaw('POST', '/checkout/sessions', params, `${req.idempotencyKey}-auto`).catch(() => {
-        throw providerError('The payment provider rejected the request');
-      });
-    }
+    const json = await this.call('POST', '/checkout/sessions', params, req.idempotencyKey);
     return { providerPaymentId: String(json.id), checkoutUrl: typeof json.url === 'string' ? json.url : null };
   }
 
   private checkoutParams(req: GatewayCreatePaymentRequest): Record<string, string> {
     const params: Record<string, string> = {
       mode: 'payment',
-      'payment_method_types[0]': 'ideal',
       success_url: req.redirectUrl,
       cancel_url: req.redirectUrl,
       'line_items[0][quantity]': '1',
@@ -172,7 +156,7 @@ export class StripeGateway implements PaymentGateway {
     let hint = 'Stripe refused the trial checkout; see the message.';
     if (res.status === 401) hint = 'The API key is invalid or from another Stripe account. Copy the secret key again (sk_test_…) into STRIPE_SECRET_KEY and redeploy.';
     else if (param?.includes('url')) hint = 'FRONTEND_URL must be a full address such as https://local-spotter-alpha.vercel.app (with https://).';
-    else if (/ideal|payment method/i.test(message ?? '')) hint = 'iDEAL is not enabled for this Stripe account/mode. Stripe → Settings → Payment methods → enable iDEAL (in the same Test mode as the key). Note: iDEAL needs a Stripe account in a supported country; if yours is not, Stripe will refuse it.';
+    else if (/payment method|ideal/i.test(message ?? '')) hint = 'Enable iDEAL in Stripe → Settings → Payment methods (same Test mode as the key). iDEAL needs a Stripe account in a supported country; otherwise Stripe offers only the other enabled methods.';
     return { ...base, ok: false, httpStatus: res.status, code: code ? String(code) : null, param: param ? String(param) : null, message, hint };
   }
 
