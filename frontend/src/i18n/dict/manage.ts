@@ -778,6 +778,11 @@ export const manage = defineDict({
     "payoutsx.account.bic": "BIC / SWIFT code",
     "payoutsx.account.country": "Country code (e.g. IN)",
     "payoutsx.account.intlNote": "International payouts are transferred manually and your bank may charge fees.",
+  
+    "adminx.pay.check": "Check payment setup",
+    "adminx.pay.checking": "Checking with Stripe…",
+    "adminx.pay.checkOk": "Stripe accepted a trial iDEAL checkout. Payments can start.",
+    "adminx.pay.checkFail": "Stripe refused the trial checkout",
   },
   nl: {
     "manage.upload.add": "Foto's uploaden",
@@ -1517,5 +1522,9 @@ export const manage = defineDict({
     "payoutsx.account.bic": "BIC / SWIFT-code",
     "payoutsx.account.country": "Landcode (bijv. IN)",
     "payoutsx.account.intlNote": "Internationale uitbetalingen worden handmatig overgemaakt en je bank kan kosten rekenen.",
+    "adminx.pay.check": "Betaalinstellingen controleren",
+    "adminx.pay.checking": "Controleren bij Stripe…",
+    "adminx.pay.checkOk": "Stripe accepteerde een test-iDEAL-checkout. Betalingen kunnen starten.",
+    "adminx.pay.checkFail": "Stripe weigerde de test-checkout",
   },
 });

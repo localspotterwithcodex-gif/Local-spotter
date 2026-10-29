@@ -122,3 +122,28 @@ describe('StripeGateway', () => {
     await expect(new StripeGateway(cfg({})).getPayment('cs_test_1')).rejects.toBeInstanceOf(BadGatewayException);
   });
 });
+
+describe('StripeGateway iDEAL fallback', () => {
+  const req: any = { amountCents: 1700, currency: 'EUR', description: 'LocalSpotter Webshop', redirectUrl: 'https://a.b/r', metadata: { paymentId: 'p1' }, idempotencyKey: 'intent-p1', locale: 'nl_NL' };
+  const gateway = () => new StripeGateway({ get: () => 'sk_test_x' } as any);
+  afterEach(() => jest.restoreAllMocks());
+
+  it('retries without payment_method_types (new idempotency key) when Stripe says iDEAL is unavailable', async () => {
+    const seen: string[] = [];
+    jest.spyOn(globalThis, 'fetch').mockImplementation((async (_u: any, init: any) => {
+      const body = String(init.body);
+      seen.push(`${init.headers['Idempotency-Key']}:${body.includes('payment_method_types')}`);
+      return body.includes('payment_method_types')
+        ? { ok: false, status: 400, text: async () => JSON.stringify({ error: { type: 'invalid_request_error', param: 'payment_method_types', message: 'The payment method type provided: ideal is invalid.' } }) }
+        : { ok: true, status: 200, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) };
+    }) as any);
+    await expect(gateway().createPayment(req)).resolves.toEqual({ providerPaymentId: 'cs_1', checkoutUrl: 'https://checkout.stripe.com/x' });
+    expect(seen).toEqual(['intent-p1:true', 'intent-p1-auto:false']);
+  });
+
+  it('does not retry other 400s (e.g. a bad return URL) and answers with the coded 502', async () => {
+    const f = jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 400, text: async () => JSON.stringify({ error: { type: 'invalid_request_error', param: 'success_url', message: 'Not a valid URL' } }) } as any);
+    await expect(gateway().createPayment(req)).rejects.toMatchObject({ response: { code: 'PAYMENT_PROVIDER_ERROR' } });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+});

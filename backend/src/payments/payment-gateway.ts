@@ -40,6 +40,20 @@ export interface GatewayCreatePaymentRequest {
   locale?: string;
 }
 
+/** Sanitised outcome of a trial checkout against the provider: never contains keys, only the provider's own error text. */
+export interface GatewayDiagnosis {
+  configured: boolean;
+  keyKind: 'test' | 'live' | 'publishable' | 'restricted' | 'unknown' | 'none';
+  frontendUrl: string;
+  frontendUrlValid: boolean;
+  ok: boolean;
+  httpStatus: number | null;
+  code: string | null;
+  param: string | null;
+  message: string | null;
+  hint: string;
+}
+
 export interface GatewayCreatePaymentResult {
   providerPaymentId: string;
   checkoutUrl: string | null;
@@ -68,6 +82,8 @@ export interface PaymentGateway {
   /** Authoritative status read straight from the provider (webhooks only carry an id). */
   getPayment(providerPaymentId: string): Promise<GatewayPaymentInfo>;
   refund(request: GatewayRefundRequest): Promise<GatewayRefundResult>;
+  /** Trial checkout (EUR 1, expired straight away) that reports exactly why the provider accepts or refuses it. */
+  diagnose(frontendUrl: string): Promise<GatewayDiagnosis>;
 }
 
 /** Bound when STRIPE_SECRET_KEY is missing: refuses instead of pretending. */
@@ -87,5 +103,13 @@ export class UnconfiguredPaymentGateway implements PaymentGateway {
 
   async refund(): Promise<GatewayRefundResult> {
     throw paymentsUnavailable('No payment provider is configured; refunds cannot be processed');
+  }
+
+  async diagnose(frontendUrl: string): Promise<GatewayDiagnosis> {
+    return {
+      configured: false, keyKind: 'none', frontendUrl, frontendUrlValid: /^https?:\/\/[^\s/]+/.test(frontendUrl),
+      ok: false, httpStatus: null, code: 'NO_KEY', param: null, message: 'STRIPE_SECRET_KEY is not set on the server.',
+      hint: 'Set STRIPE_SECRET_KEY (sk_test_…) in the Render environment and redeploy.',
+    };
   }
 }

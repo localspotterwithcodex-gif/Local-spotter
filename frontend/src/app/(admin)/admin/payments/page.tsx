@@ -9,7 +9,9 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { adminApi } from "@/lib/api/admin";
+import { adminApi, type PaymentDiagnosis } from "@/lib/api/admin";
+import { Button } from "@/components/ui/Button";
+import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { AdminPager } from "../_components/AdminPager";
 
 const PAGE_SIZE = 20;
@@ -22,6 +24,22 @@ export default function AdminPaymentsPage() {
     adminApi.getPayments({ limit: PAGE_SIZE, offset })
   );
   const payments = data?.items ?? [];
+  const errMsg = useErrorMessage();
+  const [diag, setDiag] = useState<PaymentDiagnosis | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  const [diagErr, setDiagErr] = useState("");
+  const runCheck = async () => {
+    setDiagBusy(true);
+    setDiagErr("");
+    try {
+      setDiag(await adminApi.checkPaymentSetup());
+    } catch (e) {
+      setDiag(null);
+      setDiagErr(errMsg(e));
+    } finally {
+      setDiagBusy(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -29,6 +47,25 @@ export default function AdminPaymentsPage() {
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.paymentsLog")}</h1>
           <p className="text-xs text-[#B7B7B7]">{t("adminx.pay.subtitle")}</p>
+          <div className="mt-3 space-y-2">
+            <Button variant="outline" size="sm" onClick={runCheck} isLoading={diagBusy}>
+              {diagBusy ? t("adminx.pay.checking") : t("adminx.pay.check")}
+            </Button>
+            {diagErr && <p role="alert" className="text-xs text-red-600">{diagErr}</p>}
+            {diag && (
+              <div role="status" className={`rounded-xl border p-3 text-xs space-y-1 ${diag.ok ? "border-[#3B9B52] text-[#3B9B52]" : "border-red-300 text-red-700"}`}>
+                <p className="font-bold">{diag.ok ? t("adminx.pay.checkOk") : t("adminx.pay.checkFail")}</p>
+                <p className="font-mono break-all">
+                  key={diag.keyKind} · FRONTEND_URL={diag.frontendUrl || "(empty)"} ({diag.frontendUrlValid ? "ok" : "invalid"})
+                  {diag.httpStatus ? ` · HTTP ${diag.httpStatus}` : ""}
+                  {diag.code ? ` · ${diag.code}` : ""}
+                  {diag.param ? ` · param: ${diag.param}` : ""}
+                </p>
+                {diag.message && <p className="font-mono break-words">{diag.message}</p>}
+                <p className="text-[#555555]">{diag.hint}</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {error ? (

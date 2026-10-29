@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import {
   GatewayCreatePaymentRequest,
   GatewayCreatePaymentResult,
+  GatewayDiagnosis,
   GatewayPaymentInfo,
   GatewayPaymentStatus,
   GatewayRefundRequest,
@@ -57,6 +58,16 @@ function stripeLocale(locale?: string): string {
   return locale?.toLowerCase().startsWith('nl') ? 'nl' : 'en';
 }
 
+/** Internal: Stripe answered with an error. Converted to a coded 502 before leaving the gateway. */
+class StripeRejected extends Error {
+  constructor(readonly status: number, readonly param: string, readonly detail: string) {
+    super('Stripe rejected the request');
+  }
+  get paymentMethodProblem(): boolean {
+    return this.status === 400 && (/payment_method_types/.test(this.param) || /payment method|ideal/i.test(this.detail));
+  }
+}
+
 /**
  * Stripe adapter (Checkout Sessions, iDEAL only). The platform account collects all payments; the
  * stores' share is tracked in the ledger and paid out separately. The provider payment id stored in
@@ -79,6 +90,24 @@ export class StripeGateway implements PaymentGateway {
   }
 
   async createPayment(req: GatewayCreatePaymentRequest): Promise<GatewayCreatePaymentResult> {
+    const params = this.checkoutParams(req);
+    let json: any;
+    try {
+      json = await this.callRaw('POST', '/checkout/sessions', params, req.idempotencyKey);
+    } catch (err) {
+      // iDEAL not available for this Stripe account/mode: let Stripe offer whatever methods the dashboard enables
+      // for EUR instead of failing every payment. Different params need a different idempotency key.
+      if (!(err instanceof StripeRejected) || !err.paymentMethodProblem) throw providerError('The payment provider rejected the request');
+      this.logger.warn('iDEAL is not available on this Stripe account; retrying with the dashboard payment methods');
+      delete params['payment_method_types[0]'];
+      json = await this.callRaw('POST', '/checkout/sessions', params, `${req.idempotencyKey}-auto`).catch(() => {
+        throw providerError('The payment provider rejected the request');
+      });
+    }
+    return { providerPaymentId: String(json.id), checkoutUrl: typeof json.url === 'string' ? json.url : null };
+  }
+
+  private checkoutParams(req: GatewayCreatePaymentRequest): Record<string, string> {
     const params: Record<string, string> = {
       mode: 'payment',
       'payment_method_types[0]': 'ideal',
@@ -95,8 +124,56 @@ export class StripeGateway implements PaymentGateway {
       params[`metadata[${k}]`] = v;
       params[`payment_intent_data[metadata][${k}]`] = v;
     }
-    const json = await this.call('POST', '/checkout/sessions', params, req.idempotencyKey);
-    return { providerPaymentId: String(json.id), checkoutUrl: typeof json.url === 'string' ? json.url : null };
+    return params;
+  }
+
+  async diagnose(frontendUrl: string): Promise<GatewayDiagnosis> {
+    const key = this.secretKey;
+    const kind: GatewayDiagnosis['keyKind'] = !key
+      ? 'none'
+      : key.startsWith('sk_test_') ? 'test'
+      : key.startsWith('sk_live_') ? 'live'
+      : key.startsWith('pk_') ? 'publishable'
+      : key.startsWith('rk_') ? 'restricted'
+      : 'unknown';
+    const frontendUrlValid = /^https?:\/\/[^\s/]+/.test(frontendUrl);
+    const base = { configured: !!key, keyKind: kind, frontendUrl, frontendUrlValid };
+    if (!key) return { ...base, ok: false, httpStatus: null, code: 'NO_KEY', param: null, message: 'STRIPE_SECRET_KEY is not set on the server.', hint: 'Set STRIPE_SECRET_KEY (sk_test_…) on Render and redeploy.' };
+    if (kind === 'publishable') return { ...base, ok: false, httpStatus: null, code: 'WRONG_KEY_TYPE', param: null, message: 'STRIPE_SECRET_KEY holds a publishable key (pk_…).', hint: 'Use the SECRET key (sk_test_…) from Stripe → Developers → API keys.' };
+    const params = this.checkoutParams({
+      amountCents: 100, currency: 'EUR', description: 'LocalSpotter setup check',
+      redirectUrl: `${frontendUrl}/payment/return?payment=setup-check`, metadata: {}, idempotencyKey: '', locale: 'nl_NL',
+    });
+    let res: Response;
+    try {
+      res = await fetch(`${STRIPE_BASE}/checkout/sessions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form(params),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch {
+      return { ...base, ok: false, httpStatus: null, code: 'UNREACHABLE', param: null, message: 'Stripe could not be reached from the server.', hint: 'Check the server’s outbound network access.' };
+    }
+    const text = await res.text();
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { /* not JSON */ }
+    if (res.ok) {
+      // The trial session is never used: expire it so nothing stays open at Stripe.
+      await fetch(`${STRIPE_BASE}/checkout/sessions/${encodeURIComponent(String(json.id))}/expire`, {
+        method: 'POST', headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+      }).catch(() => undefined);
+      return { ...base, ok: true, httpStatus: res.status, code: null, param: null, message: null, hint: 'Stripe accepted a trial iDEAL checkout. Payments can start.' };
+    }
+    const e = json?.error ?? {};
+    const code = e.code ?? e.type ?? null;
+    const param = e.param ?? null;
+    const message = typeof e.message === 'string' ? e.message.slice(0, 400) : null;
+    let hint = 'Stripe refused the trial checkout; see the message.';
+    if (res.status === 401) hint = 'The API key is invalid or from another Stripe account. Copy the secret key again (sk_test_…) into STRIPE_SECRET_KEY and redeploy.';
+    else if (param?.includes('url')) hint = 'FRONTEND_URL must be a full address such as https://local-spotter-alpha.vercel.app (with https://).';
+    else if (/ideal|payment method/i.test(message ?? '')) hint = 'iDEAL is not enabled for this Stripe account/mode. Stripe → Settings → Payment methods → enable iDEAL (in the same Test mode as the key). Note: iDEAL needs a Stripe account in a supported country; if yours is not, Stripe will refuse it.';
+    return { ...base, ok: false, httpStatus: res.status, code: code ? String(code) : null, param: param ? String(param) : null, message, hint };
   }
 
   async getPayment(providerPaymentId: string): Promise<GatewayPaymentInfo> {
@@ -130,6 +207,15 @@ export class StripeGateway implements PaymentGateway {
   }
 
   private async call(method: 'GET' | 'POST', path: string, params?: Record<string, string>, idempotencyKey?: string): Promise<any> {
+    try {
+      return await this.callRaw(method, path, params, idempotencyKey);
+    } catch (err) {
+      if (err instanceof StripeRejected) throw providerError('The payment provider rejected the request');
+      throw err;
+    }
+  }
+
+  private async callRaw(method: 'GET' | 'POST', path: string, params?: Record<string, string>, idempotencyKey?: string): Promise<any> {
     const key = this.secretKey;
     if (!key) throw providerError('Payment provider is not configured');
     const headers: Record<string, string> = { Authorization: `Bearer ${key}` };
@@ -160,7 +246,7 @@ export class StripeGateway implements PaymentGateway {
       // Stripe's error text names the offending parameter (never a secret), which is what is needed to fix a misconfiguration.
       const e = json?.error ?? {};
       this.logger.error(`Stripe ${label} -> ${res.status} ${String(e.code ?? e.type ?? '')} ${String(e.param ?? '')} ${String(e.message ?? '').slice(0, 300)}`.trim());
-      throw providerError('The payment provider rejected the request');
+      throw new StripeRejected(res.status, String(e.param ?? ''), String(e.message ?? ''));
     }
     return json;
   }

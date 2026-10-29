@@ -417,7 +417,25 @@ export interface AdminChatReport {
   resolvedAt: string | null;
 }
 
+export interface PaymentDiagnosis {
+  configured: boolean;
+  keyKind: string;
+  frontendUrl: string;
+  frontendUrlValid: boolean;
+  ok: boolean;
+  httpStatus: number | null;
+  code: string | null;
+  param: string | null;
+  message: string | null;
+  hint: string;
+}
+
 export const adminApi = {
+  async checkPaymentSetup(): Promise<PaymentDiagnosis> {
+    const res = await apiClient.get<Envelope<PaymentDiagnosis>>("/admin/payment-diagnostics");
+    return res.data;
+  },
+
   async getAnalytics(q: { days?: number; region?: string; categoryId?: string } = {}): Promise<AdminAnalytics> {
     const res = await apiClient.get<Envelope<AdminAnalytics>>(`/admin/analytics${qs({ days: q.days, region: q.region, categoryId: q.categoryId })}`);
     return res.data;

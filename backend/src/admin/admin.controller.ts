@@ -13,6 +13,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { TranslationService } from '../translation/translation.service';
 import { AdminAnalyticsService } from './admin-analytics.service';
+import { PaymentsService } from '../payments/payments.service';
 import { AdminAnalyticsQueryDto } from './dto/admin-analytics-query.dto';
 
 @ApiTags('Admin')
@@ -25,6 +26,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly translation: TranslationService,
     private readonly analytics: AdminAnalyticsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   @Get('translation/status')
@@ -294,6 +296,13 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'Payment not found.' })
   async getPayment(@Param('paymentId') paymentId: string) {
     return this.adminService.getPayment(paymentId);
+  }
+
+  @Get('payment-diagnostics')
+  @ApiOperation({ summary: 'Trial checkout that reports why the payment provider accepts or refuses payments' })
+  @ApiResponse({ status: 200, description: 'Sanitised diagnosis (never contains secrets).' })
+  async paymentDiagnostics() {
+    return this.paymentsService.diagnose();
   }
 
   @Get('payment-stats')

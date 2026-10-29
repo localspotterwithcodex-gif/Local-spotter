@@ -214,8 +214,30 @@ export class PaymentsService {
     return this.toIntentResponse({ ...first, providerTransactionId: created.providerPaymentId, checkoutUrl: created.checkoutUrl }, totalCents);
   }
 
+  /** After start-up, trial the provider once so a misconfiguration is named in the server log before any customer hits it. */
+  onApplicationBootstrap(): void {
+    if (!this.gateway.isConfigured() || process.env.NODE_ENV === 'test') return;
+    setTimeout(() => {
+      this.diagnose()
+        .then((d) =>
+          d.ok
+            ? this.logger.log('Payment setup check: Stripe accepted a trial iDEAL checkout')
+            : this.logger.error(`Payment setup check FAILED: key=${d.keyKind} frontendUrlValid=${d.frontendUrlValid} status=${d.httpStatus} code=${d.code} param=${d.param} message=${d.message} | ${d.hint}`),
+        )
+        .catch(() => this.logger.error('Payment setup check could not run'));
+    }, 5000).unref();
+  }
+
+  /** Admin check: runs a trial checkout and returns Stripe's own reason if it is refused. */
+  diagnose() {
+    return this.gateway.diagnose(this.frontendUrl());
+  }
+
   private frontendUrl(): string {
-    return (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000').trim().replace(/\/+$/, '');
+    // Tolerate a value without scheme or with quotes/spaces: Stripe rejects a return URL that is not absolute (400 invalid_request_error).
+    let url = (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000').trim().replace(/^["']|["']$/g, '').trim();
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return url.replace(/\/+$/, '');
   }
 
   private redirectUrl(paymentId: string): string {
