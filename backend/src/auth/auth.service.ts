@@ -34,7 +34,12 @@ const GENERIC_REGISTER_RESPONSE = (identifier: string, channel: 'EMAIL' | 'MOBIL
   identifier,
 });
 
-type UserWithProfiles = Prisma.UserGetPayload<{ include: { consumerProfile: true; businessOwnerProfile: true } }>;
+/** Profiles plus their picture, so every auth response can carry the avatar URL. */
+const WITH_PROFILES = {
+  consumerProfile: { include: { profileImageAsset: { select: { url: true } } } },
+  businessOwnerProfile: { include: { profileImageAsset: { select: { url: true } } } },
+} satisfies Prisma.UserInclude;
+type UserWithProfiles = Prisma.UserGetPayload<{ include: typeof WITH_PROFILES }>;
 
 /** Bump when the terms or privacy policy change materially. */
 export const CONSENT_VERSION = '2026-10';
@@ -215,7 +220,7 @@ export class AuthService {
         emailVerifiedAt: user.email ? new Date() : user.emailVerifiedAt,
         mobileVerifiedAt: user.mobile ? new Date() : user.mobileVerifiedAt,
       },
-      include: { consumerProfile: true, businessOwnerProfile: true },
+      include: WITH_PROFILES,
     });
 
     return { accessToken: this.generateJwt(updated), user: this.sanitizeUser(updated) };
@@ -231,7 +236,7 @@ export class AuthService {
       where: {
         OR: [{ email: { equals: value, mode: 'insensitive' } }, { mobile: value }, { username: { equals: value, mode: 'insensitive' } }],
       },
-      include: { consumerProfile: true, businessOwnerProfile: true },
+      include: WITH_PROFILES,
     });
   }
 
@@ -275,7 +280,7 @@ export class AuthService {
     profile: { provider: string; providerAccountId: string; email: string | null; emailVerified: boolean; name: string | null },
     role?: UserRole,
   ) {
-    const include = { consumerProfile: true, businessOwnerProfile: true } as const;
+    const include = WITH_PROFILES;
     const linked = await this.prisma.oAuthAccount.findUnique({
       where: { provider_providerAccountId: { provider: profile.provider, providerAccountId: profile.providerAccountId } },
       include: { user: { include } },
@@ -342,7 +347,7 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { consumerProfile: true, businessOwnerProfile: true },
+      include: WITH_PROFILES,
     });
     if (!user) throw new NotFoundException('Gebruiker niet gevonden');
     return this.sanitizeUser(user);
@@ -433,6 +438,7 @@ export class AuthService {
       role: user.role,
       status: user.status,
       displayName,
+      avatarUrl: (user.role === UserRole.CONSUMER ? user.consumerProfile : user.role === UserRole.BUSINESS_OWNER ? user.businessOwnerProfile : null)?.profileImageAsset?.url ?? null,
       profileId,
       isGuest: user.isGuest,
       createdAt: user.createdAt,

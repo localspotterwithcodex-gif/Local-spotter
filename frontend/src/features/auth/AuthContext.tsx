@@ -12,6 +12,7 @@ interface BackendUser {
   role: UserRole;
   status: "ACTIVE" | "PENDING_VERIFICATION" | "SUSPENDED" | "DELETED";
   displayName?: string;
+  avatarUrl?: string | null;
   profileId?: string;
   isGuest?: boolean;
   createdAt: string;
@@ -24,6 +25,7 @@ function mapBackendUser(u: BackendUser): User {
     email: u.email,
     username: u.username,
     phone: u.mobile,
+    avatarUrl: u.avatarUrl ?? undefined,
     role: u.role,
     isGuest: u.isGuest === true,
     createdAt: u.createdAt,

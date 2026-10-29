@@ -103,7 +103,7 @@ export function TrendChart({ data, title, labels, formatMoney, formatDay, empty 
   const h = hover === null ? null : data[hover];
 
   return (
-    <figure className="space-y-2">
+    <figure className="min-w-0 space-y-2">
       <figcaption className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-bold font-rubik text-[#111111]">{title}</span>
         <span className="flex gap-3">
@@ -177,14 +177,14 @@ export function ShopGrowthChart({ data, title, labels, formatDay, empty }: Growt
   const iw = W - L - R, ih = H - T - B;
   const max = niceMax(Math.max(0, ...data.map((d) => d.newShops + d.activeShops)));
   const slot = iw / Math.max(1, data.length);
-  const bw = Math.max(2, Math.min(14, slot - 2));
+  const bw = Math.max(2, Math.min(18, slot * 0.7));
   const y = (v: number) => T + ih - (v / max) * ih;
   const hasData = data.some((d) => d.newShops + d.activeShops > 0);
   const labelEvery = Math.max(1, Math.ceil(data.length / 6));
   const h = hover === null ? null : data[hover];
 
   return (
-    <figure className="space-y-2">
+    <figure className="min-w-0 space-y-2">
       <figcaption className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-bold font-rubik text-[#111111]">{title}</span>
       </figcaption>
@@ -267,12 +267,12 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
   const r = 52, c = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <figure className="space-y-3">
+    <figure className="min-w-0 space-y-3">
       <figcaption className="text-sm font-bold font-rubik text-[#111111]">{title}</figcaption>
       {total === 0 ? (
         <p className="py-8 text-center text-xs text-[#B7B7B7]">{empty}</p>
       ) : (
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        <div className="flex flex-col items-center gap-4">
           <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-labelledby={`${id}-t`}>
             <title id={`${id}-t`}>{title}</title>
             <g transform="rotate(-90 70 70)">
@@ -290,9 +290,9 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
             <text x="70" y="68" textAnchor="middle" fontSize="20" fontWeight="800" fill={CHART_COLORS.ink}>{total.toLocaleString()}</text>
             <text x="70" y="84" textAnchor="middle" fontSize="9" fill={CHART_COLORS.axis}>{centerLabel}</text>
           </svg>
-          <ul className="space-y-2 text-xs">
+          <ul className="w-full space-y-2 text-xs">
             {segments.map((s) => (
-              <li key={s.name} className="flex items-center justify-between gap-6">
+              <li key={s.name} className="flex items-center justify-between gap-3">
                 <LegendDot color={s.color} label={s.name} />
                 <span className="font-bold text-[#111111]">{s.value.toLocaleString()} <span className="font-normal text-[#B7B7B7]">{s.share}%</span></span>
               </li>

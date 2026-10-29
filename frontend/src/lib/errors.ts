@@ -27,6 +27,11 @@ const CODE_KEY: Record<string, TranslationKey> = {
   ORIGIN_BLOCKED: "error.originBlocked",
   NO_SUBSCRIPTION: "error.noSubscription",
   NOT_SHOP_OWNER: "error.notShopOwner",
+  PAYMENTS_UNAVAILABLE: "error.paymentsUnavailable",
+  PAYMENT_PROVIDER_ERROR: "error.paymentProviderError",
+  IBAN_INVALID: "error.ibanInvalid",
+  BANK_DETAILS_REQUIRED: "error.bankDetailsRequired",
+  BANK_DETAILS_INVALID: "error.bankDetailsInvalid",
 };
 
 /** Classifies a thrown value by HTTP status so the UI can show it in the active language. */
@@ -55,7 +60,7 @@ type Translate = (key: TranslationKey, params?: Record<string, string | number>)
 export function describeError(err: unknown, t: Translate, overrides?: Partial<Record<ErrorKind, TranslationKey>>): string {
   const kind = errorKind(err);
   const code = errorCode(err);
-  if (kind === "forbidden" && code && CODE_KEY[code]) return t(CODE_KEY[code]);
+  if (code && CODE_KEY[code]) return t(CODE_KEY[code]);
   return t(overrides?.[kind] ?? KIND_KEY[kind]);
 }
 

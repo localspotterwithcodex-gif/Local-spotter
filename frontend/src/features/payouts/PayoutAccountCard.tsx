@@ -17,6 +17,10 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
   const [editing, setEditing] = useState(false);
   const [holder, setHolder] = useState("");
   const [iban, setIban] = useState("");
+  const [intl, setIntl] = useState(false);
+  const [bankName, setBankName] = useState("");
+  const [bic, setBic] = useState("");
+  const [country, setCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -27,6 +31,10 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
   const startEdit = () => {
     setHolder(a?.accountHolderName ?? "");
     setIban("");
+    setIntl(false);
+    setBankName("");
+    setBic("");
+    setCountry("");
     setSaved(false);
     setEditing(true);
   };
@@ -36,7 +44,11 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
     setError("");
     setBusy(true);
     try {
-      await api.savePayoutAccount(businessId, { accountHolderName: holder.trim(), iban: iban.replace(/\s+/g, "") });
+      await api.savePayoutAccount(businessId, {
+        accountHolderName: holder.trim(),
+        iban: iban.replace(/\s+/g, ""),
+        ...(intl ? { bankName: bankName.trim(), bic: bic.replace(/\s+/g, ""), country: country.trim() } : {}),
+      });
       setIban(""); // never keep the number around in the page
       setEditing(false);
       setSaved(true);
@@ -79,14 +91,27 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
               {!a?.configured && <p className="text-xs text-[#E54666] font-bold">{t("payoutsx.account.missing")}</p>}
               <Input label={t("payoutsx.account.holder")} value={holder} onChange={(e) => setHolder(e.target.value)} maxLength={100} required />
               <Input
-                label={t("payoutsx.account.iban")}
+                label={intl ? t("payoutsx.account.number") : t("payoutsx.account.iban")}
                 value={iban}
                 onChange={(e) => setIban(e.target.value)}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="NL91 ABNA 0417 1643 00"
+                placeholder={intl ? "1234567890" : "NL91 ABNA 0417 1643 00"}
+                maxLength={50}
                 required
               />
+              <label className="flex items-center gap-2 text-xs text-[#555555]">
+                <input type="checkbox" checked={intl} onChange={(e) => setIntl(e.target.checked)} />
+                {t("payoutsx.account.intl")}
+              </label>
+              {intl && (
+                <div className="space-y-3">
+                  <Input label={t("payoutsx.account.bankName")} value={bankName} onChange={(e) => setBankName(e.target.value)} maxLength={100} required />
+                  <Input label={t("payoutsx.account.bic")} value={bic} onChange={(e) => setBic(e.target.value)} maxLength={11} autoComplete="off" required />
+                  <Input label={t("payoutsx.account.country")} value={country} onChange={(e) => setCountry(e.target.value)} maxLength={2} required />
+                  <p className="text-[11px] text-[#B7B7B7]">{t("payoutsx.account.intlNote")}</p>
+                </div>
+              )}
               {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
               <div className="flex gap-2">
                 <Button type="submit" variant="primary" size="sm" isLoading={busy}>

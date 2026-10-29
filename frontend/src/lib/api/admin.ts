@@ -260,6 +260,7 @@ interface RawPayment {
   status: string;
   amount: Dec;
   createdAt: string;
+  description?: string | null;
   order?: { orderNumber: string } | null;
   businessSubscription?: { plan?: { name: string } | null } | null;
   business?: { name: string } | null;
@@ -346,14 +347,21 @@ const toOrder = (r: RawOrder): AdminOrder => ({
   status: r.status,
   createdAt: r.createdAt,
 });
+/** Label fixed at payment time (`description`); older rows fall back to what is linked to them today. */
+function paymentType(r: RawPayment): string {
+  const d = r.description?.replace(/^LocalSpotter\s+/, "").trim();
+  if (r.purpose === "BUSINESS_SUBSCRIPTION") {
+    const plan = d || r.businessSubscription?.plan?.name;
+    return plan ? `Subscription (${plan})` : "Subscription";
+  }
+  if (r.purpose === "WORKSHOP_BOOKING") return d || "Workshop booking";
+  if (r.order) return `Order #${r.order.orderNumber}`;
+  return d || r.purpose;
+}
 const toPayment = (r: RawPayment): AdminPayment => ({
   id: r.id,
   businessName: r.business?.name ?? DASH,
-  type: r.order
-    ? `Order #${r.order.orderNumber}`
-    : r.businessSubscription?.plan
-      ? `Subscription (${r.businessSubscription.plan.name})`
-      : r.purpose,
+  type: paymentType(r),
   method: r.method ?? r.provider,
   amount: num(r.amount),
   status: r.status,

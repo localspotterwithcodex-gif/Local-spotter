@@ -49,6 +49,10 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     if (isProd && !config.FRONTEND_URL) {
       errors.push('FRONTEND_URL is required when STRIPE_SECRET_KEY is set in production (customers return there after paying)');
     }
+    // Stripe rejects a checkout whose return URL is not an absolute http(s) URL, which would fail every payment.
+    if (config.FRONTEND_URL && !/^https?:\/\/[^\s/]+/i.test(String(config.FRONTEND_URL).trim())) {
+      errors.push('FRONTEND_URL must be a full URL including https:// (e.g. https://your-app.vercel.app)');
+    }
   }
 
   const encryptionKey = typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';

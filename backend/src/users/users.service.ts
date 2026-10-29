@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateConsumerProfileDto } from './dto/update-consumer-profile.dto';
 import { UpdateBusinessOwnerProfileDto } from './dto/update-business-owner-profile.dto';
@@ -21,6 +21,7 @@ export class UsersService {
             createdAt: true,
           },
         },
+        profileImageAsset: { select: { id: true, url: true } },
       },
     });
 
@@ -40,9 +41,11 @@ export class UsersService {
       throw new NotFoundException('Consumentenprofiel niet gevonden');
     }
 
+    await this.assertAssetExists(dto.profileImageAssetId);
     return this.prisma.consumerProfile.update({
       where: { userId },
       data: { ...dto },
+      include: { profileImageAsset: { select: { id: true, url: true } } },
     });
   }
 
@@ -60,6 +63,7 @@ export class UsersService {
           },
         },
         businesses: true,
+        profileImageAsset: { select: { id: true, url: true } },
       },
     });
 
@@ -79,9 +83,18 @@ export class UsersService {
       throw new NotFoundException('Ondernemersprofiel niet gevonden');
     }
 
+    await this.assertAssetExists(dto.profileImageAssetId);
     return this.prisma.businessOwnerProfile.update({
       where: { userId },
       data: { ...dto },
+      include: { profileImageAsset: { select: { id: true, url: true } } },
     });
+  }
+
+  /** A profile picture must be an image that went through POST /media/images (null/undefined = no change/removal). */
+  private async assertAssetExists(assetId: string | null | undefined) {
+    if (!assetId) return;
+    const asset = await this.prisma.mediaAsset.findUnique({ where: { id: assetId }, select: { id: true, mimeType: true } });
+    if (!asset || !asset.mimeType.startsWith('image/')) throw new BadRequestException('Unknown profile image');
   }
 }

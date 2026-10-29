@@ -908,6 +908,8 @@ model Payment {
   orderId                String?        @map("order_id") @db.Uuid
   workshopBookingId      String?        @map("workshop_booking_id") @db.Uuid
   customerOrderId        String?        @map("customer_order_id") @db.Uuid
+  /// What was bought, fixed when the payment is created (e.g. "LocalSpotter Workshop"); a later plan change must not rewrite history.
+  description            String?
   /// Hosted checkout page of the provider while the payment is open.
   checkoutUrl            String?        @map("checkout_url")
   paidAt                 DateTime?      @map("paid_at")

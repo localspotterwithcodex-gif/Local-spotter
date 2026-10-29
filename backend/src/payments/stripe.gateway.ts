@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import {
@@ -9,6 +9,7 @@ import {
   GatewayRefundRequest,
   GatewayRefundResult,
   PaymentGateway,
+  providerError,
 } from './payment-gateway';
 
 const STRIPE_BASE = 'https://api.stripe.com/v1';
@@ -114,11 +115,11 @@ export class StripeGateway implements PaymentGateway {
   }
 
   async refund(req: GatewayRefundRequest): Promise<GatewayRefundResult> {
-    if (!req.providerTransactionId) throw new BadGatewayException('Payment has no provider reference');
+    if (!req.providerTransactionId) throw providerError('Payment has no provider reference');
     // A refund targets the PaymentIntent that the Checkout Session created when it was paid.
     const session = await this.call('GET', `/checkout/sessions/${encodeURIComponent(req.providerTransactionId)}`);
     const intent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
-    if (!intent) throw new BadGatewayException('Payment has not been completed at the provider');
+    if (!intent) throw providerError('Payment has not been completed at the provider');
     const json = await this.call(
       'POST',
       '/refunds',
@@ -130,7 +131,7 @@ export class StripeGateway implements PaymentGateway {
 
   private async call(method: 'GET' | 'POST', path: string, params?: Record<string, string>, idempotencyKey?: string): Promise<any> {
     const key = this.secretKey;
-    if (!key) throw new BadGatewayException('Payment provider is not configured');
+    if (!key) throw providerError('Payment provider is not configured');
     const headers: Record<string, string> = { Authorization: `Bearer ${key}` };
     if (params) headers['Content-Type'] = 'application/x-www-form-urlencoded';
     if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
@@ -145,7 +146,7 @@ export class StripeGateway implements PaymentGateway {
       });
     } catch {
       this.logger.error(`Stripe ${label} unreachable`);
-      throw new BadGatewayException('The payment provider is unreachable');
+      throw providerError('The payment provider is unreachable');
     }
     const text = await res.text();
     let json: any = {};
@@ -156,8 +157,10 @@ export class StripeGateway implements PaymentGateway {
     }
     if (!res.ok) {
       // Never log the request body or key; the provider's error code is enough to diagnose.
-      this.logger.error(`Stripe ${label} -> ${res.status} ${String(json?.error?.code ?? json?.error?.type ?? '')}`);
-      throw new BadGatewayException('The payment provider rejected the request');
+      // Stripe's error text names the offending parameter (never a secret), which is what is needed to fix a misconfiguration.
+      const e = json?.error ?? {};
+      this.logger.error(`Stripe ${label} -> ${res.status} ${String(e.code ?? e.type ?? '')} ${String(e.param ?? '')} ${String(e.message ?? '').slice(0, 300)}`.trim());
+      throw providerError('The payment provider rejected the request');
     }
     return json;
   }

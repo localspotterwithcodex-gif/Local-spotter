@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateConsumerProfileDto {
   @ApiPropertyOptional({ example: 'Sophie Vis' })
@@ -21,4 +21,9 @@ export class UpdateConsumerProfileDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ nullable: true, description: 'MediaAsset id from POST /media/images; null removes the picture' })
+  @IsOptional()
+  @IsUUID()
+  profileImageAssetId?: string | null;
 }

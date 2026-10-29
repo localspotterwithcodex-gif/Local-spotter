@@ -439,7 +439,9 @@ describe('PaymentsService', () => {
 
     it('refuses to start a payment when no provider is configured', async () => {
       gateway.isConfigured.mockReturnValue(false);
-      await expect(service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'order-1'))).rejects.toThrow(ServiceUnavailableException);
+      const err = await service.createPaymentIntent(consumerA, intent(PaymentPurpose.PRODUCT_ORDER, 'order-1')).catch((e) => e);
+      expect(err).toBeInstanceOf(ServiceUnavailableException);
+      expect((err as ServiceUnavailableException).getResponse()).toMatchObject({ code: 'PAYMENTS_UNAVAILABLE' });
       expect(prisma.payment.create).not.toHaveBeenCalled();
     });
 

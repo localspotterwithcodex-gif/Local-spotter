@@ -6,33 +6,41 @@ import { ArrowLeft, User, Mail, Phone, Check } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ServerImageUploader } from "@/components/ui/ServerImageUploader";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { ErrorState } from "@/components/feedback/ErrorState";
-import { api } from "@/lib/api";
+import { api, type UploadedImage } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
 import { useLocale } from "@/i18n/LocaleContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 
 export default function ProfileEditPage() {
   const { t } = useLocale();
   const errMsg = useErrorMessage();
+  const { reloadUser } = useAuth();
   const { data: profile, error, loading, reload } = useApiResource("consumer-profile", () => api.getConsumerProfile());
   // null = untouched, so the field shows the saved profile value.
   const [nameInput, setNameInput] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState<string | null>(null);
+  // undefined = untouched; [] = picture removed.
+  const [photoInput, setPhotoInput] = useState<UploadedImage[] | undefined>(undefined);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const name = nameInput ?? profile?.displayName ?? "";
   const phone = phoneInput ?? profile?.phone ?? "";
+  const photos = photoInput ?? (profile?.avatar ? [profile.avatar] : []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSaveError(null);
     try {
-      await api.updateConsumerProfile({ displayName: name.trim(), phone: phone.trim() });
+      await api.updateConsumerProfile({ displayName: name.trim(), phone: phone.trim(), ...(photoInput ? { profileImageAssetId: photoInput[0]?.id ?? null } : {}) });
+      if (photoInput) await reloadUser(); // refresh the picture in the header
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -62,6 +70,8 @@ export default function ProfileEditPage() {
             <ErrorState title={t("account.profileUnavailable")} message={error} onRetry={reload} />
           ) : (
           <form onSubmit={handleSave} className="space-y-4">
+            <ServerImageUploader value={photos} onChange={setPhotoInput} max={1} label={t("account.photo")} onBusyChange={setPhotoBusy} maxEdge={800} />
+
             <Input
               label={t("account.fullName")}
               icon={<User className="w-4 h-4" />}
@@ -92,7 +102,7 @@ export default function ProfileEditPage() {
               </div>
             )}
 
-            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={saving} className="mt-4 gap-2">
+            <Button type="submit" variant="primary" size="lg" fullWidth isLoading={saving} disabled={photoBusy} className="mt-4 gap-2">
               {saved ? (
                 <>
                   <Check className="w-5 h-5" /> {t("account.saveSuccess")}

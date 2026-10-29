@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
@@ -21,8 +21,11 @@ import { CronSecretGuard } from '../common/guards/cron-secret.guard';
     {
       provide: PAYMENT_GATEWAY,
       inject: [ConfigService, StripeGateway],
-      useFactory: (config: ConfigService, stripe: StripeGateway) =>
-        config.get<string>('STRIPE_SECRET_KEY')?.trim() ? stripe : new UnconfiguredPaymentGateway(),
+      useFactory: (config: ConfigService, stripe: StripeGateway) => {
+        if (config.get<string>('STRIPE_SECRET_KEY')?.trim()) return stripe;
+        new Logger('PaymentsModule').warn('STRIPE_SECRET_KEY is not set: checkout, subscriptions and refunds will answer 503 until it is configured');
+        return new UnconfiguredPaymentGateway();
+      },
     },
   ],
   exports: [PaymentsService, PAYMENT_GATEWAY],

@@ -1,11 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Health Check')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {}
 
   @Get()
   @ApiOperation({ summary: 'Backend system health check' })
@@ -26,6 +27,8 @@ export class HealthController {
       timestamp: new Date().toISOString(),
       uptimeSeconds: process.uptime(),
       databaseConnected: dbConnected,
+      // Only whether payments are set up, never the key itself.
+      paymentsConfigured: Boolean(this.config.get<string>('STRIPE_SECRET_KEY')?.trim()),
     };
   }
 }

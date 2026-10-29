@@ -1,6 +1,16 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadGatewayException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');
+
+/** Machine-readable code on the 503 returned while no payment provider is configured; the UI shows a specific message for it. */
+export const PAYMENTS_UNAVAILABLE_CODE = 'PAYMENTS_UNAVAILABLE';
+
+/** Machine-readable code on the 502 returned when the provider refused or could not be reached. */
+export const PAYMENT_PROVIDER_ERROR_CODE = 'PAYMENT_PROVIDER_ERROR';
+
+export const providerError = (message: string) => new BadGatewayException({ code: PAYMENT_PROVIDER_ERROR_CODE, message });
+
+export const paymentsUnavailable = (message: string) => new ServiceUnavailableException({ code: PAYMENTS_UNAVAILABLE_CODE, message });
 
 export interface GatewayRefundRequest {
   paymentId: string;
@@ -68,14 +78,14 @@ export class UnconfiguredPaymentGateway implements PaymentGateway {
   }
 
   async createPayment(): Promise<GatewayCreatePaymentResult> {
-    throw new ServiceUnavailableException('No payment provider is configured; payments cannot be started');
+    throw paymentsUnavailable('No payment provider is configured; payments cannot be started');
   }
 
   async getPayment(): Promise<GatewayPaymentInfo> {
-    throw new ServiceUnavailableException('No payment provider is configured');
+    throw paymentsUnavailable('No payment provider is configured');
   }
 
   async refund(): Promise<GatewayRefundResult> {
-    throw new ServiceUnavailableException('No payment provider is configured; refunds cannot be processed');
+    throw paymentsUnavailable('No payment provider is configured; refunds cannot be processed');
   }
 }

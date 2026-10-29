@@ -1,5 +1,4 @@
 import {
-  BadGatewayException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -26,7 +25,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/types/auth-user';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
-import { PAYMENT_GATEWAY, PaymentGateway, GatewayPaymentStatus } from './payment-gateway';
+import { PAYMENT_GATEWAY, PaymentGateway, GatewayPaymentStatus, paymentsUnavailable, providerError } from './payment-gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LEDGER, commissionCents, commissionReversalCents, DEFAULT_HOLD_DAYS } from '../finance/ledger';
 
@@ -131,7 +130,7 @@ export class PaymentsService {
    */
   async createPaymentIntent(actor: AuthUser, dto: CreatePaymentIntentDto) {
     if (!this.gateway.isConfigured()) {
-      throw new ServiceUnavailableException('No payment provider is configured; payments cannot be started');
+      throw paymentsUnavailable('No payment provider is configured; payments cannot be started');
     }
     const provider = dto.provider ?? PaymentProvider.STRIPE;
     if (provider !== PaymentProvider.STRIPE) {
@@ -172,6 +171,7 @@ export class PaymentsService {
               currency: CURRENCY,
               userId: actor.id,
               businessId: part.businessId,
+              description: target.description,
               ...part.link,
             },
           }),
@@ -204,7 +204,7 @@ export class PaymentsService {
       await this.prisma.payment.updateMany({ where: { id: { in: rows.map((r) => r.id) }, status: PaymentStatus.PENDING }, data: { status: PaymentStatus.FAILED } });
       this.logger.error(`Could not start provider payment for ${dto.purpose} ${target.scopeId}`);
       if (err instanceof Error && 'getStatus' in err) throw err;
-      throw new BadGatewayException('The payment provider could not start the payment');
+      throw providerError('The payment provider could not start the payment');
     }
 
     await this.prisma.payment.updateMany({
@@ -215,7 +215,7 @@ export class PaymentsService {
   }
 
   private frontendUrl(): string {
-    return (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000').replace(/\/+$/, '');
+    return (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000').trim().replace(/\/+$/, '');
   }
 
   private redirectUrl(paymentId: string): string {
@@ -792,7 +792,7 @@ export class PaymentsService {
       await this.releaseRefund(paymentId, reservation.ledgerEntryId, actor, amountCents);
       this.logger.error(`Provider refund failed for payment ${paymentId}`);
       if (err instanceof Error && 'getStatus' in err) throw err;
-      throw new BadGatewayException('The payment provider could not process the refund');
+      throw providerError('The payment provider could not process the refund');
     }
 
     return this.confirmRefund(paymentId, reservation.ledgerEntryId, actor, amountCents, providerRefundId, input.reason);

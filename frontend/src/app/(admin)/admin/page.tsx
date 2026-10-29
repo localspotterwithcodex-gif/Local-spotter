@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
               <p className="text-[11px] text-[#B7B7B7]">{t("adminx.an.conversionHelp")}</p>
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                <div className="lg:col-span-3 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
+                <div className="min-w-0 overflow-hidden lg:col-span-3 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
                   <TrendChart
                     data={an.trend}
                     title={t("adminx.an.trend")}
@@ -173,7 +173,7 @@ export default function AdminDashboardPage() {
                     empty={t("adminx.an.noData")}
                   />
                 </div>
-                <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
+                <div className="min-w-0 overflow-hidden lg:col-span-2 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
                   <BarList
                     title={t("adminx.an.byCategory")}
                     items={an.revenueByCategory.map((c) => ({ name: c.name, value: c.revenue, share: c.share }))}
@@ -183,8 +183,8 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1.4fr] gap-4">
+                <div className="min-w-0 overflow-hidden bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
                   <ShopGrowthChart
                     data={an.shopGrowth}
                     title={t("adminx.an.shopGrowth")}
@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
                     empty={t("adminx.an.noData")}
                   />
                 </div>
-                <div className="lg:col-span-1 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
+                <div className="min-w-0 overflow-hidden bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
                   <Donut
                     title={t("adminx.an.userDistribution")}
                     centerLabel={t("adminx.an.totalUsersCenter")}
@@ -206,7 +206,7 @@ export default function AdminDashboardPage() {
                     }))}
                   />
                 </div>
-                <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs space-y-3">
+                <div className="min-w-0 overflow-hidden md:col-span-2 xl:col-span-1 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold font-rubik text-[#111111]">{t("adminx.an.topShops")}</h3>
                     <Link href="/admin/businesses" className="text-xs font-bold text-[#FA1EFF] hover:underline">{t("adminx.an.viewAll")} →</Link>

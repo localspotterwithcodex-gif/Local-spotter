@@ -120,6 +120,8 @@ export interface ConsumerProfileInfo {
   lastName?: string;
   phone?: string;
   email?: string;
+  /** Profile picture (MediaAsset id + url), absent when none is set. */
+  avatar?: UploadedImage;
 }
 interface RawConsumerProfileInfo {
   displayName: string;
@@ -127,6 +129,7 @@ interface RawConsumerProfileInfo {
   lastName?: string | null;
   phone?: string | null;
   user?: { email?: string | null } | null;
+  profileImageAsset?: { id: string; url: string } | null;
 }
 const toConsumerProfileInfo = (r: RawConsumerProfileInfo): ConsumerProfileInfo => ({
   displayName: r.displayName,
@@ -134,6 +137,7 @@ const toConsumerProfileInfo = (r: RawConsumerProfileInfo): ConsumerProfileInfo =
   lastName: r.lastName ?? undefined,
   phone: r.phone ?? undefined,
   email: r.user?.email ?? undefined,
+  avatar: r.profileImageAsset ? { id: r.profileImageAsset.id, url: r.profileImageAsset.url } : undefined,
 });
 
 export interface DeliveryAddressInput {
@@ -744,7 +748,7 @@ export const api = {
     return toConsumerProfileInfo(await apiClient.get<RawConsumerProfileInfo>("/users/profile/consumer"));
   },
 
-  async updateConsumerProfile(input: { displayName?: string; phone?: string }): Promise<ConsumerProfileInfo> {
+  async updateConsumerProfile(input: { displayName?: string; phone?: string; profileImageAssetId?: string | null }): Promise<ConsumerProfileInfo> {
     return toConsumerProfileInfo(await apiClient.patch<RawConsumerProfileInfo>("/users/profile/consumer", input));
   },
 
@@ -771,7 +775,7 @@ export const api = {
   async getPayoutAccount(businessId: string): Promise<PayoutAccount> {
     return apiClient.get<PayoutAccount>(`/businesses/${businessId}/payout-account`);
   },
-  async savePayoutAccount(businessId: string, input: { accountHolderName: string; iban: string }): Promise<PayoutAccount> {
+  async savePayoutAccount(businessId: string, input: { accountHolderName: string; iban: string; bankName?: string; bic?: string; country?: string }): Promise<PayoutAccount> {
     return apiClient.put<PayoutAccount>(`/businesses/${businessId}/payout-account`, input);
   },
 
