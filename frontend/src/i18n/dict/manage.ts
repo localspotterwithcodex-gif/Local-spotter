@@ -822,6 +822,10 @@ export const manage = defineDict({
     "manage.vsearch.tooMany": "Too many photo searches. Please wait a few minutes.",
     "manage.vsearch.failed": "Photo search is not available right now. Please type your search instead.",
     "manage.vsearch.byPhoto": "Photo search:",
+  
+    "manage.vsearch.noSpeech": "I did not hear anything. Tap the microphone and speak.",
+    "manage.vsearch.micNetwork": "Voice search needs an internet connection.",
+    "manage.vsearch.notSetUp": "Photo search is not set up yet. Please type your search.",
   },
   nl: {
     "manage.upload.add": "Foto's uploaden",
@@ -1600,5 +1604,8 @@ export const manage = defineDict({
     "manage.vsearch.tooMany": "Te veel zoekopdrachten met foto. Wacht een paar minuten.",
     "manage.vsearch.failed": "Zoeken op foto is nu niet beschikbaar. Typ je zoekopdracht.",
     "manage.vsearch.byPhoto": "Zoeken op foto:",
+    "manage.vsearch.noSpeech": "Ik hoorde niets. Tik op de microfoon en spreek.",
+    "manage.vsearch.micNetwork": "Zoeken met je stem heeft internet nodig.",
+    "manage.vsearch.notSetUp": "Zoeken op foto is nog niet ingesteld. Typ je zoekopdracht.",
   },
 });

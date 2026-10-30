@@ -62,7 +62,7 @@ export default function ProductListingPage() {
             <p className="text-xs text-[#B7B7B7]">{t("products.subtitle")}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <div className="w-full sm:w-72">
               <SmartSearchInput
                 placeholder={t("products.search")}

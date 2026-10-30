@@ -37,6 +37,13 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Messages float under the box (absolute) so they never push the filter button or the page; they fade out by themselves.
+  useEffect(() => {
+    if (!message) return;
+    const id = window.setTimeout(() => setMessage(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [message]);
+
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     setCanSpeak(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
@@ -61,7 +68,16 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
       if (text) onChange(text);
     };
     rec.onerror = (e) => {
-      setMessage(e.error === "not-allowed" || e.error === "service-not-allowed" ? t("manage.vsearch.micDenied") : t("manage.vsearch.micFailed"));
+      if (e.error === "aborted") return;
+      setMessage(
+        e.error === "not-allowed" || e.error === "service-not-allowed"
+          ? t("manage.vsearch.micDenied")
+          : e.error === "no-speech"
+          ? t("manage.vsearch.noSpeech")
+          : e.error === "network"
+          ? t("manage.vsearch.micNetwork")
+          : t("manage.vsearch.micFailed"),
+      );
     };
     rec.onend = () => setListening(false);
     recRef.current = rec;
@@ -85,6 +101,7 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) setMessage(t("manage.vsearch.tooMany"));
       else if (err instanceof ApiError && err.status === 400) setMessage(t("manage.vsearch.badImage"));
+      else if (err instanceof ApiError && err.status === 503) setMessage(t("manage.vsearch.notSetUp"));
       else setMessage(t("manage.vsearch.failed"));
     } finally {
       setBusy(false);
@@ -94,8 +111,9 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
 
   const iconBtn = "h-9 w-9 rounded-full flex items-center justify-center text-[#555555] hover:bg-white hover:text-[#FA1EFF] transition-colors disabled:opacity-50";
 
+  const floating = "absolute left-0 top-full z-20 mt-1 max-w-full rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold shadow-md";
   return (
-    <div className="w-full">
+    <div className="relative w-full">
       <div className="relative">
         <Input
           placeholder={placeholder}
@@ -135,8 +153,8 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
           )}
         </div>
       </div>
-      {listening && <p role="status" className="mt-1 text-[11px] font-bold text-[#FA1EFF]">{t("manage.vsearch.listening")}</p>}
-      {message && <p role="alert" className="mt-1 text-[11px] font-bold text-[#E54666]">{message}</p>}
+      {listening && <p role="status" className={`${floating} text-[#FA1EFF]`}>{t("manage.vsearch.listening")}</p>}
+      {message && <p role="alert" className={`${floating} text-[#E54666]`}>{message}</p>}
     </div>
   );
 }

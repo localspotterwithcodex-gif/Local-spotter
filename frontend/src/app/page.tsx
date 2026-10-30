@@ -78,7 +78,7 @@ export default function DiscoveryHomePage() {
         </div>
 
         {/* Search Bar & Filter Action */}
-        <div className="flex items-center gap-2 max-w-2xl mx-auto">
+        <div className="flex items-start gap-2 max-w-2xl mx-auto">
           <div className="flex-1">
             <SmartSearchInput
               placeholder={searchPlaceholder}
