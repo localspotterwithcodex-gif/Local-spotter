@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Sparkles, SlidersHorizontal, MapPin, Store } from "lucide-react";
+import { Sparkles, SlidersHorizontal, MapPin, Store } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { SegmentedSwitch } from "@/components/ui/SegmentedSwitch";
-import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/search/SmartSearchInput";
 import { ProductCard } from "@/components/cards/ProductCard";
 import { BusinessCard } from "@/components/cards/BusinessCard";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
@@ -25,12 +25,17 @@ export default function DiscoveryHomePage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQueryRaw] = useState("");
+  const [photoWords, setPhotoWords] = useState<string[]>([]);
+  const setSearchQuery = (v: string) => {
+    setSearchQueryRaw(v);
+    setPhotoWords([]);
+  };
 
   const onProducts = activeTab === "producten";
   const productsRes = useApiResource(
-    onProducts ? `home-products:${selectedCategory ?? ""}:${searchQuery}` : null,
-    () => api.getProducts({ category: selectedCategory || undefined, query: searchQuery || undefined })
+    onProducts ? `home-products:${selectedCategory ?? ""}:${searchQuery}:${photoWords.join(",")}` : null,
+    () => api.getProducts({ category: selectedCategory || undefined, query: searchQuery || undefined, anyOf: photoWords.length ? photoWords : undefined })
   );
   const businessesRes = useApiResource(onProducts ? `home-businesses:${selectedCity ?? ""}` : null, () =>
     api.getBusinesses({ city: selectedCity || undefined })
@@ -75,11 +80,18 @@ export default function DiscoveryHomePage() {
         {/* Search Bar & Filter Action */}
         <div className="flex items-center gap-2 max-w-2xl mx-auto">
           <div className="flex-1">
-            <Input
+            <SmartSearchInput
               placeholder={searchPlaceholder}
-              icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
+              onImageKeywords={
+                onProducts
+                  ? (k) => {
+                      setSearchQueryRaw("");
+                      setPhotoWords(k);
+                    }
+                  : undefined
+              }
             />
           </div>
           <button
@@ -90,6 +102,26 @@ export default function DiscoveryHomePage() {
             <SlidersHorizontal className="w-5 h-5" />
           </button>
         </div>
+
+        {photoWords.length > 0 && (
+          <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
+            <span className="text-xs font-bold text-[#8A95A5]">{t("manage.vsearch.byPhoto")}</span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full">
+              {photoWords.join(", ")}
+              <button type="button" onClick={() => setPhotoWords([])} aria-label={t("common.close")} className="ml-1">×</button>
+            </span>
+          </div>
+        )}
+
+        {photoWords.length > 0 && (
+          <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
+            <span className="text-xs font-bold text-[#8A95A5]">{t("manage.vsearch.byPhoto")}</span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full">
+              {photoWords.join(", ")}
+              <button type="button" onClick={() => setPhotoWords([])} aria-label={t("common.close")} className="ml-1">×</button>
+            </span>
+          </div>
+        )}
 
         {/* Active Filter Chips */}
         {(selectedCategory || selectedCity) && (

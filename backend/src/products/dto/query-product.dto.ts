@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { GeoQueryDto } from '../../common/dto/geo-query.dto';
 
@@ -40,6 +40,12 @@ export class QueryProductDto extends GeoQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated keywords (from photo search): products matching ANY of them' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  searchAny?: string;
 
   @ApiPropertyOptional({ description: 'Only products that are in stock' })
   @IsOptional()

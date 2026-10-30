@@ -423,6 +423,8 @@ export interface ProductSearchParams {
   lat?: number;
   lng?: number;
   radiusKm?: number;
+  /** Keywords from a photo search: products matching any of them. */
+  anyOf?: string[];
 }
 
 export const api = {
@@ -486,7 +488,7 @@ export const api = {
       if (!categoryId) return []; // unknown category → nothing matches
     }
     const res = await apiClient.get<RawProduct[]>(
-      `/products${qs({ categoryId, search: params?.query, businessId: params?.businessId, city: params?.city, minPrice: params?.minPrice, maxPrice: params?.maxPrice, inStock: params?.inStock ? "true" : undefined, sort: params?.sort, lat: params?.lat, lng: params?.lng, radiusKm: params?.radiusKm })}`
+      `/products${qs({ categoryId, search: params?.query, searchAny: params?.anyOf?.length ? params.anyOf.join(",") : undefined, businessId: params?.businessId, city: params?.city, minPrice: params?.minPrice, maxPrice: params?.maxPrice, inStock: params?.inStock ? "true" : undefined, sort: params?.sort, lat: params?.lat, lng: params?.lng, radiusKm: params?.radiusKm })}`
     );
     const list = res.map(toProduct);
     return params?.limit ? list.slice(0, params.limit) : list;
@@ -763,6 +765,12 @@ export const api = {
   /** Details edit for a workshop / shop route (owner of the shop, or admin). */
   updateWorkshopDetails: (id: string, input: Record<string, string | number>) => apiClient.patch(`/workshops/${id}`, input),
   updateRouteDetails: (id: string, input: Record<string, string | number>) => apiClient.patch(`/shop-routes/${id}`, input),
+  /** Search by photo: the backend returns keywords describing the product in the picture. */
+  async searchByImage(image: Blob): Promise<{ keywords: string[] }> {
+    const body = new FormData();
+    body.append("file", image, "search.jpg");
+    return apiClient.post<{ keywords: string[] }>("/search/image", body);
+  },
   deleteReview: (reviewId: string) => apiClient.delete<{ success: true }>(`/reviews/${reviewId}`),
   hideOrder: (orderId: string) => apiClient.delete<{ success: true }>(`/orders/${orderId}`),
   hideConversation: (conversationId: string) => apiClient.delete<{ success: true }>(`/conversations/${conversationId}`),

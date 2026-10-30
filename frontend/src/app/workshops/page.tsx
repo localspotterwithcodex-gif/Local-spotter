@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { WorkshopCard } from "@/components/cards/WorkshopCard";
-import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/search/SmartSearchInput";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -31,11 +30,10 @@ export default function WorkshopListingPage() {
           </div>
 
           <div className="w-full sm:w-72">
-            <Input
+            <SmartSearchInput
               placeholder={t("workshops.search")}
-              icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
             />
           </div>
         </div>

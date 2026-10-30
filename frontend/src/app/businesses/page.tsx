@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, MapPin, LocateFixed } from "lucide-react";
+import { MapPin, LocateFixed } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { BusinessCard } from "@/components/cards/BusinessCard";
-import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/search/SmartSearchInput";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { ErrorState } from "@/components/feedback/ErrorState";
@@ -53,11 +53,10 @@ export default function BusinessListingPage() {
           </div>
 
           <div className="w-full sm:w-72">
-            <Input
+            <SmartSearchInput
               placeholder={t("shops.search")}
-              icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
             />
           </div>
         </div>

@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { ViewsModule } from './views/views.module';
+import { VisualSearchModule } from './visual-search/visual-search.module';
 import { ShopRegistrationsModule } from './shop-registrations/shop-registrations.module';
 import { MediaModule } from './media/media.module';
 import { FinanceModule } from './finance/finance.module';
@@ -69,6 +70,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     AdminModule,
     ShopRegistrationsModule,
     ViewsModule,
+    VisualSearchModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: OriginCheckGuard }],
 })

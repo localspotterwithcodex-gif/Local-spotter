@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { LocateFixed, Search, SlidersHorizontal } from "lucide-react";
+import { LocateFixed, SlidersHorizontal } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { ProductCard } from "@/components/cards/ProductCard";
-import { Input } from "@/components/ui/Input";
+import { SmartSearchInput } from "@/components/search/SmartSearchInput";
 import { CategoryModal } from "@/components/modals/CategoryModal";
 import { ProductCardSkeleton } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -16,7 +16,12 @@ import { useNearMe } from "@/lib/hooks/useNearMe";
 
 export default function ProductListingPage() {
   const { t } = useLocale();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQueryRaw] = useState("");
+  const [photoWords, setPhotoWords] = useState<string[]>([]);
+  const setSearchQuery = (v: string) => {
+    setSearchQueryRaw(v);
+    setPhotoWords([]);
+  };
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [minPrice, setMinPrice] = useState("");
@@ -33,11 +38,12 @@ export default function ProductListingPage() {
     loading: isLoading,
     reload,
   } = useApiResource(
-    `products:${selectedCategory ?? ""}:${searchQuery}:${min ?? ""}:${max ?? ""}:${inStock}:${sort}:${geo.lat ?? ""}:${geo.lng ?? ""}:${geo.radiusKm ?? ""}`,
+    `products:${selectedCategory ?? ""}:${searchQuery}:${photoWords.join(",")}:${min ?? ""}:${max ?? ""}:${inStock}:${sort}:${geo.lat ?? ""}:${geo.lng ?? ""}:${geo.radiusKm ?? ""}`,
     () =>
       api.getProducts({
         category: selectedCategory || undefined,
         query: searchQuery || undefined,
+        anyOf: photoWords.length ? photoWords : undefined,
         minPrice: min,
         maxPrice: max,
         inStock: inStock || undefined,
@@ -57,12 +63,15 @@ export default function ProductListingPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="w-full sm:w-64">
-              <Input
+            <div className="w-full sm:w-72">
+              <SmartSearchInput
                 placeholder={t("products.search")}
-                icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={setSearchQuery}
+                onImageKeywords={(k) => {
+                  setSearchQueryRaw("");
+                  setPhotoWords(k);
+                }}
               />
             </div>
             <button

@@ -144,6 +144,13 @@ export class ProductsService {
       if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
     }
 
+    const any = (query.searchAny ?? '').split(',').map((w) => w.trim()).filter((w) => w.length >= 2).slice(0, 8);
+    if (!query.search && any.length) {
+      where.OR = any.flatMap((w) => [
+        { name: { contains: w, mode: 'insensitive' } },
+        { description: { contains: w, mode: 'insensitive' } },
+      ]);
+    }
     if (query.search) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
