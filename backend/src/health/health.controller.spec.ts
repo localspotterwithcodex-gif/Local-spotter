@@ -18,7 +18,9 @@ describe('HealthController', () => {
     expect((await make('   ').checkHealth()).paymentsConfigured).toBe(false);
   });
 
-  it('reports degraded when the database is unreachable', async () => {
-    expect((await make('x', false).checkHealth()).status).toBe('degraded');
+  it('answers 503 with a degraded body when the database is unreachable', async () => {
+    const err = await make('x', false).checkHealth().catch((e) => e);
+    expect(err.getStatus()).toBe(503);
+    expect(err.getResponse()).toMatchObject({ status: 'degraded', databaseConnected: false });
   });
 });

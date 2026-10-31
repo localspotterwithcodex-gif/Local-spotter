@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +20,7 @@ export class HealthController {
       dbConnected = false;
     }
 
-    return {
+    const body = {
       status: dbConnected ? 'ok' : 'degraded',
       service: 'LocalSpotter REST API',
       version: '1.0.0',
@@ -30,5 +30,8 @@ export class HealthController {
       // Only whether payments are set up, never the key itself.
       paymentsConfigured: Boolean(this.config.get<string>('STRIPE_SECRET_KEY')?.trim()),
     };
+    // 503 so uptime monitors and the host's health check notice a lost database; a 200 "degraded" looks healthy.
+    if (!dbConnected) throw new ServiceUnavailableException(body);
+    return body;
   }
 }

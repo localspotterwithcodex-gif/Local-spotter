@@ -42,20 +42,23 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger OpenAPI Setup
-  const config = new DocumentBuilder()
-    .setTitle('LocalSpotter REST API')
-    .setDescription('LocalSpotter.nl MVP Backend API for Web, Android, and iOS applications')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  // Swagger OpenAPI Setup — off in production (it maps every admin and internal route) unless SWAGGER_ENABLED=true.
+  const swaggerEnabled = process.env.NODE_ENV !== 'production' || process.env.SWAGGER_ENABLED === 'true';
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('LocalSpotter REST API')
+      .setDescription('LocalSpotter.nl MVP Backend API for Web, Android, and iOS applications')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(`${apiPrefix.replace(/^\//, '')}/docs`, app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(`${apiPrefix.replace(/^\//, '')}/docs`, app, document);
+  }
 
   await app.listen(port);
   console.log(`🚀 LocalSpotter Backend API running on: http://localhost:${port}${apiPrefix}`);
-  console.log(`📚 Swagger OpenAPI Documentation: http://localhost:${port}${apiPrefix}/docs`);
+  if (swaggerEnabled) console.log(`📚 Swagger OpenAPI Documentation: http://localhost:${port}${apiPrefix}/docs`);
 }
 
 bootstrap();
