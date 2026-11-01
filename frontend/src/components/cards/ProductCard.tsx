@@ -54,7 +54,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             sizes="(max-width: 768px) 50vw, 25vw"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#FAE2F0]/40 text-[#B7B7B7]" aria-hidden="true">
+          <div className="absolute inset-0 flex items-center justify-center bg-[#FAE2F0]/40 text-ls-muted" aria-hidden="true">
             <ImageOff className="w-8 h-8" />
           </div>
         )}
@@ -90,16 +90,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="flex items-center gap-1">
           <Star className="w-3.5 h-3.5 fill-[#D4B011] text-[#D4B011]" />
           <span className="text-xs font-bold text-[#111111]">{product.rating}</span>
-          <span className="text-[11px] text-[#B7B7B7]">({product.reviewCount})</span>
+          <span className="text-[11px] text-ls-muted">({product.reviewCount})</span>
         </div>
 
         {/* Title */}
-        <h3 className="text-xs font-bold text-[#111111] line-clamp-2 leading-[1.3] group-hover:text-[#FA1EFF] transition-colors">
+        <h3 className="text-xs font-bold text-[#111111] line-clamp-2 leading-[1.3] group-hover:text-ls-accent-text transition-colors">
           {product.name}
         </h3>
 
         {/* Business Name */}
-        <p className="text-[11px] text-[#B7B7B7] truncate">{product.businessName}</p>
+        <p className="text-[11px] text-ls-muted truncate">{product.businessName}</p>
 
         {/* Price Row */}
         <div className="flex items-baseline gap-2 pt-0.5">
@@ -107,7 +107,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             {f.currency(product.price)}
           </span>
           {product.compareAtPrice && product.compareAtPrice > product.price && (
-            <span className="text-xs text-[#B7B7B7] line-through font-medium">
+            <span className="text-xs text-ls-muted line-through font-medium">
               {f.currency(product.compareAtPrice)}
             </span>
           )}

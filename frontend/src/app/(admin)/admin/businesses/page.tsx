@@ -50,7 +50,7 @@ export default function AdminBusinessesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.businessesApproval")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.biz.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.biz.subtitle")}</p>
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export default function AdminBusinessesPage() {
                           <Avatar src={b.logoUrl} name={b.name} shape="square" />
                           <div>
                             <div className="font-bold text-[#111111]">{b.name}</div>
-                            {b.ownerName && <div className="text-[11px] text-[#B7B7B7]">{b.ownerName}</div>}
+                            {b.ownerName && <div className="text-[11px] text-ls-muted">{b.ownerName}</div>}
                           </div>
                         </div>
                       </td>
@@ -103,7 +103,7 @@ export default function AdminBusinessesPage() {
                       <td className="p-3 font-mono text-[#111111]">{b.kvkNumber}</td>
                       <td className="p-3 text-[#555555]">{b.city}</td>
                       <td className="p-3">
-                        <span className="bg-[#FAE2F0] text-[#FA1EFF] font-bold px-2 py-0.5 rounded-full text-[10px]">
+                        <span className="bg-[#FAE2F0] text-ls-accent-text font-bold px-2 py-0.5 rounded-full text-[10px]">
                           {b.planName}
                         </span>
                       </td>

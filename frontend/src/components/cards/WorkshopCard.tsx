@@ -58,17 +58,17 @@ export const WorkshopCard: React.FC<WorkshopCardProps> = ({ workshop }) => {
             <span className="text-[11px] font-bold text-[#790166] uppercase tracking-wide">
               {workshop.businessName}
             </span>
-            <h3 className="text-xs font-bold text-[#111111] line-clamp-2 mt-0.5 group-hover:text-[#FA1EFF] transition-colors leading-snug">
+            <h3 className="text-xs font-bold text-[#111111] line-clamp-2 mt-0.5 group-hover:text-ls-accent-text transition-colors leading-snug">
               {workshop.title}
             </h3>
           </div>
 
           <div className="space-y-1 my-1">
-            <div className="flex items-center gap-1.5 text-[11px] text-[#B7B7B7]">
+            <div className="flex items-center gap-1.5 text-[11px] text-ls-muted">
               <Clock className="w-3.5 h-3.5 text-[#121F3E]" />
               <span>{workshop.startTime} - {workshop.finishTime}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#B7B7B7]">
+            <div className="flex items-center gap-1.5 text-[11px] text-ls-muted">
               <MapPin className="w-3.5 h-3.5 text-[#54D1CA]" />
               <span className="truncate">{workshop.location}</span>
             </div>

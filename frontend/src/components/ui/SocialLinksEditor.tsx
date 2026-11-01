@@ -31,14 +31,14 @@ export function SocialLinksEditor({ value, onChange }: Props) {
           type="button"
           disabled={!nextFree}
           onClick={() => nextFree && onChange([...value, { platform: nextFree, url: "" }])}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#FAE2F0] px-3 py-1.5 text-xs font-bold text-[#FA1EFF] hover:bg-[#F7CDE8] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#FAE2F0] px-3 py-1.5 text-xs font-bold text-ls-accent-text hover:bg-[#F7CDE8] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label={t("manage.social.add")}
         >
           <Plus className="h-4 w-4" aria-hidden="true" /> {t("manage.social.add")}
         </button>
       </div>
 
-      {value.length === 0 && <p className="text-xs text-[#B7B7B7]">{t("manage.social.empty")}</p>}
+      {value.length === 0 && <p className="text-xs text-ls-muted">{t("manage.social.empty")}</p>}
 
       {value.map((row, index) => (
         <div key={index} className="flex items-center gap-2">

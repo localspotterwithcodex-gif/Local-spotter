@@ -31,13 +31,13 @@ export default function SubscriptionSelectionPage() {
     <ConsumerLayout>
       <div className="max-w-4xl mx-auto my-6 space-y-8">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-full bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center font-bold text-xl font-rubik mx-auto mb-2">
+          <div className="w-12 h-12 rounded-full bg-[#FAE2F0] text-ls-accent-text flex items-center justify-center font-bold text-xl font-rubik mx-auto mb-2">
             <Crown className="w-6 h-6" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold font-rubik text-[#111111]">
             {t("onb.sub.title")}
           </h1>
-          <p className="text-sm text-[#B7B7B7] max-w-md mx-auto">
+          <p className="text-sm text-ls-muted max-w-md mx-auto">
             {t("onb.sub.subtitle")}
           </p>
         </div>
@@ -88,7 +88,7 @@ export default function SubscriptionSelectionPage() {
                     <span className="text-3xl font-extrabold text-[#111111] font-manrope">
                       {f.currency(plan.monthlyPrice)}
                     </span>
-                    <span className="text-xs text-[#B7B7B7]">{t("onb.sub.perMonthExVat")}</span>
+                    <span className="text-xs text-ls-muted">{t("onb.sub.perMonthExVat")}</span>
                   </div>
 
                   <p className="text-xs text-[#555555] leading-relaxed">{planDescriptionText(plan.slug, plan.description, t)}</p>
@@ -96,7 +96,7 @@ export default function SubscriptionSelectionPage() {
                   <ul className="space-y-2 pt-2 border-t border-[#F9F9F9]">
                     {(PLAN_FEATURE_KEYS[plan.slug]?.map((k) => t(k)) ?? plan.features).map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-xs font-medium text-[#111111]">
-                        <Check className="w-4 h-4 text-[#FA1EFF] shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-ls-accent-text shrink-0 mt-0.5" />
                         <span>{feat}</span>
                       </li>
                     ))}

@@ -152,14 +152,14 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   {business.logoUrl ? (
                     <Image src={business.logoUrl} alt={business.name} fill className="object-cover rounded-xl" />
                   ) : (
-                    <div className="w-full h-full bg-[#FAE2F0] text-[#FA1EFF] font-bold text-3xl flex items-center justify-center rounded-xl">
+                    <div className="w-full h-full bg-[#FAE2F0] text-ls-accent-text font-bold text-3xl flex items-center justify-center rounded-xl">
                       {business.name.charAt(0)}
                     </div>
                   )}
                 </div>
 
                 <div className="pb-1">
-                  <span className="text-xs font-bold text-[#FA1EFF] bg-[#FAE2F0] px-2.5 py-1 rounded-full">
+                  <span className="text-xs font-bold text-ls-accent-text bg-[#FAE2F0] px-2.5 py-1 rounded-full">
                     {business.category}
                   </span>
                   <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111] mt-1">
@@ -209,23 +209,23 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                   <Star className="w-4 h-4 fill-[#D4B011] text-[#D4B011]" />
                   {business.rating}
                 </div>
-                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.score")}</span>
+                <span className="text-[11px] text-ls-muted">{t("shops.detail.score")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{business.reviewCount}</span>
-                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.reviews")}</span>
+                <span className="text-[11px] text-ls-muted">{t("shops.detail.reviews")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{followerCount}</span>
-                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.followers")}</span>
+                <span className="text-[11px] text-ls-muted">{t("shops.detail.followers")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{products.length}</span>
-                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.products")}</span>
+                <span className="text-[11px] text-ls-muted">{t("shops.detail.products")}</span>
               </div>
               <div>
                 <span className="block text-sm font-bold text-[#111111]">{liveViews ?? business.viewCount ?? 0}</span>
-                <span className="text-[11px] text-[#B7B7B7]">{t("shops.detail.views")}</span>
+                <span className="text-[11px] text-ls-muted">{t("shops.detail.views")}</span>
               </div>
             </div>
 
@@ -239,7 +239,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
         {business.panoramaUrl && (
           <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("panorama.title")}>
             <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Orbit className="h-4 w-4" aria-hidden="true" /></span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-ls-accent-text"><Orbit className="h-4 w-4" aria-hidden="true" /></span>
               {t("panorama.title")}
             </h2>
             <PanoramaViewer src={business.panoramaUrl} alt={t("panorama.alt", { name: business.name })} className="aspect-[16/10]" />
@@ -249,7 +249,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
         {business.videoUrl && (
           <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("manage.video.publicTitle")}>
             <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Video className="h-4 w-4" aria-hidden="true" /></span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-ls-accent-text"><Video className="h-4 w-4" aria-hidden="true" /></span>
               {t("manage.video.publicTitle")}
             </h2>
             <video
@@ -265,7 +265,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
 
         <section className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3" aria-label={t("manage.shop.details")}>
           <h2 className="flex items-center gap-2 text-sm font-bold font-rubik text-[#111111]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-[#FA1EFF]"><Store className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAE2F0] text-ls-accent-text"><Store className="h-4 w-4" aria-hidden="true" /></span>
             {t("manage.shop.details")}
           </h2>
           <dl className="divide-y divide-[#F2F2F2] text-xs">
@@ -290,7 +290,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             {business.websiteUrl && (
               <div className="flex items-start justify-between gap-3 py-2.5">
                 <dt className="flex items-center gap-2 text-[#6B6B6B] shrink-0"><Globe className="h-4 w-4" aria-hidden="true" /> {t("ownerx.settings.website")}</dt>
-                <dd className="text-right font-bold text-[#FA1EFF] min-w-0 truncate">
+                <dd className="text-right font-bold text-ls-accent-text min-w-0 truncate">
                   <a href={business.websiteUrl} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline">{displayUrl(business.websiteUrl)}</a>
                 </dd>
               </div>
@@ -298,7 +298,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             {(business.socialLinks ?? []).map((l) => (
               <div key={l.platform} className="flex items-start justify-between gap-3 py-2.5">
                 <dt className="text-[#6B6B6B] shrink-0">{SOCIAL_LABEL[l.platform]}</dt>
-                <dd className="text-right font-bold text-[#FA1EFF] min-w-0 truncate">
+                <dd className="text-right font-bold text-ls-accent-text min-w-0 truncate">
                   <a href={l.url} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline">{displayUrl(l.url)}</a>
                 </dd>
               </div>
@@ -314,8 +314,8 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             onClick={() => setActiveTab("products")}
             className={`px-5 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeTab === "products"
-                ? "border-[#FA1EFF] text-[#FA1EFF]"
-                : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
+                ? "border-[#FA1EFF] text-ls-accent-text"
+                : "border-transparent text-ls-muted hover:text-[#111111]"
             }`}
           >
             <ShoppingBag className="w-4 h-4" /> {t("shops.detail.tabProducts", { n: products.length })}
@@ -325,36 +325,36 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
             onClick={() => setActiveTab("workshops")}
             className={`px-5 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeTab === "workshops"
-                ? "border-[#FA1EFF] text-[#FA1EFF]"
-                : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
+                ? "border-[#FA1EFF] text-ls-accent-text"
+                : "border-transparent text-ls-muted hover:text-[#111111]"
             }`}
           >
             <Calendar className="w-4 h-4" /> {t("shops.detail.tabWorkshops", { n: workshops.length })}
-            {!hasWorkshops && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
+            {!hasWorkshops && <Lock className="w-3 h-3 text-ls-muted" />}
           </button>
 
           <button
             onClick={() => setActiveTab("map")}
             className={`px-5 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeTab === "map"
-                ? "border-[#FA1EFF] text-[#FA1EFF]"
-                : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
+                ? "border-[#FA1EFF] text-ls-accent-text"
+                : "border-transparent text-ls-muted hover:text-[#111111]"
             }`}
           >
             <MapPin className="w-4 h-4" /> {t("shops.detail.tabMap")}
-            {!hasShoproutes && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
+            {!hasShoproutes && <Lock className="w-3 h-3 text-ls-muted" />}
           </button>
 
           <button
             onClick={() => setActiveTab("reviews")}
             className={`px-5 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeTab === "reviews"
-                ? "border-[#FA1EFF] text-[#FA1EFF]"
-                : "border-transparent text-[#B7B7B7] hover:text-[#111111]"
+                ? "border-[#FA1EFF] text-ls-accent-text"
+                : "border-transparent text-ls-muted hover:text-[#111111]"
             }`}
           >
             <Star className="w-4 h-4" /> {t("shops.detail.tabReviews", { n: reviews.length })}
-            {!hasReviews && <Lock className="w-3 h-3 text-[#B7B7B7]" />}
+            {!hasReviews && <Lock className="w-3 h-3 text-ls-muted" />}
           </button>
         </div>
 
@@ -383,9 +383,9 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
           <div>
             {!hasWorkshops ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
-                <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
+                <Lock className="w-8 h-8 text-ls-muted mx-auto mb-2" />
                 <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.workshopsOffTitle")}</h3>
-                <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
+                <p className="text-xs text-ls-muted max-w-sm mx-auto mt-1">
                   {t("shops.detail.workshopsOffDesc")}
                 </p>
               </div>
@@ -410,9 +410,9 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
           <div>
             {!hasShoproutes ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
-                <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
+                <Lock className="w-8 h-8 text-ls-muted mx-auto mb-2" />
                 <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.mapOffTitle")}</h3>
-                <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
+                <p className="text-xs text-ls-muted max-w-sm mx-auto mt-1">
                   {t("shops.detail.mapOffDesc")}
                 </p>
               </div>
@@ -449,7 +449,7 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
                     <span className="text-xs text-[#555555]">
                       {business.location.street} {business.location.houseNumber}, {business.location.city}
                     </span>
-                    <span className="mt-1 text-[11px] text-[#B7B7B7]">{t("manage.geo.noPin")}</span>
+                    <span className="mt-1 text-[11px] text-ls-muted">{t("manage.geo.noPin")}</span>
                   </div>
                 )}
               </div>
@@ -462,9 +462,9 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ busin
           <div>
             {!hasReviews ? (
               <div className="p-8 text-center bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
-                <Lock className="w-8 h-8 text-[#B7B7B7] mx-auto mb-2" />
+                <Lock className="w-8 h-8 text-ls-muted mx-auto mb-2" />
                 <h3 className="text-base font-bold font-rubik text-[#111111]">{t("shops.detail.reviewsOffTitle")}</h3>
-                <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto mt-1">
+                <p className="text-xs text-ls-muted max-w-sm mx-auto mt-1">
                   {t("shops.detail.reviewsOffDesc")}
                 </p>
               </div>

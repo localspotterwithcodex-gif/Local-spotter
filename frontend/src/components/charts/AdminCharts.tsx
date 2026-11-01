@@ -141,7 +141,7 @@ export function TrendChart({ data, title, labels, formatMoney, formatDay, empty 
           )}
           <rect x={L} y={T} width={iw} height={ih} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
         </svg>
-        {!hasData && <p className="absolute inset-0 flex items-center justify-center text-xs text-[#B7B7B7]">{empty}</p>}
+        {!hasData && <p className="absolute inset-0 flex items-center justify-center text-xs text-ls-muted">{empty}</p>}
         {hover !== null && h && (
           <Tooltip x={(x(hover) / W) * 100} y={8} width={150}>
             <div className="font-bold text-[#111111]">{formatDay(h.date)}</div>
@@ -212,7 +212,7 @@ export function ShopGrowthChart({ data, title, labels, formatDay, empty }: Growt
             );
           })}
         </svg>
-        {!hasData && <p className="absolute inset-0 flex items-center justify-center text-xs text-[#B7B7B7]">{empty}</p>}
+        {!hasData && <p className="absolute inset-0 flex items-center justify-center text-xs text-ls-muted">{empty}</p>}
         {hover !== null && h && (
           <Tooltip x={((L + slot * hover + slot / 2) / W) * 100} y={4} width={140}>
             <div className="font-bold text-[#111111]">{formatDay(h.date)}</div>
@@ -239,7 +239,7 @@ export function BarList({ items, title, formatValue, empty }: { items: { name: s
     <figure className="space-y-3">
       <figcaption className="text-sm font-bold font-rubik text-[#111111]">{title}</figcaption>
       {items.length === 0 || max === 0 ? (
-        <p className="py-8 text-center text-xs text-[#B7B7B7]">{empty}</p>
+        <p className="py-8 text-center text-xs text-ls-muted">{empty}</p>
       ) : (
         <ul className="space-y-3">
           {items.map((it, i) => (
@@ -249,7 +249,7 @@ export function BarList({ items, title, formatValue, empty }: { items: { name: s
                 <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (it.value / max) * 100)}%`, background: shades[i % shades.length] }} />
               </span>
               <span className="whitespace-nowrap font-bold text-[#111111]">
-                {formatValue(it.value)} <span className="font-normal text-[#B7B7B7]">{it.share}%</span>
+                {formatValue(it.value)} <span className="font-normal text-ls-muted">{it.share}%</span>
               </span>
             </li>
           ))}
@@ -270,7 +270,7 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
     <figure className="min-w-0 space-y-3">
       <figcaption className="text-sm font-bold font-rubik text-[#111111]">{title}</figcaption>
       {total === 0 ? (
-        <p className="py-8 text-center text-xs text-[#B7B7B7]">{empty}</p>
+        <p className="py-8 text-center text-xs text-ls-muted">{empty}</p>
       ) : (
         <div className="flex flex-col items-center gap-4">
           <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-labelledby={`${id}-t`}>
@@ -294,7 +294,7 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
             {segments.map((s) => (
               <li key={s.name} className="flex items-center justify-between gap-3">
                 <LegendDot color={s.color} label={s.name} />
-                <span className="font-bold text-[#111111]">{s.value.toLocaleString()} <span className="font-normal text-[#B7B7B7]">{s.share}%</span></span>
+                <span className="font-bold text-[#111111]">{s.value.toLocaleString()} <span className="font-normal text-ls-muted">{s.share}%</span></span>
               </li>
             ))}
           </ul>

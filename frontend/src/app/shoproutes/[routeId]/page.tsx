@@ -88,7 +88,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
   return (
     <ConsumerLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <Link href="/shoproutes" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/shoproutes" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("routes.detail.back")}
         </Link>
@@ -102,7 +102,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
             </div>
             <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{route.title}</h1>
             {liveViews !== null && (
-              <p className="inline-flex items-center gap-1 text-[11px] text-[#B7B7B7] mt-1">
+              <p className="inline-flex items-center gap-1 text-[11px] text-ls-muted mt-1">
                 <Eye className="w-3.5 h-3.5" /> {t("shops.detail.viewsN", { n: liveViews })}
               </p>
             )}
@@ -127,20 +127,20 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                 {t("routes.detail.noCoords")}
               </Button>
             )}
-            {routeLink?.truncated && <p className="text-[11px] text-[#B7B7B7]">{t("routes.detail.truncated")}</p>}
+            {routeLink?.truncated && <p className="text-[11px] text-ls-muted">{t("routes.detail.truncated")}</p>}
           </div>
         </div>
 
         {(route.theme || route.distanceKm != null || (route.durationMinutes ?? 0) > 0) && (
           <dl className="flex flex-wrap gap-x-6 gap-y-2 rounded-2xl border border-[#EAEAEA] bg-white px-5 py-3 text-xs">
             {route.theme && (
-              <div><dt className="text-[#B7B7B7]">{t("routes.theme")}</dt><dd className="font-bold text-[#111111]">{route.theme}</dd></div>
+              <div><dt className="text-ls-muted">{t("routes.theme")}</dt><dd className="font-bold text-[#111111]">{route.theme}</dd></div>
             )}
             {route.distanceKm != null && (
-              <div><dt className="text-[#B7B7B7]">{t("routes.distance")}</dt><dd className="font-bold text-[#111111]">{f.number(route.distanceKm, { maximumFractionDigits: 1 })} km</dd></div>
+              <div><dt className="text-ls-muted">{t("routes.distance")}</dt><dd className="font-bold text-[#111111]">{f.number(route.distanceKm, { maximumFractionDigits: 1 })} km</dd></div>
             )}
             {(route.durationMinutes ?? 0) > 0 && (
-              <div><dt className="text-[#B7B7B7]">{t("routes.duration")}</dt><dd className="font-bold text-[#111111]">{formatDuration(route.durationMinutes!)}</dd></div>
+              <div><dt className="text-ls-muted">{t("routes.duration")}</dt><dd className="font-bold text-[#111111]">{formatDuration(route.durationMinutes!)}</dd></div>
             )}
           </dl>
         )}
@@ -209,7 +209,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                     {t("routes.detail.stop", { n: selectedStop.sequenceOrder })}
                   </span>
                   <h4 className="text-sm font-bold text-[#111111]">{selectedStop.businessName}</h4>
-                  <p className="text-xs text-[#B7B7B7]">{selectedStop.address}</p>
+                  <p className="text-xs text-ls-muted">{selectedStop.address}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <Link
@@ -238,7 +238,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
           {/* ROUTE STOPS LIST PANEL */}
           <div className="bg-white rounded-3xl p-5 border border-[#EAEAEA] space-y-4">
             <h3 className="text-base font-bold font-rubik text-[#111111] flex items-center gap-2">
-              <Store className="w-4 h-4 text-[#FA1EFF]" />
+              <Store className="w-4 h-4 text-ls-accent-text" />
               {t("routes.detail.participating", { n: route.stops.length })}
             </h3>
 
@@ -260,7 +260,7 @@ export default function ShoprouteDetailPage({ params }: { params: Promise<{ rout
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-xs font-bold text-[#111111] truncate">{stop.businessName}</h4>
-                      <p className="text-[11px] text-[#B7B7B7] truncate">{stop.address}</p>
+                      <p className="text-[11px] text-ls-muted truncate">{stop.address}</p>
                     </div>
                   </div>
                 );

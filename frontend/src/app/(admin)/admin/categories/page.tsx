@@ -36,7 +36,7 @@ export default function AdminCategoriesPage() {
         <div className="pb-2 border-b border-[#EAEAEA] flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.categories")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.cat.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.cat.subtitle")}</p>
           </div>
           <select
             aria-label={t("adminx.cat.kind")}
@@ -85,7 +85,7 @@ export default function AdminCategoriesPage() {
                     onChange={(e) => setEdits((m) => ({ ...m, [c.id]: e.target.value }))}
                     className="flex-1 min-w-[160px] h-9 bg-[#EAEAEA] rounded-xl px-3"
                   />
-                  <span className="text-[#B7B7B7]">{t("adminx.cat.usage", { count: c.usage })}</span>
+                  <span className="text-ls-muted">{t("adminx.cat.usage", { count: c.usage })}</span>
                   {dirty && (
                     <button
                       disabled={action.busyId !== null}

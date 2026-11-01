@@ -106,7 +106,7 @@ export function WorkshopParticipantsView({ workshopId, readOnly = false }: { wor
       <div className="bg-white rounded-2xl border border-[#EAEAEA] overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-left text-[#B7B7B7]">
+            <tr className="text-left text-ls-muted">
               <th className="p-3">{t("ownerx.participants.colName")}</th>
               <th className="p-3">{t("ownerx.participants.colPhone")}</th>
               <th className="p-3">{t("ownerx.participants.colTickets")}</th>

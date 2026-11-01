@@ -40,11 +40,11 @@ export default function ShoproutesListingPage() {
       <div className="space-y-6">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("routes.title")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("routes.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("routes.subtitle")}</p>
         </div>
 
         <div className="flex flex-wrap items-end gap-3 text-xs">
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("routes.theme")}
             <select value={theme} onChange={(e) => setTheme(e.target.value)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
               <option value="">{t("routes.allThemes")}</option>
@@ -53,7 +53,7 @@ export default function ShoproutesListingPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("routes.maxDistance")}
             <select value={maxDistance} onChange={(e) => setMaxDistance(e.target.value)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
               <option value="">{t("routes.any")}</option>
@@ -62,7 +62,7 @@ export default function ShoproutesListingPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("routes.maxDuration")}
             <select value={maxDuration} onChange={(e) => setMaxDuration(e.target.value)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
               <option value="">{t("routes.any")}</option>
@@ -75,7 +75,7 @@ export default function ShoproutesListingPage() {
 
         {/* City Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#B7B7B7]">{t("routes.city")}</span>
+          <span className="text-xs font-bold text-ls-muted">{t("routes.city")}</span>
           <button
             onClick={() => setSelectedCity(null)}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${

@@ -94,7 +94,7 @@ export default function AdminPayoutsPage() {
         <div className="pb-2 border-b border-[#EAEAEA] flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.payoutsApproval")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.payouts.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.payouts.subtitle")}</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" isLoading={toolBusy} disabled={toolBusy} onClick={() => void runNow()}>
@@ -106,7 +106,7 @@ export default function AdminPayoutsPage() {
           </div>
         </div>
 
-        <p className="text-[11px] text-[#B7B7B7]">{t("adminx.payouts.manualNote")}</p>
+        <p className="text-[11px] text-ls-muted">{t("adminx.payouts.manualNote")}</p>
         <AdminFilters
           selects={[{ key: "status", label: t("common.status"), value: status, onChange: (v) => { setStatus(v); setOffset(0); }, options: (["PENDING", "APPROVED", "PAID", "REJECTED", "FAILED"] as const).map((v) => ({ value: v, label: label("status", v) })) }]}
           onReset={() => { setStatus(""); setOffset(0); }}
@@ -146,7 +146,7 @@ export default function AdminPayoutsPage() {
                           <td className="p-3 font-mono font-bold">{p.id.slice(0, 8)}</td>
                           <td className="p-3 font-bold text-[#111111]">
                             {p.businessName}
-                            <span className="block text-[11px] font-normal text-[#B7B7B7]">{p.accountHolder}</span>
+                            <span className="block text-[11px] font-normal text-ls-muted">{p.accountHolder}</span>
                           </td>
                           <td className="p-3 text-[#555555]">{p.periodKey ?? "-"}</td>
                           <td className="p-3 font-extrabold text-[#111111]">{f.currency(p.amount)}</td>
@@ -154,9 +154,9 @@ export default function AdminPayoutsPage() {
                             <Badge variant={p.status === "PAID" || p.status === "APPROVED" ? "completed" : p.status === "PENDING" ? "processing" : "cancelled"}>
                               {label("status", p.status)}
                             </Badge>
-                            {p.providerReference && <span className="block text-[11px] text-[#B7B7B7] mt-1">{p.providerReference}</span>}
+                            {p.providerReference && <span className="block text-[11px] text-ls-muted mt-1">{p.providerReference}</span>}
                           </td>
-                          <td className="p-3 text-[#B7B7B7]">{f.date(p.createdAt)}</td>
+                          <td className="p-3 text-ls-muted">{f.date(p.createdAt)}</td>
                           <td className="p-3 text-right">
                             {open && (
                               <div className="flex flex-wrap justify-end gap-1.5">
@@ -195,7 +195,7 @@ export default function AdminPayoutsPage() {
                                   {t("common.confirm")}
                                 </Button>
                               </div>
-                              {panel.mode !== "paid" && <p className="text-[11px] text-[#B7B7B7] mt-2">{t("adminx.payouts.reverseNote")}</p>}
+                              {panel.mode !== "paid" && <p className="text-[11px] text-ls-muted mt-2">{t("adminx.payouts.reverseNote")}</p>}
                             </td>
                           </tr>
                         )}

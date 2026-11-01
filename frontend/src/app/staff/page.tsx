@@ -32,11 +32,11 @@ export default function StaffHomePage() {
               <li key={s.businessId} className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3">
                 <div>
                   <p className="text-sm font-bold text-[#121F3E]">{s.businessName}</p>
-                  <p className="text-[11px] text-[#B7B7B7]">
+                  <p className="text-[11px] text-ls-muted">
                     {s.city ?? ""} · {s.role === "MANAGER" ? t("staff.roleManager") : t("staff.roleStaff")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-4 text-xs font-bold text-[#FA1EFF]">
+                <div className="flex flex-wrap gap-4 text-xs font-bold text-ls-accent-text">
                   <Link href={`/chat?shop=${s.businessId}`} className="flex items-center gap-1">
                     <MessageCircle className="w-4 h-4" /> {t("staff.messages")}
                   </Link>

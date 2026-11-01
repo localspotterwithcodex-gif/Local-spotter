@@ -29,7 +29,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business }) => {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center font-bold text-[#FA1EFF] text-xl">
+            <div className="w-full h-full flex items-center justify-center font-bold text-ls-accent-text text-xl">
               {business.name.charAt(0)}
             </div>
           )}
@@ -38,7 +38,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business }) => {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <h3 className="text-sm font-bold text-[#111111] truncate group-hover:text-[#FA1EFF] transition-colors">
+            <h3 className="text-sm font-bold text-[#111111] truncate group-hover:text-ls-accent-text transition-colors">
               {business.name}
             </h3>
             <div className="flex items-center gap-1 shrink-0">
@@ -47,19 +47,19 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business }) => {
             </div>
           </div>
 
-          <p className="text-xs font-medium text-[#FA1EFF] mt-0.5">{business.category}</p>
+          <p className="text-xs font-medium text-ls-accent-text mt-0.5">{business.category}</p>
 
-          <p className="text-xs text-[#B7B7B7] line-clamp-2 mt-1 leading-snug">
+          <p className="text-xs text-ls-muted line-clamp-2 mt-1 leading-snug">
             {business.description}
           </p>
 
-          <div className="flex items-center gap-4 text-[11px] text-[#B7B7B7] mt-2.5 pt-2 border-t border-[#F9F9F9]">
+          <div className="flex items-center gap-4 text-[11px] text-ls-muted mt-2.5 pt-2 border-t border-[#F9F9F9]">
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3 text-[#54D1CA]" />
               {business.location.city}
             </span>
             <span className="flex items-center gap-1">
-              <ShoppingBag className="w-3 h-3 text-[#B7B7B7]" />
+              <ShoppingBag className="w-3 h-3 text-ls-muted" />
               {t("cards.productsCount", { n: business.productCount })}
             </span>
             <span className="flex items-center gap-1">

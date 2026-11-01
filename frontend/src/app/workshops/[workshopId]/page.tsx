@@ -112,7 +112,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
   return (
     <ConsumerLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
-        <Link href="/workshops" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/workshops" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("workshops.detail.back")}
         </Link>
@@ -132,11 +132,11 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{workshop.title}</h1>
               {liveViews !== null && (
-                <p className="inline-flex items-center gap-1 text-[11px] text-[#B7B7B7] mt-1">
+                <p className="inline-flex items-center gap-1 text-[11px] text-ls-muted mt-1">
                   <Eye className="w-3.5 h-3.5" /> {t("shops.detail.viewsN", { n: liveViews })}
                 </p>
               )}
-              <Link href={`/businesses/${workshop.businessId}`} className="inline-flex items-center gap-1 text-xs font-bold text-[#FA1EFF] mt-1 hover:underline">
+              <Link href={`/businesses/${workshop.businessId}`} className="inline-flex items-center gap-1 text-xs font-bold text-ls-accent-text mt-1 hover:underline">
                 <Store className="w-3.5 h-3.5" /> {t("workshops.detail.organizedBy", { name: workshop.businessName })}
               </Link>
             </div>
@@ -144,28 +144,28 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
             {/* Info Badges */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA]">
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.date")}</span>
+                <span className="text-[11px] text-ls-muted block">{t("workshops.detail.date")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
-                  <CalendarIcon className="w-3.5 h-3.5 text-[#FA1EFF]" />
+                  <CalendarIcon className="w-3.5 h-3.5 text-ls-accent-text" />
                   {f.date(shown?.date ?? workshop.date)}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.time")}</span>
+                <span className="text-[11px] text-ls-muted block">{t("workshops.detail.time")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <Clock className="w-3.5 h-3.5 text-[#121F3E]" />
                   {shown?.startTime ?? workshop.startTime} - {shown?.finishTime ?? workshop.finishTime}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.location")}</span>
+                <span className="text-[11px] text-ls-muted block">{t("workshops.detail.location")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5 truncate">
                   <MapPin className="w-3.5 h-3.5 text-[#54D1CA]" />
                   {workshop.location}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-[#B7B7B7] block">{t("workshops.detail.spots")}</span>
+                <span className="text-[11px] text-ls-muted block">{t("workshops.detail.spots")}</span>
                 <span className="text-xs font-bold text-[#111111] flex items-center gap-1 mt-0.5">
                   <Users className="w-3.5 h-3.5 text-[#790166]" />
                   {t("workshops.detail.spotsLeft", { n: spotsLeft })}
@@ -230,7 +230,7 @@ export default function WorkshopDetailPage({ params }: { params: Promise<{ works
             <div className="bg-[#FAE2F0]/40 p-5 rounded-2xl border border-[#FAE2F0] space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-[#B7B7B7] block">{t("workshops.detail.pricePerTicket")}</span>
+                  <span className="text-xs text-ls-muted block">{t("workshops.detail.pricePerTicket")}</span>
                   <span className="text-xl font-extrabold text-[#111111] font-manrope">
                     {workshop.price > 0 ? f.currency(workshop.price) : t("cards.free")}
                   </span>

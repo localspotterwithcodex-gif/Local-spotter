@@ -151,7 +151,7 @@ export function ShopOrdersBoard({ businessId }: { businessId: string }) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F9F9F9]">
                   <div>
                     <span className="text-sm font-bold text-[#111111]">{order.orderNumber}</span>
-                    <span className="text-xs text-[#B7B7B7] block">
+                    <span className="text-xs text-ls-muted block">
                       {f.date(order.createdAt)} • {t("ownerx.orders.customer", { name: order.consumerName })}
                     </span>
                   </div>

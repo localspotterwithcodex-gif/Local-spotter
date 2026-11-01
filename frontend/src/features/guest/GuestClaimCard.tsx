@@ -60,7 +60,7 @@ export function GuestClaimCard() {
   return (
     <div className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-3">
       <h3 className="text-sm font-bold font-rubik text-[#111111] flex items-center gap-2">
-        <UserPlus className="w-4 h-4 text-[#FA1EFF]" /> {t("guest.claim.title")}
+        <UserPlus className="w-4 h-4 text-ls-accent-text" /> {t("guest.claim.title")}
       </h3>
       <p className="text-xs text-[#555555]">{t("guest.claim.intro")}</p>
       {step === "idle" ? (
@@ -69,7 +69,7 @@ export function GuestClaimCard() {
         </Button>
       ) : (
         <form onSubmit={complete} className="space-y-3">
-          <p className="text-[11px] text-[#B7B7B7]">{t("guest.claim.codeSent")}</p>
+          <p className="text-[11px] text-ls-muted">{t("guest.claim.codeSent")}</p>
           <Input label={t("guest.claim.code")} inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required />
           <Input label={t("guest.claim.password")} type="password" autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={(e) => setPassword(e.target.value)} required />
           <Button type="submit" variant="primary" isLoading={busy}>{t("guest.claim.complete")}</Button>

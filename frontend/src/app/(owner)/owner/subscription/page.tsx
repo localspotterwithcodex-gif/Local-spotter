@@ -82,14 +82,14 @@ export default function OwnerSubscriptionPage() {
 
   const header = (
     <>
-      <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+      <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
         <ArrowLeft className="w-4 h-4" />
         {t("ownerx.backToDashboard")}
       </Link>
 
       <div>
         <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.sub.title")}</h1>
-        <p className="text-xs text-[#B7B7B7]">{t("ownerx.sub.subtitle")}</p>
+        <p className="text-xs text-ls-muted">{t("ownerx.sub.subtitle")}</p>
       </div>
     </>
   );
@@ -148,7 +148,7 @@ export default function OwnerSubscriptionPage() {
         {/* Current Subscription Banner */}
         <div className="bg-white p-6 rounded-3xl border border-[#FAE2F0] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center font-bold text-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#FAE2F0] text-ls-accent-text flex items-center justify-center font-bold text-2xl">
               <Crown className="w-7 h-7" />
             </div>
             <div>
@@ -172,7 +172,7 @@ export default function OwnerSubscriptionPage() {
                       ? t("ownerx.sub.planWithPrice", { name: currentPlan.name, price: f.currency(currentPlan.monthlyPrice) })
                       : sub.planSlug}
                   </h2>
-                  <p className="text-xs text-[#B7B7B7]">
+                  <p className="text-xs text-ls-muted">
                     {isActive
                       ? t(sub.autoRenew ? "ownerx.sub.renewsOn" : "ownerx.sub.expiresOn", { date: f.date(sub.currentPeriodEnd) })
                       : t("ownerx.sub.noAccess")}
@@ -181,7 +181,7 @@ export default function OwnerSubscriptionPage() {
               ) : (
                 <>
                   <h2 className="text-lg font-bold font-rubik text-[#111111]">{t("ownerx.sub.none")}</h2>
-                  <p className="text-xs text-[#B7B7B7]">{t("ownerx.sub.noneDesc")}</p>
+                  <p className="text-xs text-ls-muted">{t("ownerx.sub.noneDesc")}</p>
                 </>
               )}
             </div>
@@ -218,12 +218,12 @@ export default function OwnerSubscriptionPage() {
                       )}
                     </div>
                     <div className="text-2xl font-extrabold text-[#111111]">
-                      {f.currency(plan.monthlyPrice)} <span className="text-xs text-[#B7B7B7] font-normal">{t("ownerx.sub.perMonthShort")}</span>
+                      {f.currency(plan.monthlyPrice)} <span className="text-xs text-ls-muted font-normal">{t("ownerx.sub.perMonthShort")}</span>
                     </div>
                     <ul className="space-y-1.5 pt-2 border-t border-[#F9F9F9]">
                       {(PLAN_FEATURE_KEYS[plan.slug]?.map((k) => t(k)) ?? plan.features).map((feature, i) => (
                         <li key={i} className="text-xs text-[#555555] flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-[#FA1EFF] shrink-0" />
+                          <Check className="w-3.5 h-3.5 text-ls-accent-text shrink-0" />
                           <span>{feature}</span>
                         </li>
                       ))}

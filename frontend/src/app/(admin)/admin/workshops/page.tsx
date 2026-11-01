@@ -26,7 +26,7 @@ export default function AdminWorkshopsPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.workshopsOverview")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.workshops.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.workshops.subtitle")}</p>
         </div>
 
         {error ? (

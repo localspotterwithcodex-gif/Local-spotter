@@ -196,7 +196,7 @@ export default function ChatThreadPage() {
               className="w-full bg-[#EAEAEA] rounded-xl p-3"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={() => void submitReport()} className="font-bold text-[#FA1EFF]">
+              <button type="button" onClick={() => void submitReport()} className="font-bold text-ls-accent-text">
                 {t("manage.chat.reportSend")}
               </button>
               <button type="button" onClick={() => setReporting(null)} className="font-bold text-[#555555]">
@@ -216,7 +216,7 @@ export default function ChatThreadPage() {
               </button>
             </div>
           )}
-          {thread.data && thread.data.messages.length === 0 && <p className="text-xs text-[#B7B7B7] text-center py-8">{t("manage.chat.noMessages")}</p>}
+          {thread.data && thread.data.messages.length === 0 && <p className="text-xs text-ls-muted text-center py-8">{t("manage.chat.noMessages")}</p>}
           {(thread.data?.messages ?? []).map((m) => (
             <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${m.mine ? "bg-[#FA1EFF] text-white rounded-br-md" : "bg-white text-[#121F3E] shadow-sm rounded-bl-md"}`}>
@@ -225,7 +225,7 @@ export default function ChatThreadPage() {
                   <img src={m.attachmentUrl} alt={t("manage.chat.photo")} loading="lazy" className="max-h-64 rounded-xl mb-1" />
                 )}
                 {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
-                <p className={`mt-1 text-[10px] flex items-center gap-2 ${m.mine ? "text-white/70" : "text-[#B7B7B7]"}`}>
+                <p className={`mt-1 text-[10px] flex items-center gap-2 ${m.mine ? "text-white/70" : "text-ls-muted"}`}>
                   {fmt.time(m.createdAt)}
                   {!m.mine && (
                     <button

@@ -59,7 +59,7 @@ export default function ProductListingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("products.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("products.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("products.subtitle")}</p>
           </div>
 
           <div className="flex items-start gap-2">
@@ -77,7 +77,7 @@ export default function ProductListingPage() {
             <button
               onClick={() => setIsCategoryModalOpen(true)}
               aria-label={t("products.filterCategories")}
-              className="h-12 w-12 rounded-xl bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center hover:bg-[#F5CEE6] transition-colors shrink-0"
+              className="h-12 w-12 rounded-xl bg-[#FAE2F0] text-ls-accent-text flex items-center justify-center hover:bg-[#F5CEE6] transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-5 h-5" />
             </button>
@@ -85,15 +85,15 @@ export default function ProductListingPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3 text-xs">
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("filters.minPrice")}
             <input type="number" min={0} inputMode="decimal" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="h-10 w-24 rounded-xl border border-[#EAEAEA] px-3 text-[#111111]" />
           </label>
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("filters.maxPrice")}
             <input type="number" min={0} inputMode="decimal" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="h-10 w-24 rounded-xl border border-[#EAEAEA] px-3 text-[#111111]" />
           </label>
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("filters.sort")}
             <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
               <option value="newest">{t("filters.sortNewest")}</option>
@@ -111,7 +111,7 @@ export default function ProductListingPage() {
             type="button"
             onClick={() => (nearMe.active ? nearMe.disable() : nearMe.enable())}
             aria-pressed={nearMe.active}
-            className={`flex h-10 items-center gap-1.5 rounded-xl border px-3 font-bold ${nearMe.active ? "border-[#FA1EFF] bg-[#FAE2F0] text-[#FA1EFF]" : "border-[#EAEAEA] text-[#111111]"}`}
+            className={`flex h-10 items-center gap-1.5 rounded-xl border px-3 font-bold ${nearMe.active ? "border-[#FA1EFF] bg-[#FAE2F0] text-ls-accent-text" : "border-[#EAEAEA] text-[#111111]"}`}
           >
             <LocateFixed className="h-4 w-4" />
             {nearMe.active ? t("filters.nearMeOn", { km: nearMe.radiusKm }) : t("filters.nearMe")}
@@ -128,7 +128,7 @@ export default function ProductListingPage() {
 
         {selectedCategory && (
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#B7B7B7]">{t("products.category")}</span>
+            <span className="text-xs font-bold text-ls-muted">{t("products.category")}</span>
             <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#FA1EFF] text-white text-xs font-bold rounded-full">
               {selectedCategory}
               <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75" aria-label={t("products.removeFilter")}>

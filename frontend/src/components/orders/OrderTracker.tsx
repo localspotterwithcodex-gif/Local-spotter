@@ -81,7 +81,7 @@ export function OrderTracker({ status, method, businessName, defaultOpen = false
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
       >
         <span className="flex items-center gap-2 text-xs font-bold text-[#111111]">
-          <Package className="h-4 w-4 text-[#FA1EFF]" aria-hidden="true" />
+          <Package className="h-4 w-4 text-ls-accent-text" aria-hidden="true" />
           {t("orders.tracker.title")}
           <span className="font-medium text-[#6B6B6B]">· {headline}</span>
         </span>
@@ -109,7 +109,7 @@ export function OrderTracker({ status, method, businessName, defaultOpen = false
                       )}
                       <span
                         className={`relative mx-auto flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-bold transition-colors duration-500 ${
-                          done ? "border-[#FA1EFF] bg-[#FA1EFF] text-white" : here ? "border-[#FA1EFF] bg-white text-[#FA1EFF]" : "border-[#EAEAEA] bg-white text-[#B7B7B7]"
+                          done ? "border-[#FA1EFF] bg-[#FA1EFF] text-white" : here ? "border-[#FA1EFF] bg-white text-ls-accent-text" : "border-[#EAEAEA] bg-white text-ls-muted"
                         }`}
                       >
                         {here && <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full bg-[#FA1EFF]/30 motion-reduce:hidden" />}

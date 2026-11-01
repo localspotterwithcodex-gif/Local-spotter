@@ -48,7 +48,7 @@ export default function OwnerWorkshopsPage() {
           <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("ownerx.workshops.title")}</h1>
           <div className="rounded-2xl bg-[#FFF6DB] border border-[#D4B011] p-4 text-sm text-[#121F3E] space-y-2">
             <p>{t("ownerx.workshops.locked")}</p>
-            <Link href="/owner/subscription" className="font-bold text-[#FA1EFF]">{t("ownerx.routes.upgrade")}</Link>
+            <Link href="/owner/subscription" className="font-bold text-ls-accent-text">{t("ownerx.routes.upgrade")}</Link>
           </div>
         </div>
       </OwnerLayout>
@@ -80,7 +80,7 @@ export default function OwnerWorkshopsPage() {
                   <p className="text-[11px] text-[#555555]">
                     {w.date} · {w.startTime}–{w.finishTime} · {w.bookedCount}/{w.capacity}
                   </p>
-                  <p className="text-[11px] text-[#B7B7B7]">
+                  <p className="text-[11px] text-ls-muted">
                     {w.status}
                     {w.sessions.length > 1 ? ` · ${t("ownerx.workshops.sessionsCount", { n: w.sessions.length })}` : ""}
                   </p>
@@ -101,7 +101,7 @@ export default function OwnerWorkshopsPage() {
                 )}
                 <Link
                   href={`/owner/workshops/${w.id}/participants`}
-                  className="ml-auto flex items-center gap-1 text-xs font-bold text-[#FA1EFF] shrink-0"
+                  className="ml-auto flex items-center gap-1 text-xs font-bold text-ls-accent-text shrink-0"
                 >
                   <Users className="w-4 h-4" /> {t("ownerx.workshops.participants")}
                 </Link>

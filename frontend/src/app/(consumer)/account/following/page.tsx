@@ -21,14 +21,14 @@ export default function ConsumerFollowingPage() {
   return (
     <ConsumerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("account.back")}
         </Link>
 
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.followedStores")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("account.followingSubtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("account.followingSubtitle")}</p>
         </div>
 
         {isLoading ? (

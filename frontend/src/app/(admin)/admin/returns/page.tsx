@@ -21,7 +21,7 @@ export default function AdminReturnsPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.returnsOverview")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.returns.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.returns.subtitle")}</p>
         </div>
         {error ? (
           <ErrorState message={error} onRetry={reload} />
@@ -47,7 +47,7 @@ export default function AdminReturnsPage() {
                   <tr key={r.id}>
                     <td className="p-3 font-bold text-[#111111]">
                       {r.returnNumber}
-                      <span className="block text-[11px] font-normal text-[#B7B7B7]">{r.orderNumber}</span>
+                      <span className="block text-[11px] font-normal text-ls-muted">{r.orderNumber}</span>
                     </td>
                     <td className="p-3">{r.businessName}</td>
                     <td className="p-3">{r.customerName}</td>
@@ -56,7 +56,7 @@ export default function AdminReturnsPage() {
                       {r.refundAmountCents !== null ? f.currency(r.refundAmountCents / 100) : "-"}
                       {r.refundStatus === "FAILED" && <span className="block text-[11px] text-[#E54666] font-bold">{t("adminx.returns.refundFailed")}</span>}
                     </td>
-                    <td className="p-3 text-[#B7B7B7]">{f.date(r.requestedAt)}</td>
+                    <td className="p-3 text-ls-muted">{f.date(r.requestedAt)}</td>
                   </tr>
                 ))}
               </tbody>

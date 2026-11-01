@@ -1,4 +1,5 @@
 import React from "react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 /**
  * Shared frame for the sign-in / sign-up / password screens, as drawn in the
@@ -10,8 +11,7 @@ import React from "react";
 export const AuthShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen bg-[#F9F9F9]">
     <div className="bg-[#FAE2F0] pt-16 md:pt-20 pb-0 flex justify-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.png" alt="LocalSpotter" className="h-24 md:h-32 w-auto object-contain" />
+      <BrandLogo className="h-24 md:h-32 w-auto" />
     </div>
     <svg viewBox="0 0 428 130" className="block w-full h-[130px] md:h-[200px] -mt-px" aria-hidden="true" preserveAspectRatio="none">
       <rect width="428" height="130" fill="#FAE2F0" />

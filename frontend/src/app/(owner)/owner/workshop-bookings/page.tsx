@@ -48,14 +48,14 @@ export default function OwnerWorkshopBookingsPage() {
   return (
     <OwnerLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>
 
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.bookings.title")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("ownerx.bookings.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("ownerx.bookings.subtitle")}</p>
         </div>
 
         {/* Ticket Metrics Cards matching Figma 459:915 */}
@@ -97,7 +97,7 @@ export default function OwnerWorkshopBookingsPage() {
                     <div>
                       <span className="text-xs font-bold text-[#790166]">{bk.workshopTitle}</span>
                       <p className="text-xs font-bold text-[#111111] mt-0.5">{t("ownerx.bookings.customerTickets", { name: bk.consumerName || t("ownerx.bookings.customerFallback"), n: bk.ticketQuantity })}</p>
-                      <span className="text-[11px] text-[#B7B7B7]">{f.date(bk.createdAt)}</span>
+                      <span className="text-[11px] text-ls-muted">{f.date(bk.createdAt)}</span>
                     </div>
 
                     <div className="flex items-center gap-4 justify-between sm:justify-end">

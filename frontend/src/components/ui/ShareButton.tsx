@@ -62,7 +62,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({ href, title, className
         onClick={share}
         aria-label={t("share.button")}
         title={t("share.button")}
-        className={cn("w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#FA1EFF] shadow", className)}
+        className={cn("w-9 h-9 rounded-full bg-white flex items-center justify-center text-ls-accent-text shadow", className)}
       >
         {state === "copied" ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
       </button>

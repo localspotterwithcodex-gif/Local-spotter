@@ -192,7 +192,7 @@ function ProductForm({ business, product }: FormProps) {
         <h1 className="text-xl font-bold font-rubik text-[#111111]">
           {isEdit ? t("manage.product.titleEdit") : t("ownerx.product.title")}
         </h1>
-        <p className="text-xs text-[#B7B7B7]">{isEdit ? t("manage.product.subtitleEdit") : t("ownerx.product.subtitle")}</p>
+        <p className="text-xs text-ls-muted">{isEdit ? t("manage.product.subtitleEdit") : t("ownerx.product.subtitle")}</p>
       </div>
 
       {error && (
@@ -364,7 +364,7 @@ function ProductForm({ business, product }: FormProps) {
                 </button>
               );
             })}
-            <label className="flex items-center gap-1.5 text-xs font-bold text-[#FA1EFF] cursor-pointer">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-ls-accent-text cursor-pointer">
               <input
                 type="color"
                 value={customColor}
@@ -423,7 +423,7 @@ export function ProductFormPage({ productId }: { productId?: string }) {
   const shell = (content: React.ReactNode) => (
     <OwnerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>

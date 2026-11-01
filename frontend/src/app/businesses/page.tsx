@@ -49,7 +49,7 @@ export default function BusinessListingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("shops.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("shops.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("shops.subtitle")}</p>
           </div>
 
           <div className="w-full sm:w-72">
@@ -63,7 +63,7 @@ export default function BusinessListingPage() {
 
         {/* City Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold text-[#B7B7B7]">{t("shops.city")}</span>
+          <span className="text-xs font-bold text-ls-muted">{t("shops.city")}</span>
           <button
             onClick={() => setSelectedCity(null)}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
@@ -87,7 +87,7 @@ export default function BusinessListingPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3 text-xs">
-          <label className="flex flex-col gap-1 font-bold text-[#B7B7B7]">
+          <label className="flex flex-col gap-1 font-bold text-ls-muted">
             {t("filters.sort")}
             <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="h-10 rounded-xl border border-[#EAEAEA] bg-white px-3 text-[#111111]">
               <option value="newest">{t("filters.sortNewest")}</option>
@@ -100,7 +100,7 @@ export default function BusinessListingPage() {
             type="button"
             onClick={() => (nearMe.active ? nearMe.disable() : nearMe.enable())}
             aria-pressed={nearMe.active}
-            className={`flex h-10 items-center gap-1.5 rounded-xl border px-3 font-bold ${nearMe.active ? "border-[#FA1EFF] bg-[#FAE2F0] text-[#FA1EFF]" : "border-[#EAEAEA] text-[#111111]"}`}
+            className={`flex h-10 items-center gap-1.5 rounded-xl border px-3 font-bold ${nearMe.active ? "border-[#FA1EFF] bg-[#FAE2F0] text-ls-accent-text" : "border-[#EAEAEA] text-[#111111]"}`}
           >
             <LocateFixed className="h-4 w-4" />
             {nearMe.active ? t("filters.nearMeOn", { km: nearMe.radiusKm }) : t("filters.nearMe")}

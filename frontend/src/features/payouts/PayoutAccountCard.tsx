@@ -66,10 +66,10 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
         <Landmark className="w-4 h-4 text-[#790166]" />
         <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("payoutsx.account.title")}</h2>
       </div>
-      <p className="text-[11px] text-[#B7B7B7]">{t("payoutsx.account.help")}</p>
+      <p className="text-[11px] text-ls-muted">{t("payoutsx.account.help")}</p>
 
       {account.loading ? (
-        <p className="text-xs text-[#B7B7B7]">{t("manage.payouts.loading")}</p>
+        <p className="text-xs text-ls-muted">{t("manage.payouts.loading")}</p>
       ) : account.error ? (
         <p role="alert" className="text-xs text-red-600">{account.error}</p>
       ) : (
@@ -109,7 +109,7 @@ export function PayoutAccountCard({ businessId }: { businessId: string }) {
                   <Input label={t("payoutsx.account.bankName")} value={bankName} onChange={(e) => setBankName(e.target.value)} maxLength={100} required />
                   <Input label={t("payoutsx.account.bic")} value={bic} onChange={(e) => setBic(e.target.value)} maxLength={11} autoComplete="off" required />
                   <Input label={t("payoutsx.account.country")} value={country} onChange={(e) => setCountry(e.target.value)} maxLength={2} required />
-                  <p className="text-[11px] text-[#B7B7B7]">{t("payoutsx.account.intlNote")}</p>
+                  <p className="text-[11px] text-ls-muted">{t("payoutsx.account.intlNote")}</p>
                 </div>
               )}
               {error && <p role="alert" className="text-xs text-red-600">{error}</p>}

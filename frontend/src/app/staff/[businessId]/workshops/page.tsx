@@ -19,7 +19,7 @@ export default function StaffWorkshopsPage({ params }: { params: Promise<{ busin
   return (
     <RoleLayout>
       <div className="max-w-[640px] mx-auto space-y-4">
-        <Link href="/staff" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/staff" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" /> {t("staff.title")}
         </Link>
         <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("staff.workshops")}</h1>
@@ -39,7 +39,7 @@ export default function StaffWorkshopsPage({ params }: { params: Promise<{ busin
                     {w.date} · {w.startTime}–{w.finishTime} · {w.bookedCount}/{w.capacity}
                   </p>
                 </div>
-                <Link href={`/staff/${businessId}/workshops/${w.id}`} className="flex items-center gap-1 text-xs font-bold text-[#FA1EFF] shrink-0">
+                <Link href={`/staff/${businessId}/workshops/${w.id}`} className="flex items-center gap-1 text-xs font-bold text-ls-accent-text shrink-0">
                   <Users className="w-4 h-4" /> {t("ownerx.workshops.participants")}
                 </Link>
               </li>

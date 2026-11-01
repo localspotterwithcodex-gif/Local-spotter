@@ -50,9 +50,9 @@ export function ReviewModal({ item, onClose, onSubmitted }: Props) {
             <h2 id="review-title" className="text-base font-bold font-rubik text-[#111111]">
               {done ? t("manage.review.thanksTitle") : t("manage.review.title")}
             </h2>
-            <p className="text-xs text-[#B7B7B7] truncate">{item.businessName} · {item.label}</p>
+            <p className="text-xs text-ls-muted truncate">{item.businessName} · {item.label}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label={t("common.close")} className="text-[#B7B7B7] hover:text-[#111111]">
+          <button type="button" onClick={onClose} aria-label={t("common.close")} className="text-ls-muted hover:text-[#111111]">
             <X className="w-5 h-5" />
           </button>
         </div>

@@ -85,7 +85,7 @@ export default function AddressesPage() {
   return (
     <ConsumerLayout>
       <div className="max-w-md mx-auto space-y-6">
-        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("account.back")}
         </Link>
@@ -142,12 +142,12 @@ export default function AddressesPage() {
             <ul className="space-y-3">
               {data.map((a) => (
                 <li key={a.id} className="bg-white p-4 rounded-2xl border border-[#EAEAEA] shadow-2xs flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#FA1EFF] mt-0.5 shrink-0" />
+                  <MapPin className="w-5 h-5 text-ls-accent-text mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0 text-sm text-[#111111]">
                     <div className="flex items-center gap-2">
                       <span className="font-bold">{a.label}</span>
                       {a.isDefault && (
-                        <span className="text-[10px] font-bold bg-[#FAE2F0] text-[#FA1EFF] rounded-full px-2 py-0.5">{t("account.addr.default")}</span>
+                        <span className="text-[10px] font-bold bg-[#FAE2F0] text-ls-accent-text rounded-full px-2 py-0.5">{t("account.addr.default")}</span>
                       )}
                     </div>
                     <p>{a.fullName}</p>
@@ -155,19 +155,19 @@ export default function AddressesPage() {
                     <p className="text-[#555555]">{[a.postalCode, a.city].filter(Boolean).join(" ")}</p>
                     {a.phone && <p className="text-[#555555]">{a.phone}</p>}
                     {!a.isDefault && (
-                      <button type="button" className="mt-1 text-xs font-bold text-[#FA1EFF] hover:underline" onClick={() => run(() => api.updateAddress(a.id, { isDefault: true }))}>
+                      <button type="button" className="mt-1 text-xs font-bold text-ls-accent-text hover:underline" onClick={() => run(() => api.updateAddress(a.id, { isDefault: true }))}>
                         {t("account.addr.setDefault")}
                       </button>
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <button type="button" aria-label={t("account.addr.editAria", { label: a.label })} className="p-2 text-[#B7B7B7] hover:text-[#111111]" onClick={() => openEdit(a)}>
+                    <button type="button" aria-label={t("account.addr.editAria", { label: a.label })} className="p-2 text-ls-muted hover:text-[#111111]" onClick={() => openEdit(a)}>
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       aria-label={t("account.addr.deleteAria", { label: a.label })}
-                      className="p-2 text-[#B7B7B7] hover:text-[#ED4C5C]"
+                      className="p-2 text-ls-muted hover:text-[#ED4C5C]"
                       onClick={() => {
                         if (window.confirm(t("account.addr.deleteConfirm"))) void run(() => api.deleteAddress(a.id));
                       }}

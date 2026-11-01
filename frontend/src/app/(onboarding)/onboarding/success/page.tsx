@@ -58,7 +58,7 @@ export default function OnboardingSuccessPage() {
         </div>
 
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FAE2F0] text-[#FA1EFF] rounded-full text-xs font-bold">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FAE2F0] text-ls-accent-text rounded-full text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5" /> {t("onb.success.congrats")}
           </div>
           <h1 className="text-2xl md:text-3xl font-bold font-rubik text-[#111111]">
@@ -78,7 +78,7 @@ export default function OnboardingSuccessPage() {
               {shopLive ? t("onb.success.statusActive") : business.status === "PENDING_APPROVAL" ? t("onb.success.statusPending") : t("onb.success.statusInactive")}
             </span>
           </div>
-          <div className="flex items-center justify-between text-[#B7B7B7]">
+          <div className="flex items-center justify-between text-ls-muted">
             <span>{t("onb.success.subscription")}</span>
             <span className="text-[#111111] font-bold">
               {sub

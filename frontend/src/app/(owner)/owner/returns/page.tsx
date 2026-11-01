@@ -17,13 +17,13 @@ export default function OwnerReturnsPage() {
   return (
     <OwnerLayout>
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("returns.shop.title")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("returns.shop.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("returns.shop.subtitle")}</p>
         </div>
         {loading ? (
           <LoadingState label={t("returns.shop.loading")} />

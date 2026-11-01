@@ -187,11 +187,11 @@ export default function CheckoutPage() {
     <ConsumerLayout>
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center font-bold text-xl font-rubik mx-auto mb-2">
+          <div className="w-12 h-12 rounded-full bg-[#FAE2F0] text-ls-accent-text flex items-center justify-center font-bold text-xl font-rubik mx-auto mb-2">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">{t("checkout.title")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("checkout.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("checkout.subtitle")}</p>
         </div>
 
         {mergeFailed.length > 0 && (
@@ -208,10 +208,10 @@ export default function CheckoutPage() {
             return (
               <div key={g.business.id} className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-3">
                 <h3 className="text-sm font-bold font-rubik text-[#111111] flex items-center gap-2">
-                  <Store className="w-4 h-4 text-[#FA1EFF]" /> {g.business.name}
+                  <Store className="w-4 h-4 text-ls-accent-text" /> {g.business.name}
                   <span className="ml-auto text-xs font-bold text-[#555555]">{f.currency(g.subtotal)}</span>
                 </h3>
-                <p className="text-[11px] text-[#B7B7B7]">{t("checkout.fulfilment.title")}</p>
+                <p className="text-[11px] text-ls-muted">{t("checkout.fulfilment.title")}</p>
                 {available.length === 0 ? (
                   <p role="alert" className="text-xs text-[#ED4C5C]">{t("checkout.fulfilment.none")}</p>
                 ) : (
@@ -242,7 +242,7 @@ export default function CheckoutPage() {
                             {m === "PICKUP" ? <PackageCheck className="w-4 h-4 text-[#54D1CA]" /> : <Truck className="w-4 h-4 text-[#54D1CA]" />}
                             <span className="min-w-0">
                               <span className="text-xs font-bold text-[#111111] block">{t(`checkout.fulfilment.${m}` as never)}</span>
-                              {hint && <span className="text-[11px] text-[#B7B7B7] block">{hint}</span>}
+                              {hint && <span className="text-[11px] text-ls-muted block">{hint}</span>}
                             </span>
                           </span>
                           <span className="text-xs font-bold text-[#111111] shrink-0">
@@ -308,7 +308,7 @@ export default function CheckoutPage() {
           {/* Betaling */}
           <div className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-2">
             <h3 className="text-sm font-bold font-rubik text-[#111111]">{t("checkout.paymentMethod")}</h3>
-            <p className="text-[11px] text-[#B7B7B7]">{t("checkout.payNotice")}</p>
+            <p className="text-[11px] text-ls-muted">{t("checkout.payNotice")}</p>
           </div>
 
           {/* Totaal & Submit */}
@@ -329,7 +329,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between text-base font-extrabold text-[#111111]">
               <span>{t("checkout.totalDue")}</span>
-              <span className="text-[#FA1EFF]">{f.currency(total)}</span>
+              <span className="text-ls-accent-text">{f.currency(total)}</span>
             </div>
 
             {submitError && (

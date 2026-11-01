@@ -58,7 +58,7 @@ export function ShopReturnsBoard({ businessId }: { businessId: string }) {
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#F9F9F9]">
             <div>
               <p className="text-sm font-bold text-[#111111]">{r.returnNumber}</p>
-              <p className="text-xs text-[#B7B7B7]">
+              <p className="text-xs text-ls-muted">
                 {f.date(r.requestedAt)} · {t("returns.shop.order", { number: r.orderNumber })} · {r.customerName}
               </p>
             </div>
@@ -88,7 +88,7 @@ export function ShopReturnsBoard({ businessId }: { businessId: string }) {
           {r.status === "REQUESTED" &&
             (rejecting === r.id ? (
               <div className="space-y-2">
-                <label className="text-xs font-medium text-[#B7B7B7]" htmlFor={`rej-${r.id}`}>
+                <label className="text-xs font-medium text-ls-muted" htmlFor={`rej-${r.id}`}>
                   {t("returns.shop.rejectReason")}
                 </label>
                 <textarea

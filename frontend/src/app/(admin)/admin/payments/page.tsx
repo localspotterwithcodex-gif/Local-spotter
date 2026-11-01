@@ -46,7 +46,7 @@ export default function AdminPaymentsPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.paymentsLog")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.pay.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.pay.subtitle")}</p>
           <div className="mt-3 space-y-2">
             <Button variant="outline" size="sm" onClick={runCheck} isLoading={diagBusy}>
               {diagBusy ? t("adminx.pay.checking") : t("adminx.pay.check")}
@@ -110,7 +110,7 @@ export default function AdminPaymentsPage() {
                           {label("status", p.status)}
                         </Badge>
                       </td>
-                      <td className="p-3 text-[#B7B7B7]">{f.date(p.createdAt)}</td>
+                      <td className="p-3 text-ls-muted">{f.date(p.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

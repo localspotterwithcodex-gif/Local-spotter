@@ -55,7 +55,7 @@ export const OwnerSidebar: React.FC = () => {
     <aside className="w-64 bg-white border-r border-[#EAEAEA] min-h-[calc(100vh-4rem)] p-4 flex-col justify-between hidden md:flex">
       <div className="space-y-6">
         <div>
-          <span className="text-[11px] font-bold text-[#B7B7B7] uppercase tracking-wider px-3">
+          <span className="text-[11px] font-bold text-ls-muted uppercase tracking-wider px-3">
             {t("nav.businessDashboard")}
           </span>
           <nav className="mt-2 space-y-1">
@@ -74,11 +74,11 @@ export const OwnerSidebar: React.FC = () => {
                   href={link.href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive
-                      ? "bg-[#FAE2F0] text-[#FA1EFF]"
+                      ? "bg-[#FAE2F0] text-ls-accent-text"
                       : "text-[#111111] hover:bg-[#F9F9F9]"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-[#FA1EFF]" : "text-[#B7B7B7]"}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? "text-ls-accent-text" : "text-ls-muted"}`} />
                   {link.label}
                 </Link>
               );
@@ -94,7 +94,7 @@ export const OwnerSidebar: React.FC = () => {
             {t("ownerx.sidebar.currentPlan")}
           </span>
           {planName && (
-            <span className="text-xs font-bold text-[#FA1EFF] bg-white px-2 py-0.5 rounded-full">{planName}</span>
+            <span className="text-xs font-bold text-ls-accent-text bg-white px-2 py-0.5 rounded-full">{planName}</span>
           )}
         </div>
         <p className="text-xs text-[#111111] font-medium">

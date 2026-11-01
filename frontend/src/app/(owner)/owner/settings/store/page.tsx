@@ -254,7 +254,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
             <h1 className="text-2xl font-bold font-rubik text-[#111111]">
               {t("ownerx.settings.title")}
             </h1>
-            <p className="text-xs text-[#B7B7B7]">
+            <p className="text-xs text-ls-muted">
               {t("ownerx.settings.subtitle")}
             </p>
           </div>
@@ -281,17 +281,17 @@ function SettingsForm({ business, categories }: { business: Business; categories
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === "profile"
                 ? "bg-white text-[#111111] shadow-xs"
-                : "text-[#B7B7B7] hover:text-[#111111]"
+                : "text-ls-muted hover:text-[#111111]"
             }`}
           >
-            <Store className="w-4 h-4 text-[#FA1EFF]" /> {t("ownerx.settings.tabProfile")}
+            <Store className="w-4 h-4 text-ls-accent-text" /> {t("ownerx.settings.tabProfile")}
           </button>
           <button
             onClick={() => setActiveTab("hours")}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === "hours"
                 ? "bg-white text-[#111111] shadow-xs"
-                : "text-[#B7B7B7] hover:text-[#111111]"
+                : "text-ls-muted hover:text-[#111111]"
             }`}
           >
             <Clock className="w-4 h-4 text-[#54D1CA]" /> {t("ownerx.settings.tabHours")}
@@ -301,7 +301,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === "notifications"
                 ? "bg-white text-[#111111] shadow-xs"
-                : "text-[#B7B7B7] hover:text-[#111111]"
+                : "text-ls-muted hover:text-[#111111]"
             }`}
           >
             <Bell className="w-4 h-4 text-[#790166]" /> {t("ownerx.settings.tabNotifications")}
@@ -313,7 +313,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
           {activeTab === "profile" && (
             <div className="space-y-6">
               <h2 className="text-base font-bold text-[#111111] border-b border-[#EAEAEA] pb-2 flex items-center gap-2">
-                <Store className="w-5 h-5 text-[#FA1EFF]" /> {t("ownerx.settings.shopInfo")}
+                <Store className="w-5 h-5 text-ls-accent-text" /> {t("ownerx.settings.shopInfo")}
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -342,7 +342,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                   label={t("panorama.settingsLabel")}
                   onBusyChange={setUploadsBusy}
                 />
-                <p className="text-[11px] text-[#B7B7B7]">{t("panorama.settingsHelp")}</p>
+                <p className="text-[11px] text-ls-muted">{t("panorama.settingsHelp")}</p>
               </div>
 
               <ShopVideoUploader value={video} onChange={setVideo} label={t("manage.video.label")} onBusyChange={setUploadsBusy} />
@@ -454,7 +454,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                     <LocateFixed className="w-4 h-4" aria-hidden="true" /> {t("manage.geo.useMine")}
                   </Button>
                 </div>
-                <p className="text-[11px] text-[#B7B7B7]">{t("manage.geo.help")}</p>
+                <p className="text-[11px] text-ls-muted">{t("manage.geo.help")}</p>
                 {geoMsg && (
                   <p role="status" className={`text-xs font-bold ${geoMsg.ok ? "text-green-700" : "text-red-600"}`}>
                     {geoMsg.text}
@@ -492,7 +492,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                           type="checkbox"
                           checked={item.isClosed}
                           onChange={(e) => updateHour(idx, { isClosed: e.target.checked })}
-                          className="rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
+                          className="rounded text-ls-accent-text focus:ring-[#FA1EFF]"
                         />
                         {t("ownerx.settings.closed")}
                       </label>
@@ -506,7 +506,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                           onChange={(e) => updateHour(idx, { open: e.target.value })}
                           className="px-2 py-1 bg-white border border-[#EAEAEA] rounded-xl text-xs font-bold"
                         />
-                        <span className="text-xs text-[#B7B7B7]">{t("ownerx.settings.until")}</span>
+                        <span className="text-xs text-ls-muted">{t("ownerx.settings.until")}</span>
                         <input
                           type="time"
                           value={item.close}
@@ -542,16 +542,16 @@ function SettingsForm({ business, categories }: { business: Business; categories
                       disabled={!prefsLoaded}
                       checked={prefs[item.key]}
                       onChange={(e) => togglePref(item.key, e.target.checked)}
-                      className="mt-1 rounded text-[#FA1EFF] focus:ring-[#FA1EFF]"
+                      className="mt-1 rounded text-ls-accent-text focus:ring-[#FA1EFF]"
                     />
                     <div>
                       <span className="block text-xs font-bold text-[#111111]">{item.title}</span>
-                      <span className="block text-[11px] text-[#B7B7B7]">{item.text}</span>
+                      <span className="block text-[11px] text-ls-muted">{item.text}</span>
                     </div>
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-[#B7B7B7]">
+              <p className="text-xs text-ls-muted">
                 {t("ownerx.settings.notifInfo")}
               </p>
             </div>

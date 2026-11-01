@@ -64,7 +64,7 @@ export default function TeamPage() {
   return (
     <OwnerLayout>
       <div className="max-w-[640px] mx-auto space-y-4">
-        <Link href="/owner/settings" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner/settings" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" /> {t("manage.nav.settings")}
         </Link>
         <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("team.title")}</h1>
@@ -101,7 +101,7 @@ export default function TeamPage() {
               <li key={m.id} className="bg-white rounded-2xl border border-[#EAEAEA] p-3 flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
                   <p className="font-bold text-[#121F3E] truncate">{m.email}</p>
-                  <p className="text-[#B7B7B7]">
+                  <p className="text-ls-muted">
                     {m.role === "MANAGER" ? t("staff.roleManager") : t("staff.roleStaff")} ·{" "}
                     {m.status === "ACTIVE" ? t("team.active") : t("team.pending", { date: m.inviteExpiresAt ? f.date(m.inviteExpiresAt) : "" })}
                   </p>

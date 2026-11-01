@@ -104,7 +104,7 @@ function FulfilmentForm({ business, onSaved }: { business: Business; onSaved: ()
     <form onSubmit={submit} className="space-y-4">
       <div className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3">
         <Toggle id="ff-pickup" checked={pickup} onChange={setPickup} label={t("checkout.fulfilment.PICKUP")} />
-        <p className="text-[11px] text-[#B7B7B7]">{t("fulfilmentSettings.pickupHelp")}</p>
+        <p className="text-[11px] text-ls-muted">{t("fulfilmentSettings.pickupHelp")}</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#EAEAEA] p-4 space-y-3">
@@ -125,7 +125,7 @@ function FulfilmentForm({ business, onSaved }: { business: Business; onSaved: ()
               <Input label={t("fulfilmentSettings.localFee")} inputMode="decimal" value={localFee} onChange={(e) => setLocalFee(e.target.value)} />
               <Input label={t("fulfilmentSettings.radius")} inputMode="decimal" value={radius} onChange={(e) => setRadius(e.target.value)} placeholder={t("fulfilmentSettings.sameTown")} />
             </div>
-            <p className="text-[11px] text-[#B7B7B7]">{t("fulfilmentSettings.radiusHelp")}</p>
+            <p className="text-[11px] text-ls-muted">{t("fulfilmentSettings.radiusHelp")}</p>
           </>
         )}
       </div>
@@ -148,7 +148,7 @@ export default function FulfilmentSettingsPage() {
   return (
     <OwnerLayout>
       <div className="max-w-[640px] mx-auto space-y-4">
-        <Link href="/owner/settings" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner/settings" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" /> {t("manage.nav.settings")}
         </Link>
         <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("fulfilmentSettings.title")}</h1>

@@ -51,7 +51,7 @@ export const Badge: React.FC<BadgeProps> = ({
     cancelled: "bg-[#D9DFF2] text-[#344DB1]",
     new: "bg-[#E8D1ED] text-[#C04BDA]",
     default: "bg-[#EAEAEA] text-[#111111]",
-    pink: "bg-[#FAE2F0] text-[#FA1EFF]",
+    pink: "bg-[#FAE2F0] text-ls-accent-text",
   };
 
   return (

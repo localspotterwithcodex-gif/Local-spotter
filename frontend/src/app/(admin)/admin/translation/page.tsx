@@ -19,7 +19,7 @@ export default function AdminTranslationPage() {
       <div className="space-y-6 max-w-2xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.translationStatus")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.tr.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.tr.subtitle")}</p>
         </div>
         {error ? (
           <ErrorState message={error} onRetry={reload} />

@@ -58,9 +58,9 @@ function ChatList() {
 
         {list.data && list.data.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center space-y-2">
-            <MessageCircle className="w-8 h-8 mx-auto text-[#B7B7B7]" />
+            <MessageCircle className="w-8 h-8 mx-auto text-ls-muted" />
             <p className="text-sm font-bold text-[#121F3E]">{t("manage.chat.empty")}</p>
-            <p className="text-xs text-[#B7B7B7]">{isOwner ? t("manage.chat.emptyOwner") : t("manage.chat.emptyConsumer")}</p>
+            <p className="text-xs text-ls-muted">{isOwner ? t("manage.chat.emptyOwner") : t("manage.chat.emptyConsumer")}</p>
           </div>
         )}
 
@@ -72,15 +72,15 @@ function ChatList() {
             return (
               <li key={c.id} className="space-y-1">
                 <Link href={`/chat/${c.id}`} className="flex items-center gap-3 bg-white rounded-xl shadow-sm px-4 py-3 hover:shadow-md transition-shadow">
-                  <span className="w-11 h-11 rounded-full bg-[#FAE2F0] text-[#FA1EFF] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-11 h-11 rounded-full bg-[#FAE2F0] text-ls-accent-text font-bold flex items-center justify-center shrink-0">
                     {name.charAt(0).toUpperCase()}
                   </span>
                   <span className="flex-1 min-w-0">
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-xs font-bold text-[#121F3E] truncate">{name}</span>
-                      <span className="text-[10px] text-[#B7B7B7] shrink-0">{fmt.date(c.lastMessageAt, { day: "numeric", month: "short" })}</span>
+                      <span className="text-[10px] text-ls-muted shrink-0">{fmt.date(c.lastMessageAt, { day: "numeric", month: "short" })}</span>
                     </span>
-                    <span className="block text-xs text-[#B7B7B7] truncate">
+                    <span className="block text-xs text-ls-muted truncate">
                       {c.lastMessage ? `${c.lastMessage.mine ? t("manage.chat.youPrefix") : ""}${c.lastMessage.body || (c.lastMessage.hasAttachment ? t("manage.chat.photo") : "")}` : "…"}
                     </span>
                   </span>

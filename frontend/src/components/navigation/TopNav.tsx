@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { useCart } from "@/features/cart/CartContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useLocale } from "@/i18n/LocaleContext";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export const TopNav: React.FC = () => {
   const pathname = usePathname();
@@ -27,11 +28,7 @@ export const TopNav: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-90 transition-opacity">
-          <img
-            src="/logo.png"
-            alt="LocalSpotter Logo"
-            className="h-10 md:h-11 w-auto object-contain"
-          />
+          <BrandLogo className="h-10 md:h-11 w-auto" />
         </Link>
 
         {/* Navigation Links */}
@@ -65,7 +62,7 @@ export const TopNav: React.FC = () => {
           >
             <ShoppingBag className="w-5 h-5 text-[#0A182E]" />
             {itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 bg-[#EA89B1] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 bg-[#EA89B1] text-[#0A182E] text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
@@ -94,7 +91,7 @@ export const TopNav: React.FC = () => {
           {!isAuthenticated ? (
             <Link
               href="/login"
-              className="px-4 py-2 rounded-xl bg-[#EA89B1] text-white text-xs font-bold hover:bg-[#D977A0] transition-colors shadow-xs"
+              className="px-4 py-2 rounded-xl bg-[#EA89B1] text-[#0A182E] text-xs font-bold hover:bg-[#D977A0] transition-colors shadow-xs"
             >
               {t("nav.login")}
             </Link>

@@ -56,7 +56,7 @@ export default function AdminOrdersPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.ordersOverview")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.orders.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.orders.subtitle")}</p>
         </div>
 
         <AdminFilters
@@ -117,7 +117,7 @@ export default function AdminOrdersPage() {
                           </select>
                         </div>
                       </td>
-                      <td className="p-3 text-[#B7B7B7]">{f.date(o.createdAt)}</td>
+                      <td className="p-3 text-ls-muted">{f.date(o.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

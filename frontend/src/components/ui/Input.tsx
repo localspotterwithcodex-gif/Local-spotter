@@ -15,12 +15,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-xs font-medium text-[#B7B7B7]">
+          <label htmlFor={inputId} className="text-xs font-medium text-ls-muted">
             {label}
           </label>
         )}
         <div className="relative flex items-center w-full">
-          {icon && <div className="absolute left-3.5 text-[#B7B7B7]">{icon}</div>}
+          {icon && <div className="absolute left-3.5 text-ls-muted">{icon}</div>}
           <input
             id={inputId}
             ref={ref}
@@ -34,7 +34,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           />
         </div>
         {error && <span className="text-xs text-[#ED4C5C] font-medium mt-0.5">{error}</span>}
-        {helperText && !error && <span className="text-xs text-[#B7B7B7] mt-0.5">{helperText}</span>}
+        {helperText && !error && <span className="text-xs text-ls-muted mt-0.5">{helperText}</span>}
       </div>
     );
   }

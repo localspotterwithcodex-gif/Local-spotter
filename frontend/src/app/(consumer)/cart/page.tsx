@@ -41,9 +41,9 @@ export default function CartPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111] flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-[#FA1EFF]" /> {t("cart.title")}
+            <ShoppingBag className="w-5 h-5 text-ls-accent-text" /> {t("cart.title")}
           </h1>
-          <p className="text-xs text-[#B7B7B7]">{t("cart.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("cart.subtitle")}</p>
         </div>
 
         {actionError && (
@@ -58,9 +58,9 @@ export default function CartPage() {
           <ErrorState title={t("cart.unavailable")} message={error} onRetry={reload} />
         ) : items.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-[#EAEAEA] text-center space-y-4">
-            <ShoppingBag className="w-12 h-12 text-[#B7B7B7] mx-auto" />
+            <ShoppingBag className="w-12 h-12 text-ls-muted mx-auto" />
             <h3 className="text-base font-bold font-rubik text-[#111111]">{t("cart.emptyTitle")}</h3>
-            <p className="text-xs text-[#B7B7B7]">{t("cart.emptyDesc")}</p>
+            <p className="text-xs text-ls-muted">{t("cart.emptyDesc")}</p>
             <Link href="/products" className="inline-block">
               <Button variant="primary" size="md">
                 {t("cart.browseProducts")}
@@ -77,7 +77,7 @@ export default function CartPage() {
                     {item.image ? (
                       <Image src={item.image} alt={item.name} fill className="object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[#B7B7B7]">
+                      <div className="w-full h-full flex items-center justify-center text-ls-muted">
                         <ImageOff className="w-6 h-6" />
                       </div>
                     )}
@@ -85,11 +85,11 @@ export default function CartPage() {
 
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
-                      <span className="text-[11px] font-bold text-[#FA1EFF] flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-ls-accent-text flex items-center gap-1">
                         <Store className="w-3 h-3" /> {item.businessName}
                       </span>
                       <h3 className="text-xs font-bold text-[#111111] truncate">{item.name}</h3>
-                      {item.variantLabel && <span className="text-[11px] text-[#B7B7B7]">{item.variantLabel}</span>}
+                      {item.variantLabel && <span className="text-[11px] text-ls-muted">{item.variantLabel}</span>}
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
@@ -145,7 +145,7 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between text-base font-extrabold text-[#111111] pt-2 border-t border-[#F9F9F9]">
                 <span>{t("cart.totalInclVat")}</span>
-                <span className="text-[#FA1EFF]">{f.currency(subtotal)}</span>
+                <span className="text-ls-accent-text">{f.currency(subtotal)}</span>
               </div>
 
               <Link href="/checkout" className="block pt-2">

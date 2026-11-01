@@ -26,7 +26,7 @@ export default function WorkshopListingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("workshops.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("workshops.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("workshops.subtitle")}</p>
           </div>
 
           <div className="w-full sm:w-72">

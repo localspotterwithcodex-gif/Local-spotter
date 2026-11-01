@@ -28,7 +28,7 @@ export default function ConsumerReviewsPage() {
             <Link
               href="/account"
               aria-label={t("account.back")}
-              className="w-10 h-10 rounded-full bg-[#F9F9F9] border border-[#EAEAEA] flex items-center justify-center text-[#111111] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] transition-colors"
+              className="w-10 h-10 rounded-full bg-[#F9F9F9] border border-[#EAEAEA] flex items-center justify-center text-[#111111] hover:bg-[#FAE2F0] hover:text-ls-accent-text transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
@@ -36,13 +36,13 @@ export default function ConsumerReviewsPage() {
               <h1 className="text-xl sm:text-2xl font-bold font-rubik text-[#111111]">
                 {t("account.myReviews")}
               </h1>
-              <p className="text-xs text-[#B7B7B7]">
+              <p className="text-xs text-ls-muted">
                 {t("account.reviewsSubtitle")}
               </p>
             </div>
           </div>
 
-          <div className="px-4 py-2 bg-[#FAE2F0] text-[#FA1EFF] rounded-2xl text-xs font-bold font-manrope">
+          <div className="px-4 py-2 bg-[#FAE2F0] text-ls-accent-text rounded-2xl text-xs font-bold font-manrope">
             {t("account.reviewsCount", { n: reviews.length })}
           </div>
         </div>
@@ -54,12 +54,12 @@ export default function ConsumerReviewsPage() {
           <ErrorState title={t("account.reviewsUnavailable")} message={error} onRetry={reload} />
         ) : reviews.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-[#EAEAEA] text-center space-y-4 shadow-xs">
-            <div className="w-14 h-14 rounded-full bg-[#F9F9F9] text-[#B7B7B7] flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-full bg-[#F9F9F9] text-ls-muted flex items-center justify-center mx-auto">
               <MessageSquare className="w-7 h-7" />
             </div>
             <div className="space-y-1">
               <h2 className="text-base font-bold text-[#111111]">{t("account.reviewsEmptyTitle")}</h2>
-              <p className="text-xs text-[#B7B7B7] max-w-sm mx-auto">
+              <p className="text-xs text-ls-muted max-w-sm mx-auto">
                 {t("account.reviewsEmptyDesc")}
               </p>
             </div>
@@ -82,7 +82,7 @@ export default function ConsumerReviewsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Store className="w-4 h-4 text-[#FA1EFF]" />
+                        <Store className="w-4 h-4 text-ls-accent-text" />
                         <span className="text-xs font-bold text-[#111111]">{businessName}</span>
                       </div>
 
@@ -105,7 +105,7 @@ export default function ConsumerReviewsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#B7B7B7]">
+                      <span className="text-[11px] text-ls-muted">
                         {f.date(review.createdAt)}
                       </span>
                     </div>
@@ -130,7 +130,7 @@ export default function ConsumerReviewsPage() {
                     />
                     <Link
                       href={`/businesses/${review.businessId}`}
-                      className="text-xs text-[#FA1EFF] hover:underline font-bold flex items-center gap-1"
+                      className="text-xs text-ls-accent-text hover:underline font-bold flex items-center gap-1"
                     >
                       {t("account.viewShop")} <ExternalLink className="w-3.5 h-3.5" />
                     </Link>

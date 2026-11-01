@@ -31,7 +31,7 @@ export default function AdminReviewsPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.reviewModeration")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.reviews.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.reviews.subtitle")}</p>
         </div>
 
         <AdminFilters
@@ -63,7 +63,7 @@ export default function AdminReviewsPage() {
                         <Star className="w-3.5 h-3.5 fill-current" />
                         <span className="text-xs font-bold ml-1">{r.rating}</span>
                       </div>
-                      <span className="text-[10px] text-[#B7B7B7]">
+                      <span className="text-[10px] text-ls-muted">
                         {r.businessName} • {label("status", r.status)}
                       </span>
                     </div>

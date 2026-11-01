@@ -38,7 +38,7 @@ export function SegmentedSwitch<T extends string = string>({
               "flex-1 h-full rounded-xl text-sm font-bold transition-all flex items-center justify-center px-2",
               isActive
                 ? "bg-[#FCE1F0] text-[#0A182E] shadow-xs border border-[#F4D0E2] scale-[1.02]"
-                : "text-[#8A95A5] hover:text-[#0A182E]"
+                : "text-[#5F6B7D] hover:text-[#0A182E]"
             )}
           >
             {opt.label}

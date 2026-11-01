@@ -37,7 +37,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <aside className="w-64 shrink-0 bg-white border-r border-[#EAEAEA] p-4 flex-col justify-between hidden md:flex">
           <div className="space-y-4">
             <div className="p-3 bg-[#790166] text-white rounded-2xl flex items-center gap-2.5">
-              <ShieldCheck className="w-6 h-6 text-[#FA1EFF]" />
+              <ShieldCheck className="w-6 h-6 text-ls-accent-text" />
               <div>
                 <span className="block text-xs font-bold font-rubik">LocalSpotter</span>
                 <span className="block text-[10px] text-white/80">{t("admin.panelTitle")}</span>
@@ -62,7 +62,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                         : "text-[#111111] hover:bg-[#F9F9F9]"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? "text-[#FA1EFF]" : "text-[#B7B7B7]"}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? "text-ls-accent-text" : "text-ls-muted"}`} />
                     {link.label}
                   </Link>
                 );

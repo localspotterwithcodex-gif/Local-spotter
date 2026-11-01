@@ -105,7 +105,7 @@ function SubscriptionPaymentContent() {
           <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">
             {t("onb.pay.title")}
           </h1>
-          <p className="text-xs text-[#B7B7B7]">
+          <p className="text-xs text-ls-muted">
             {t("onb.pay.subtitle")}
           </p>
         </div>
@@ -116,18 +116,18 @@ function SubscriptionPaymentContent() {
             <span>{t("onb.pay.subscription", { plan: plan.name })}</span>
             <span>{t("onb.pay.perMonthShort", { price: f.currency(plan.monthlyPrice) })}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-[#B7B7B7]">
+          <div className="flex items-center justify-between text-xs text-ls-muted">
             <span>{t("onb.pay.vat")}</span>
             <span>{f.currency(vatAmount)}</span>
           </div>
           <div className="flex items-center justify-between text-base font-extrabold text-[#111111] pt-2 border-t border-[#EAEAEA]">
             <span>{t("onb.pay.firstTotal")}</span>
-            <span className="text-[#FA1EFF]">{f.currency(totalAmount)}</span>
+            <span className="text-ls-accent-text">{f.currency(totalAmount)}</span>
           </div>
         </div>
 
         {/* Secure hosted checkout of the payment provider (iDEAL) */}
-        <p className="text-[11px] text-[#B7B7B7] text-center">{t("onb.pay.hostedNotice")}</p>
+        <p className="text-[11px] text-ls-muted text-center">{t("onb.pay.hostedNotice")}</p>
 
         {error && (
           <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl flex items-center gap-2">

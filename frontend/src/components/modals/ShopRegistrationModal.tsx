@@ -183,7 +183,7 @@ function Field({ label, required, error, children }: { label: string; required?:
     <div>
       <label className="mb-1.5 block text-sm font-bold text-[#111111]">
         {label}
-        {required && <span className="ml-1 text-[#FA1EFF]">*</span>}
+        {required && <span className="ml-1 text-ls-accent-text">*</span>}
       </label>
       {children}
       {error && <p className="mt-1 text-xs font-medium text-[#ED4C5C]">{error}</p>}
@@ -506,7 +506,7 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
                           ? "bg-[#FA1EFF] text-white"
                           : index < step
                           ? "bg-[#FBBC3E] text-white"
-                          : "bg-[#EAEAEA] text-[#B7B7B7]"
+                          : "bg-[#EAEAEA] text-ls-muted"
                       }`}
                     >
                       {index < step ? "✓" : index + 1}
@@ -586,7 +586,7 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
                     <OptionGrid options={PILOT_INTEREST} selected={[form.pilotInterest]} onSelect={(v) => set("pilotInterest", v)} label={optionLabel} />
                   </Field>
                   <Field label={copy.fields.valuableFeatures}>
-                    <p className="mb-2 -mt-1 text-xs text-[#B7B7B7]">{copy.selectAll}</p>
+                    <p className="mb-2 -mt-1 text-xs text-ls-muted">{copy.selectAll}</p>
                     <OptionGrid options={VALUABLE_FEATURES} selected={form.valuableFeatures} onSelect={toggleFeature} multi label={optionLabel} />
                   </Field>
                   {form.valuableFeatures.includes("Other") && (
@@ -605,7 +605,7 @@ export const ShopRegistrationModal: React.FC<ShopRegistrationModalProps> = ({
                   </div>
                   <div className="space-y-5 border-t border-[#EAEAEA] pt-5">
                     <h4 className="font-rubik text-sm font-bold text-[#111111]">{copy.sections.routes}</h4>
-                    <p className="text-xs text-[#B7B7B7]">{copy.info.routes}</p>
+                    <p className="text-xs text-ls-muted">{copy.info.routes}</p>
                     <Field label={copy.fields.routeInterest}>
                       <OptionGrid options={ROUTE_INTEREST} selected={[form.routeInterest]} onSelect={(v) => set("routeInterest", v)} label={optionLabel} />
                     </Field>

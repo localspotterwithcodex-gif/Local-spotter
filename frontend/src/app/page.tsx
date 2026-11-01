@@ -105,8 +105,8 @@ export default function DiscoveryHomePage() {
 
         {photoWords.length > 0 && (
           <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
-            <span className="text-xs font-bold text-[#8A95A5]">{t("manage.vsearch.byPhoto")}</span>
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full">
+            <span className="text-xs font-bold text-[#5F6B7D]">{t("manage.vsearch.byPhoto")}</span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-[#0A182E] text-xs font-bold rounded-full">
               {photoWords.join(", ")}
               <button type="button" onClick={() => setPhotoWords([])} aria-label={t("common.close")} className="ml-1">×</button>
             </span>
@@ -115,8 +115,8 @@ export default function DiscoveryHomePage() {
 
         {photoWords.length > 0 && (
           <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
-            <span className="text-xs font-bold text-[#8A95A5]">{t("manage.vsearch.byPhoto")}</span>
-            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full">
+            <span className="text-xs font-bold text-[#5F6B7D]">{t("manage.vsearch.byPhoto")}</span>
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-[#0A182E] text-xs font-bold rounded-full">
               {photoWords.join(", ")}
               <button type="button" onClick={() => setPhotoWords([])} aria-label={t("common.close")} className="ml-1">×</button>
             </span>
@@ -126,9 +126,9 @@ export default function DiscoveryHomePage() {
         {/* Active Filter Chips */}
         {(selectedCategory || selectedCity) && (
           <div className="flex items-center gap-2 max-w-2xl mx-auto flex-wrap">
-            <span className="text-xs font-bold text-[#8A95A5]">{t("home.activeFilter")}</span>
+            <span className="text-xs font-bold text-[#5F6B7D]">{t("home.activeFilter")}</span>
             {selectedCategory && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-white text-xs font-bold rounded-full shadow-2xs">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#EA89B1] text-[#0A182E] text-xs font-bold rounded-full shadow-2xs">
                 {selectedCategory}
                 <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:opacity-75" aria-label={t("home.removeFilter")}>
                   ×
@@ -155,7 +155,7 @@ export default function DiscoveryHomePage() {
                 <Sparkles className="w-4 h-4 text-[#EA89B1]" />
                 {t("home.popularProducts")}
               </h2>
-              <span className="text-xs font-bold text-[#8A95A5]">{t("home.results", { n: products.length })}</span>
+              <span className="text-xs font-bold text-[#5F6B7D]">{t("home.results", { n: products.length })}</span>
             </div>
 
             {productsRes.loading ? (
@@ -214,7 +214,7 @@ export default function DiscoveryHomePage() {
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold font-rubik text-[#111111]">{t("home.availableWorkshops")}</h2>
-              <span className="text-xs font-bold text-[#B7B7B7]">{t("home.workshopsCount", { n: workshops.length })}</span>
+              <span className="text-xs font-bold text-ls-muted">{t("home.workshopsCount", { n: workshops.length })}</span>
             </div>
 
             {workshopsRes.loading ? (
@@ -241,7 +241,7 @@ export default function DiscoveryHomePage() {
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold font-rubik text-[#111111]">{t("home.interactiveRoutes")}</h2>
-              <span className="text-xs font-bold text-[#B7B7B7]">{t("home.routesCount", { n: shoproutes.length })}</span>
+              <span className="text-xs font-bold text-ls-muted">{t("home.routesCount", { n: shoproutes.length })}</span>
             </div>
 
             {routesRes.loading ? (

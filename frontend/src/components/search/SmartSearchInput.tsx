@@ -109,7 +109,7 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
     }
   };
 
-  const iconBtn = "h-9 w-9 rounded-full flex items-center justify-center text-[#555555] hover:bg-white hover:text-[#FA1EFF] transition-colors disabled:opacity-50";
+  const iconBtn = "h-9 w-9 rounded-full flex items-center justify-center text-[#555555] hover:bg-white hover:text-ls-accent-text transition-colors disabled:opacity-50";
 
   const floating = "absolute left-0 top-full z-20 mt-1 max-w-full rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold shadow-md";
   return (
@@ -117,7 +117,7 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
       <div className="relative">
         <Input
           placeholder={placeholder}
-          icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
+          icon={<Search className="w-4 h-4 text-ls-muted" />}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={onImageKeywords && canSpeak ? "pr-24" : onImageKeywords || canSpeak ? "pr-14" : ""}
@@ -153,7 +153,7 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
           )}
         </div>
       </div>
-      {listening && <p role="status" className={`${floating} text-[#FA1EFF]`}>{t("manage.vsearch.listening")}</p>}
+      {listening && <p role="status" className={`${floating} text-ls-accent-text`}>{t("manage.vsearch.listening")}</p>}
       {message && <p role="alert" className={`${floating} text-[#E54666]`}>{message}</p>}
     </div>
   );

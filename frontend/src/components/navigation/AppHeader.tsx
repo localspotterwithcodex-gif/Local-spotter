@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { useCart } from "@/features/cart/CartContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useLocale } from "@/i18n/LocaleContext";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ownerSidebarLinks } from "@/components/navigation/OwnerSidebar";
 import { adminNavLinks } from "@/components/navigation/adminLinks";
 
@@ -64,9 +65,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, onMenuClick }) => {
       <Link
         key={link.href}
         href={link.href}
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold ${active ? "bg-[#FAE2F0] text-[#FA1EFF]" : "text-[#121F3E] hover:bg-[#F9F9F9]"}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold ${active ? "bg-[#FAE2F0] text-ls-accent-text" : "text-[#121F3E] hover:bg-[#F9F9F9]"}`}
       >
-        <Icon className={`w-5 h-5 ${active ? "text-[#FA1EFF]" : "text-[#B7B7B7]"}`} />
+        <Icon className={`w-5 h-5 ${active ? "text-ls-accent-text" : "text-ls-muted"}`} />
         {link.label}
       </Link>
     );
@@ -90,8 +91,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, onMenuClick }) => {
               <Menu className="w-6 h-6 text-[#121F3E]" />
             </button>
             <Link href="/" className="flex items-center shrink-0 hover:opacity-90 transition-opacity">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="LocalSpotter" className="h-9 w-auto object-contain" />
+              <BrandLogo className="h-9 w-auto" />
             </Link>
           </div>
 
@@ -136,8 +136,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title, onMenuClick }) => {
           <button type="button" className="absolute inset-0 bg-black/40" aria-label={t("manage.nav.close")} onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white rounded-r-3xl shadow-xl flex flex-col">
             <div className="flex items-center justify-between bg-[#FAE2F0] rounded-tr-3xl px-4 py-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="LocalSpotter" className="h-8 w-auto object-contain" />
+              <BrandLogo className="h-8 w-auto" />
               <button type="button" onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-black/5" aria-label={t("manage.nav.close")}>
                 <X className="w-5 h-5 text-[#121F3E]" />
               </button>

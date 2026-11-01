@@ -52,7 +52,7 @@ function KpiTile({ label, value, icon: Icon, color, kpi, unit, vsLabel }: { labe
           {down && <ArrowDown className="h-3 w-3" aria-hidden="true" />}
           {d === null ? "—" : `${Math.abs(d)}${unit === "pp" ? " pp" : "%"}`}
         </span>
-        <span className="text-[#B7B7B7]">{vsLabel}</span>
+        <span className="text-ls-muted">{vsLabel}</span>
       </div>
     </div>
   );
@@ -103,7 +103,7 @@ export default function AdminDashboardPage() {
         <div className="flex items-center justify-between pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-2xl font-bold font-rubik text-[#111111]">{t("adminx.an.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.an.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.an.subtitle")}</p>
           </div>
 
           <div className="flex gap-2">
@@ -153,14 +153,14 @@ export default function AdminDashboardPage() {
                     [t("admin.activeShops"), String(an.kpis.activeShops.value.toLocaleString()), Store, "bg-emerald-50 text-emerald-600", an.kpis.activeShops, "%"],
                     [t("admin.totalOrders"), String(an.kpis.totalOrders.value.toLocaleString()), ShoppingBag, "bg-purple-50 text-purple-600", an.kpis.totalOrders, "%"],
                     [t("adminx.an.grossRevenue"), f.currency(an.kpis.grossRevenue.value), CreditCard, "bg-orange-50 text-orange-600", an.kpis.grossRevenue, "%"],
-                    [t("adminx.an.conversion"), `${an.kpis.conversionRate.value}%`, Percent, "bg-pink-50 text-[#FA1EFF]", an.kpis.conversionRate, "pp"],
+                    [t("adminx.an.conversion"), `${an.kpis.conversionRate.value}%`, Percent, "bg-pink-50 text-ls-accent-text", an.kpis.conversionRate, "pp"],
                     [t("adminx.an.aov"), f.currency(an.kpis.averageOrderValue.value), Receipt, "bg-teal-50 text-teal-600", an.kpis.averageOrderValue, "%"],
                   ] as [string, string, LucideIcon, string, AnalyticsKpi, "%" | "pp"][]
                 ).map(([lbl, val, icon, color, kpi, unit]) => (
                   <KpiTile key={lbl} label={lbl} value={val} icon={icon} color={color} kpi={kpi} unit={unit} vsLabel={t("adminx.an.vsPrevious", { n: an.period.days })} />
                 ))}
               </div>
-              <p className="text-[11px] text-[#B7B7B7]">{t("adminx.an.conversionHelp")}</p>
+              <p className="text-[11px] text-ls-muted">{t("adminx.an.conversionHelp")}</p>
 
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                 <div className="min-w-0 overflow-hidden lg:col-span-3 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs">
@@ -209,10 +209,10 @@ export default function AdminDashboardPage() {
                 <div className="min-w-0 overflow-hidden md:col-span-2 xl:col-span-1 bg-white p-5 rounded-2xl border border-[#EAEAEA] shadow-2xs space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold font-rubik text-[#111111]">{t("adminx.an.topShops")}</h3>
-                    <Link href="/admin/businesses" className="text-xs font-bold text-[#FA1EFF] hover:underline">{t("adminx.an.viewAll")} →</Link>
+                    <Link href="/admin/businesses" className="text-xs font-bold text-ls-accent-text hover:underline">{t("adminx.an.viewAll")} →</Link>
                   </div>
                   {an.topShops.length === 0 ? (
-                    <p className="py-8 text-center text-xs text-[#B7B7B7]">{t("adminx.an.noData")}</p>
+                    <p className="py-8 text-center text-xs text-ls-muted">{t("adminx.an.noData")}</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead className="text-left text-[#6B6B6B]">
@@ -227,13 +227,13 @@ export default function AdminDashboardPage() {
                       <tbody className="divide-y divide-[#F2F2F2]">
                         {an.topShops.map((s, i) => (
                           <tr key={s.id}>
-                            <td className="py-2 pr-2 text-[#B7B7B7]">{i + 1}</td>
+                            <td className="py-2 pr-2 text-ls-muted">{i + 1}</td>
                             <td className="py-2">
                               <span className="flex items-center gap-2 font-bold text-[#111111]"><Avatar src={s.logoUrl} name={s.name} size="sm" shape="square" /> <span className="truncate">{s.name}</span></span>
                             </td>
                             <td className="py-2 text-right">{s.orders}</td>
                             <td className="py-2 text-right font-bold">{f.currency(s.revenue)}</td>
-                            <td className={`py-2 text-right font-bold ${s.growthPct === null ? "text-[#B7B7B7]" : s.growthPct >= 0 ? "text-green-700" : "text-red-600"}`}>
+                            <td className={`py-2 text-right font-bold ${s.growthPct === null ? "text-ls-muted" : s.growthPct >= 0 ? "text-green-700" : "text-red-600"}`}>
                               {s.growthPct === null ? "—" : `${s.growthPct >= 0 ? "↑" : "↓"} ${Math.abs(s.growthPct)}%`}
                             </td>
                           </tr>
@@ -259,21 +259,21 @@ export default function AdminDashboardPage() {
             <div className="bg-white p-5 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold font-rubik text-[#111111] flex items-center gap-1.5">
-                  <Store className="w-4 h-4 text-[#FA1EFF]" /> {t("admin.shopsPendingApproval")}
+                  <Store className="w-4 h-4 text-ls-accent-text" /> {t("admin.shopsPendingApproval")}
                 </h3>
-                <span className="bg-[#FAE2F0] text-[#FA1EFF] text-xs font-bold px-2 py-0.5 rounded-full">{pendingShopCount} {t("admin.new")}</span>
+                <span className="bg-[#FAE2F0] text-ls-accent-text text-xs font-bold px-2 py-0.5 rounded-full">{pendingShopCount} {t("admin.new")}</span>
               </div>
 
               {firstShop ? (
                 <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs space-y-1">
                   <span className="font-bold text-[#111111] block">{firstShop.name}</span>
-                  <span className="text-[#B7B7B7] block">KVK: {firstShop.kvkNumber} • {firstShop.city}</span>
-                  <Link href="/admin/businesses" className="text-xs font-bold text-[#FA1EFF] hover:underline pt-1 inline-block">
+                  <span className="text-ls-muted block">KVK: {firstShop.kvkNumber} • {firstShop.city}</span>
+                  <Link href="/admin/businesses" className="text-xs font-bold text-ls-accent-text hover:underline pt-1 inline-block">
                     {t("admin.viewAndApprove")} →
                   </Link>
                 </div>
               ) : (
-                <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-[#B7B7B7]">-</div>
+                <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-ls-muted">-</div>
               )}
             </div>
 
@@ -289,13 +289,13 @@ export default function AdminDashboardPage() {
               {firstPayout ? (
                 <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs space-y-1">
                   <span className="font-bold text-[#111111] block">{firstPayout.businessName}</span>
-                  <span className="text-[#B7B7B7] block">{t("admin.amount")}: {f.currency(firstPayout.amount)}</span>
+                  <span className="text-ls-muted block">{t("admin.amount")}: {f.currency(firstPayout.amount)}</span>
                   <Link href="/admin/payouts" className="text-xs font-bold text-[#54D1CA] hover:underline pt-1 inline-block">
                     {t("admin.review")} →
                   </Link>
                 </div>
               ) : (
-                <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-[#B7B7B7]">-</div>
+                <div className="p-3 bg-[#F9F9F9] rounded-2xl text-xs text-ls-muted">-</div>
               )}
             </div>
 

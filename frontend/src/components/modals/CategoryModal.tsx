@@ -71,7 +71,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#EAEAEA]">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#FA1EFF]" />
+            <Sparkles className="w-5 h-5 text-ls-accent-text" />
             <h2 className="text-lg font-bold font-rubik text-[#111111]">
               {mode === "shoproutes" ? t("catmodal.chooseCity") : t("catmodal.popular")}
             </h2>
@@ -89,7 +89,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         <div className="my-4">
           <Input
             placeholder={placeholder}
-            icon={<Search className="w-4 h-4 text-[#B7B7B7]" />}
+            icon={<Search className="w-4 h-4 text-ls-muted" />}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -99,7 +99,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
         <div className="space-y-4 pt-2">
           {mode === "shoproutes" ? (
             <div>
-              <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
+              <span className="text-xs font-bold text-ls-muted uppercase tracking-wider block mb-3">
                 {t("catmodal.citiesWithRoutes")}
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -112,7 +112,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                       onSelectCity?.(city);
                       onClose();
                     }}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-left"
+                    className="flex items-center gap-2 p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-ls-accent-text border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-left"
                   >
                     <MapPin className="w-4 h-4 text-[#54D1CA] shrink-0" />
                     <span className="truncate">{city}</span>
@@ -122,7 +122,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             </div>
           ) : mode === "workshops" ? (
             <div>
-              <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
+              <span className="text-xs font-bold text-ls-muted uppercase tracking-wider block mb-3">
                 {t("catmodal.workshopCategories")}
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -135,7 +135,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                       onSelectCategory?.(cat.value);
                       onClose();
                     }}
-                    className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
+                    className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-ls-accent-text border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
                   >
                     {t(cat.labelKey)}
                   </button>
@@ -144,11 +144,11 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             </div>
           ) : (
             <div>
-              <span className="text-xs font-bold text-[#B7B7B7] uppercase tracking-wider block mb-3">
+              <span className="text-xs font-bold text-ls-muted uppercase tracking-wider block mb-3">
                 {t("catmodal.productCategories")}
               </span>
               {categories.loading ? (
-                <p className="text-xs text-[#B7B7B7]">{t("catmodal.loadingCategories")}</p>
+                <p className="text-xs text-ls-muted">{t("catmodal.loadingCategories")}</p>
               ) : categories.error ? (
                 <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#F2D9DE]/50 border border-[#ED4C5C]/30">
                   <p className="text-xs text-[#555555]">{categories.error}</p>
@@ -167,7 +167,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                         onSelectCategory?.(cat.name);
                         onClose();
                       }}
-                      className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-[#FA1EFF] border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
+                      className="p-3 rounded-xl bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:text-ls-accent-text border border-[#EAEAEA] text-xs font-bold text-[#111111] transition-all text-center"
                     >
                       {cat.name}
                     </button>

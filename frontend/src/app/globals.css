@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Rubik:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -20,9 +19,10 @@
   --ls-gray-400: #C4C4C4;
   --ls-gray-200: #DADADA;
 
-  /* Typography */
-  --font-rubik: 'Rubik', sans-serif;
-  --font-manrope: 'Manrope', sans-serif;
+  /* Typography (font files come from next/font in app/layout.tsx) */
+  --font-rubik: var(--ff-rubik), 'Rubik', sans-serif;
+  --font-manrope: var(--ff-manrope), 'Manrope', sans-serif;
+  --font-logo: var(--ff-logo), 'Montserrat', sans-serif;
 }
 
 @theme {
@@ -38,6 +38,10 @@
   --color-ls-pink-deep: var(--ls-pink-deep);
   --color-ls-teal: var(--ls-map-teal);
   --color-ls-purple: var(--ls-purple-dark);
+  /* Text tones that stay readable (WCAG AA 4.5:1 on white and #F9F9F9).
+     #B7B7B7 and #FA1EFF remain for borders, icons-on-fill and button fills. */
+  --color-ls-muted: #737373;
+  --color-ls-accent-text: #C700D1;
 
   --font-rubik: var(--font-rubik);
   --font-manrope: var(--font-manrope);
@@ -49,6 +53,23 @@ body {
   font-family: var(--font-manrope);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid #FA1EFF;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 h1, h2, h3, .font-rubik {

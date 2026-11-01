@@ -158,7 +158,7 @@ function LocationForm({ business }: { business: Business }) {
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="border-b border-[#EAEAEA] pb-4">
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.location.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">
+            <p className="text-xs text-ls-muted">
               {t("ownerx.location.subtitle")}
             </p>
           </div>
@@ -211,7 +211,7 @@ function LocationForm({ business }: { business: Business }) {
                 </div>
               )}
               {coords && (
-                <span className="text-[10px] text-[#B7B7B7]">
+                <span className="text-[10px] text-ls-muted">
                   {t("ownerx.location.gps", {
                     lat: f.number(coords.lat, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
                     lng: f.number(coords.lng, { minimumFractionDigits: 4, maximumFractionDigits: 4 }),
@@ -280,7 +280,7 @@ export default function ShoprouteLocationPage() {
   return (
     <OwnerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>

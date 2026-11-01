@@ -119,7 +119,7 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 text-[11px] text-[#B7B7B7]">
+      <div className="flex items-center gap-3 text-[11px] text-ls-muted">
         <span className="flex-1 h-px bg-[#EAEAEA]" />
         {t("manage.social.or")}
         <span className="flex-1 h-px bg-[#EAEAEA]" />
@@ -132,7 +132,7 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={t("manage.social.chooseRole")}>
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-xl text-center space-y-4">
             <h2 className="text-lg font-bold font-rubik text-[#111111]">{t("manage.social.chooseRole")}</h2>
-            <p className="text-xs text-[#B7B7B7]">{t("manage.social.roleHint")}</p>
+            <p className="text-xs text-ls-muted">{t("manage.social.roleHint")}</p>
             <button
               type="button"
               disabled={busy}
@@ -155,7 +155,7 @@ export const SocialButtons: React.FC<Props> = ({ onSuccess, onError }) => {
               </span>
               {t("manage.social.owner")}
             </button>
-            <button type="button" onClick={() => setPending(null)} className="text-xs font-bold text-[#B7B7B7] hover:underline">
+            <button type="button" onClick={() => setPending(null)} className="text-xs font-bold text-ls-muted hover:underline">
               {t("manage.social.cancel")}
             </button>
           </div>

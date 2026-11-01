@@ -116,7 +116,7 @@ export default function AddWorkshopPage() {
     return (
       <OwnerLayout>
         <div className="max-w-2xl mx-auto space-y-6">
-          <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+          <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
             <ArrowLeft className="w-4 h-4" />
             {t("ownerx.backToDashboard")}
           </Link>
@@ -136,13 +136,13 @@ export default function AddWorkshopPage() {
     return (
       <OwnerLayout>
         <div className="max-w-2xl mx-auto space-y-3">
-          <Link href="/owner/workshops" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+          <Link href="/owner/workshops" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
             <ArrowLeft className="w-4 h-4" />
             {t("owner.myWorkshops")}
           </Link>
           <div className="rounded-2xl bg-[#FFF6DB] border border-[#D4B011] p-4 text-sm text-[#121F3E] space-y-2">
             <p>{t("ownerx.workshops.locked")}</p>
-            <Link href="/owner/subscription" className="font-bold text-[#FA1EFF]">{t("ownerx.routes.upgrade")}</Link>
+            <Link href="/owner/subscription" className="font-bold text-ls-accent-text">{t("ownerx.routes.upgrade")}</Link>
           </div>
         </div>
       </OwnerLayout>
@@ -152,7 +152,7 @@ export default function AddWorkshopPage() {
   return (
     <OwnerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("ownerx.backToDashboard")}
         </Link>
@@ -160,7 +160,7 @@ export default function AddWorkshopPage() {
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="border-b border-[#EAEAEA] pb-4">
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.workshopNew.title")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("ownerx.workshopNew.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("ownerx.workshopNew.subtitle")}</p>
           </div>
 
           {error && (
@@ -232,7 +232,7 @@ export default function AddWorkshopPage() {
                       label={t("ownerx.workshopNew.dateLabel")}
                       type="date"
                       min={today}
-                      icon={<Calendar className="w-4 h-4 text-[#FA1EFF]" />}
+                      icon={<Calendar className="w-4 h-4 text-ls-accent-text" />}
                       value={r.date}
                       onChange={(e) => setRow(i, { date: e.target.value })}
                       required
@@ -277,7 +277,7 @@ export default function AddWorkshopPage() {
                 <button
                   type="button"
                   onClick={() => setRows((x) => [...x, { ...emptyRow }])}
-                  className="flex items-center gap-1 text-xs font-bold text-[#FA1EFF]"
+                  className="flex items-center gap-1 text-xs font-bold text-ls-accent-text"
                 >
                   <Plus className="w-4 h-4" /> {t("ownerx.workshopNew.addSession")}
                 </button>
@@ -313,7 +313,7 @@ export default function AddWorkshopPage() {
                   onChange={(e) => setMinAge(e.target.value)}
                 />
               </div>
-              <p className="text-[11px] text-[#B7B7B7]">{t("ownerx.workshopNew.policyHint")}</p>
+              <p className="text-[11px] text-ls-muted">{t("ownerx.workshopNew.policyHint")}</p>
             </fieldset>
 
             {/* Description */}

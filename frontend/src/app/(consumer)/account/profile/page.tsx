@@ -53,7 +53,7 @@ export default function ProfileEditPage() {
   return (
     <ConsumerLayout>
       <div className="max-w-md mx-auto space-y-6">
-        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("account.back")}
         </Link>
@@ -61,7 +61,7 @@ export default function ProfileEditPage() {
         <div className="bg-white p-6 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
           <div className="text-center space-y-1">
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.info")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("account.profileSubtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("account.profileSubtitle")}</p>
           </div>
 
           {loading ? (

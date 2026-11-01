@@ -27,13 +27,13 @@ export default function OwnerPayoutsPage() {
 
   const header = (
     <>
-      <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+      <Link href="/owner" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
         <ArrowLeft className="w-4 h-4" />
         {t("ownerx.backToDashboard")}
       </Link>
       <div>
         <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("ownerx.payouts.title")}</h1>
-        <p className="text-xs text-[#B7B7B7]">{t("ownerx.payouts.subtitle")}</p>
+        <p className="text-xs text-ls-muted">{t("ownerx.payouts.subtitle")}</p>
       </div>
     </>
   );
@@ -77,17 +77,17 @@ export default function OwnerPayoutsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map(([label, cents]) => (
           <div key={label} className="bg-white rounded-2xl border border-[#EAEAEA] p-4">
-            <p className="text-[11px] text-[#B7B7B7] font-bold">{label}</p>
+            <p className="text-[11px] text-ls-muted font-bold">{label}</p>
             <p className="text-base font-bold text-[#111111]">{eur(cents)}</p>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-[#B7B7B7]">{t("manage.payouts.note")}</p>
+      <p className="text-[11px] text-ls-muted">{t("manage.payouts.note")}</p>
 
       <section className="space-y-2">
         <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("manage.payouts.entriesTitle")}</h2>
         {b.recentEntries.length === 0 ? (
-          <p className="text-xs text-[#B7B7B7]">{t("manage.payouts.entriesEmpty")}</p>
+          <p className="text-xs text-ls-muted">{t("manage.payouts.entriesEmpty")}</p>
         ) : (
           <ul className="bg-white rounded-2xl border border-[#EAEAEA] divide-y divide-[#F4F4F4]">
             {b.recentEntries.map((e) => (
@@ -97,7 +97,7 @@ export default function OwnerPayoutsPage() {
                     {t(ENTRY_TYPES.includes(e.type) ? (`payoutsx.type.${e.type}` as "payoutsx.type.SALE") : "manage.payouts.type.other")}
                     {e.orderNumber ? ` · ${e.orderNumber}` : e.workshopTitle ? ` · ${e.workshopTitle}` : ""}
                   </p>
-                  <p className="text-[#B7B7B7]">{f.dateTime(e.createdAt)}</p>
+                  <p className="text-ls-muted">{f.dateTime(e.createdAt)}</p>
                 </div>
                 <span className={`font-bold shrink-0 ${e.amountCents < 0 ? "text-[#E54666]" : "text-[#3B9B52]"}`}>{eur(e.amountCents)}</span>
               </li>
@@ -109,14 +109,14 @@ export default function OwnerPayoutsPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-bold font-rubik text-[#111111]">{t("manage.payouts.historyTitle")}</h2>
         {b.payouts.length === 0 ? (
-          <p className="text-xs text-[#B7B7B7]">{t("manage.payouts.historyEmpty")}</p>
+          <p className="text-xs text-ls-muted">{t("manage.payouts.historyEmpty")}</p>
         ) : (
           <ul className="bg-white rounded-2xl border border-[#EAEAEA] divide-y divide-[#F4F4F4]">
             {b.payouts.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 p-3 text-xs">
                 <div>
                   <p className="font-bold text-[#111111]">{eur(p.amountCents)}</p>
-                  <p className="text-[#B7B7B7]">{f.date(p.paidAt ?? p.requestedAt)}</p>
+                  <p className="text-ls-muted">{f.date(p.paidAt ?? p.requestedAt)}</p>
                 </div>
                 <span className="font-bold text-[#790166]">
                   {p.periodKey ? `${p.periodKey} · ` : ""}

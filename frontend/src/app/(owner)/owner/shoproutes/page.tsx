@@ -128,7 +128,7 @@ export default function OwnerShoproutesPage() {
           <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("ownerx.routes.title")}</h1>
           <div className="rounded-2xl bg-[#FFF6DB] border border-[#D4B011] p-4 text-sm text-[#121F3E] space-y-2">
             <p>{t("ownerx.routes.locked")}</p>
-            <Link href="/owner/subscription" className="font-bold text-[#FA1EFF]">{t("ownerx.routes.upgrade")}</Link>
+            <Link href="/owner/subscription" className="font-bold text-ls-accent-text">{t("ownerx.routes.upgrade")}</Link>
           </div>
         </div>
       </OwnerLayout>
@@ -140,7 +140,7 @@ export default function OwnerShoproutesPage() {
       <div className="max-w-[640px] mx-auto space-y-6">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("ownerx.routes.title")}</h1>
-          <Link href="/owner/shoproutes/location" className="text-xs font-bold text-[#FA1EFF] flex items-center gap-1">
+          <Link href="/owner/shoproutes/location" className="text-xs font-bold text-ls-accent-text flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5" /> {t("owner.shoppingRouteLocation")}
           </Link>
         </div>
@@ -161,21 +161,21 @@ export default function OwnerShoproutesPage() {
           />
           <Input placeholder={t("ownerx.routes.themeLabel")} value={theme} maxLength={60} onChange={(e) => setTheme(e.target.value)} />
           <ServerImageUploader label={t("ownerx.routes.coverLabel")} value={cover} onChange={setCover} max={1} onBusyChange={setUploading} />
-          <p className="text-[11px] text-[#B7B7B7]">{t("ownerx.routes.statsHint")}</p>
+          <p className="text-[11px] text-ls-muted">{t("ownerx.routes.statsHint")}</p>
           <fieldset className="space-y-1">
             <legend className="text-xs font-bold text-[#555555] mb-1">{t("ownerx.routes.stops")}</legend>
             {shops.loading ? (
-              <p className="text-xs text-[#B7B7B7]">…</p>
+              <p className="text-xs text-ls-muted">…</p>
             ) : candidates.length === 0 ? (
-              <p className="text-xs text-[#B7B7B7]">{t("ownerx.routes.noCandidates")}</p>
+              <p className="text-xs text-ls-muted">{t("ownerx.routes.noCandidates")}</p>
             ) : (
               candidates.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 text-xs text-[#121F3E]">
                   <input type="checkbox" checked={selected.includes(s.id)} disabled={!hasCoords(s)} onChange={() => toggle(s.id)} />
                   <span className="font-bold">{s.name}</span>
-                  <span className="text-[#B7B7B7]">{s.location.city}</span>
+                  <span className="text-ls-muted">{s.location.city}</span>
                   {!hasCoords(s) && (
-                    <Link href="/owner/shoproutes/location" className="font-bold text-[#FA1EFF]">
+                    <Link href="/owner/shoproutes/location" className="font-bold text-ls-accent-text">
                       {t("ownerx.routes.setLocation")}
                     </Link>
                   )}
@@ -206,14 +206,14 @@ export default function OwnerShoproutesPage() {
                   <p className="text-sm font-bold text-[#121F3E] truncate">{r.title}</p>
                   <p className="text-[11px] text-[#555555]">
                     {r.cityName} · {r.shopCount} {t("ownerx.routes.shops")} ·{" "}
-                    <span className={r.status === "PUBLISHED" ? "text-[#1b8a83]" : "text-[#B7B7B7]"}>
+                    <span className={r.status === "PUBLISHED" ? "text-[#1b8a83]" : "text-ls-muted"}>
                       {r.status === "PUBLISHED" ? t("ownerx.routes.published") : t("ownerx.routes.draft")}
                     </span>
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {r.status === "PUBLISHED" && (
-                    <Link href={`/shoproutes/${r.id}`} className="p-2 text-[#FA1EFF]" aria-label={t("ownerx.visible.view")}>
+                    <Link href={`/shoproutes/${r.id}`} className="p-2 text-ls-accent-text" aria-label={t("ownerx.visible.view")}>
                       <Eye className="w-4 h-4" />
                     </Link>
                   )}
@@ -227,7 +227,7 @@ export default function OwnerShoproutesPage() {
                   </button>
                   <EditIconButton
                     title={r.title}
-                    className="p-2 text-[#FA1EFF]"
+                    className="p-2 text-ls-accent-text"
                     fields={[
                       { key: "title", label: t("ownerx.routes.titleLabel"), value: r.title },
                       { key: "city", label: t("ownerx.routes.city"), value: r.cityName },

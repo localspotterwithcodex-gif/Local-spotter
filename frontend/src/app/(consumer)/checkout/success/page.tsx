@@ -60,13 +60,13 @@ function CheckoutSuccessContent() {
         </div>
 
         <div className="space-y-1">
-          <span className="inline-block px-3 py-1 bg-[#FAE2F0] text-[#FA1EFF] rounded-full text-xs font-bold font-manrope">
+          <span className="inline-block px-3 py-1 bg-[#FAE2F0] text-ls-accent-text rounded-full text-xs font-bold font-manrope">
             {t("checkout.success.received")}
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold font-rubik text-[#111111]">
             {t("checkout.success.thanks")}
           </h1>
-          <p className="text-xs text-[#B7B7B7]">
+          <p className="text-xs text-ls-muted">
             {t("checkout.success.orderNumber")}: <span className="font-bold text-[#111111]">{orderNumber}</span>
           </p>
         </div>
@@ -77,7 +77,7 @@ function CheckoutSuccessContent() {
 
         {/* Estimated Delivery Badge */}
         <div className="flex items-center justify-center gap-2 p-3 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] max-w-md mx-auto text-xs text-[#111111] font-bold">
-          <Truck className="w-4 h-4 text-[#FA1EFF]" />
+          <Truck className="w-4 h-4 text-ls-accent-text" />
           <span>{t("checkout.success.awaiting", { name: order.businessName })}</span>
         </div>
       </div>
@@ -87,7 +87,7 @@ function CheckoutSuccessContent() {
       {/* Order Details & Summary Card */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#EAEAEA] shadow-md space-y-6">
         <h2 className="text-lg font-bold font-rubik text-[#111111] border-b border-[#EAEAEA] pb-3 flex items-center gap-2">
-          <ShoppingBag className="w-5 h-5 text-[#FA1EFF]" />
+          <ShoppingBag className="w-5 h-5 text-ls-accent-text" />
           {t("checkout.success.summary")}
         </h2>
 
@@ -96,14 +96,14 @@ function CheckoutSuccessContent() {
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-4 pb-4 border-b border-[#EAEAEA] last:border-b-0 last:pb-0">
               <div className="w-16 h-16 rounded-xl bg-[#F9F9F9] border border-[#EAEAEA] flex items-center justify-center shrink-0">
-                <ShoppingBag className="w-6 h-6 text-[#B7B7B7]" />
+                <ShoppingBag className="w-6 h-6 text-ls-muted" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-bold text-[#111111] truncate">{item.productName}</h3>
-                <p className="text-xs text-[#B7B7B7]">
+                <p className="text-xs text-ls-muted">
                   {item.variantSize ? `${item.variantSize} • ` : ""}{t("checkout.success.quantity", { n: item.quantity })}
                 </p>
-                <span className="text-xs font-bold text-[#FA1EFF] block mt-1">
+                <span className="text-xs font-bold text-ls-accent-text block mt-1">
                   {f.currency(item.totalPrice)}
                 </span>
               </div>
@@ -123,7 +123,7 @@ function CheckoutSuccessContent() {
           </div>
           <div className="flex justify-between text-sm font-extrabold text-[#111111] pt-2 border-t border-[#EAEAEA]">
             <span>{t("common.total")}:</span>
-            <span className="text-[#FA1EFF]">{f.currency(total)}</span>
+            <span className="text-ls-accent-text">{f.currency(total)}</span>
           </div>
         </div>
 
@@ -131,14 +131,14 @@ function CheckoutSuccessContent() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-1">
             <span className="font-bold text-[#111111] flex items-center gap-1 mb-1">
-              <MapPin className="w-4 h-4 text-[#FA1EFF]" /> {t(`checkout.fulfilment.${order.fulfilmentMethod}` as never)}
+              <MapPin className="w-4 h-4 text-ls-accent-text" /> {t(`checkout.fulfilment.${order.fulfilmentMethod}` as never)}
             </span>
             {pickup ? (
-              <p className="text-[#B7B7B7]">{t("checkout.success.pickupAt", { name: order.businessName })}</p>
+              <p className="text-ls-muted">{t("checkout.success.pickupAt", { name: order.businessName })}</p>
             ) : (
               <>
-                <p className="text-[#B7B7B7]">{deliveryAddress.street} {deliveryAddress.houseNumber}</p>
-                <p className="text-[#B7B7B7]">{deliveryAddress.postalCode} {deliveryAddress.city}</p>
+                <p className="text-ls-muted">{deliveryAddress.street} {deliveryAddress.houseNumber}</p>
+                <p className="text-ls-muted">{deliveryAddress.postalCode} {deliveryAddress.city}</p>
               </>
             )}
           </div>
@@ -148,7 +148,7 @@ function CheckoutSuccessContent() {
               <ShieldCheck className="w-4 h-4 text-[#54D1CA]" /> {t("checkout.paymentMethod")}
             </span>
             <p className="text-[#111111] font-medium">{paid ? t("checkout.success.paymentDone") : t("checkout.success.paymentPending")}</p>
-            {!paid && <p className="text-[#B7B7B7]">{t("checkout.success.paymentOpen")}</p>}
+            {!paid && <p className="text-ls-muted">{t("checkout.success.paymentOpen")}</p>}
           </div>
         </div>
 

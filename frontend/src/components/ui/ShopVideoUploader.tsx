@@ -129,7 +129,7 @@ export function ShopVideoUploader({ value, onChange, label, onBusyChange }: Prop
         onChange={(e) => void handleFile(e.target.files?.[0])}
       />
 
-      <p className="text-[11px] text-[#B7B7B7]">{t("manage.video.help")}</p>
+      <p className="text-[11px] text-ls-muted">{t("manage.video.help")}</p>
       {error && (
         <p role="alert" className="text-xs text-red-600">
           {error}

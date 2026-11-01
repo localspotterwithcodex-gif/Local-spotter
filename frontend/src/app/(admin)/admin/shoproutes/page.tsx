@@ -28,7 +28,7 @@ export default function AdminRoutesPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.routesModeration")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.routes.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.routes.subtitle")}</p>
         </div>
 
         <ActionError message={action.error} />
@@ -57,7 +57,7 @@ export default function AdminRoutesPage() {
                     <tr key={r.id}>
                       <td className="p-3 font-bold text-[#111111]">
                         {r.title}
-                        <span className="block font-normal text-[#B7B7B7]">{r.city}</span>
+                        <span className="block font-normal text-ls-muted">{r.city}</span>
                       </td>
                       <td className="p-3 text-[#555555]">{r.businessName}</td>
                       <td className="p-3">{r.stopCount}</td>
@@ -79,7 +79,7 @@ export default function AdminRoutesPage() {
                           onClick={() => action.run(r.id, () => adminApi.moderateRoute(r.id, { featured: !r.featured }))}
                           disabled={action.busyId !== null}
                           aria-pressed={r.featured}
-                          className={`inline-flex items-center gap-1 font-bold disabled:opacity-50 ${r.featured ? "text-[#FA1EFF]" : "text-[#555555]"}`}
+                          className={`inline-flex items-center gap-1 font-bold disabled:opacity-50 ${r.featured ? "text-ls-accent-text" : "text-[#555555]"}`}
                         >
                           <Star className={`w-4 h-4 ${r.featured ? "fill-[#FA1EFF]" : ""}`} />
                           {r.featured ? t("adminx.routes.unfeature") : t("adminx.routes.feature")}

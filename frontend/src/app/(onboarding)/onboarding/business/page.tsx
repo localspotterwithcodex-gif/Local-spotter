@@ -127,7 +127,7 @@ export default function BusinessOnboardingPage() {
           <h1 className="text-xl md:text-2xl font-bold font-rubik text-[#111111]">
             {t("onb.business.title")}
           </h1>
-          <p className="text-xs text-[#B7B7B7]">
+          <p className="text-xs text-ls-muted">
             {t("onb.business.subtitle")}
           </p>
         </div>
@@ -149,7 +149,7 @@ export default function BusinessOnboardingPage() {
             <ImageUploader variant="logo" label={t("onb.business.logoLabel")} onChange={(files) => setLogoFile(files[0] ?? null)} />
           </div>
           {logoFile && (
-            <p className="text-xs text-[#B7B7B7] text-center">
+            <p className="text-xs text-ls-muted text-center">
               {t("onb.business.logoNotSupported")}
             </p>
           )}
@@ -157,7 +157,7 @@ export default function BusinessOnboardingPage() {
           <Input
             label={t("onb.business.storeName")}
             placeholder={t("onb.business.storeNamePh")}
-            icon={<Store className="w-4 h-4 text-[#B7B7B7]" />}
+            icon={<Store className="w-4 h-4 text-ls-muted" />}
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
             required
@@ -187,7 +187,7 @@ export default function BusinessOnboardingPage() {
                 type="button"
                 onClick={handleUseGps}
                 disabled={isLocating}
-                className="flex items-center gap-1 text-xs font-bold text-[#FA1EFF] hover:underline disabled:opacity-50"
+                className="flex items-center gap-1 text-xs font-bold text-ls-accent-text hover:underline disabled:opacity-50"
               >
                 <Crosshair className="w-3.5 h-3.5" />
                 {isLocating ? t("onb.business.locating") : t("onb.business.useGps")}
@@ -206,7 +206,7 @@ export default function BusinessOnboardingPage() {
             <Input
               label={t("onb.business.phone")}
               placeholder="+31 475 123456"
-              icon={<Phone className="w-4 h-4 text-[#B7B7B7]" />}
+              icon={<Phone className="w-4 h-4 text-ls-muted" />}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
@@ -214,7 +214,7 @@ export default function BusinessOnboardingPage() {
             <Input
               label={t("onb.business.kvk")}
               placeholder="12345678"
-              icon={<FileText className="w-4 h-4 text-[#B7B7B7]" />}
+              icon={<FileText className="w-4 h-4 text-ls-muted" />}
               value={kvkNumber}
               onChange={(e) => setKvkNumber(e.target.value)}
               required

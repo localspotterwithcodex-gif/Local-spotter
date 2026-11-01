@@ -24,7 +24,7 @@ export const LoadingState: React.FC<{ label?: string }> = ({ label }) => {
   return (
   <div className="flex flex-col items-center justify-center p-12 text-center">
     <div className="w-10 h-10 border-4 border-[#FAE2F0] border-t-[#FA1EFF] rounded-full animate-spin mb-3"></div>
-    <span className="text-sm font-medium text-[#B7B7B7]">{label ?? t("common.loading")}</span>
+    <span className="text-sm font-medium text-ls-muted">{label ?? t("common.loading")}</span>
   </div>
   );
 };

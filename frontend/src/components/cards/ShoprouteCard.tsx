@@ -50,7 +50,7 @@ export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
         <h3 className="text-sm font-bold text-[#111111] group-hover:text-[#54D1CA] transition-colors leading-snug">
           {route.title}
         </h3>
-        <p className="text-xs text-[#B7B7B7] line-clamp-2 leading-relaxed">
+        <p className="text-xs text-ls-muted line-clamp-2 leading-relaxed">
           {route.description}
         </p>
 
@@ -68,7 +68,7 @@ export const ShoprouteCard: React.FC<ShoprouteCardProps> = ({ route }) => {
 
         <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#F9F9F9]">
           <span className="text-xs font-medium text-[#111111] flex items-center gap-1">
-            <Store className="w-3.5 h-3.5 text-[#FA1EFF]" />
+            <Store className="w-3.5 h-3.5 text-ls-accent-text" />
             {t("cards.participatingShops", { n: route.shopCount })}
           </span>
           <span className="text-xs font-bold text-[#54D1CA] group-hover:translate-x-0.5 transition-transform flex items-center gap-1">

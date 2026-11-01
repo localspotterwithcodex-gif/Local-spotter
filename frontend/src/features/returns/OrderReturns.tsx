@@ -130,7 +130,7 @@ export function OrderReturns({ order, returns, onChanged }: { order: Order; retu
                 </li>
               ))}
           </ul>
-          <label className="block text-xs font-medium text-[#B7B7B7]" htmlFor={`ret-reason-${order.id}`}>
+          <label className="block text-xs font-medium text-ls-muted" htmlFor={`ret-reason-${order.id}`}>
             {t("returns.reason")}
           </label>
           <textarea

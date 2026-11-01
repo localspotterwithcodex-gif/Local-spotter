@@ -72,7 +72,7 @@ export function EditIconButton({ title, fields, onSave, className }: Props) {
         onClick={start}
         title={t("common.edit")}
         aria-label={`${t("common.edit")}: ${title}`}
-        className={className ?? "p-1.5 text-[#FA1EFF] hover:bg-[#FAE2F0] rounded-lg transition-colors"}
+        className={className ?? "p-1.5 text-ls-accent-text hover:bg-[#FAE2F0] rounded-lg transition-colors"}
       >
         <Pencil className="w-4 h-4" />
       </button>
@@ -81,7 +81,7 @@ export function EditIconButton({ title, fields, onSave, className }: Props) {
           <form onSubmit={save} className="w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden no-scrollbar rounded-3xl bg-white p-6 shadow-xl space-y-4 text-left">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-base font-bold font-rubik text-[#111111] truncate">{title}</h2>
-              <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="text-[#B7B7B7] hover:text-[#111111]">
+              <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="text-ls-muted hover:text-[#111111]">
                 <X className="w-5 h-5" />
               </button>
             </div>

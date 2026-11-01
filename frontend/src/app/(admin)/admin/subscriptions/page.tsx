@@ -33,7 +33,7 @@ export default function AdminSubscriptionsPage() {
       <div className="space-y-6 max-w-6xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.subscriptionsManagement")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.subs.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.subs.subtitle")}</p>
         </div>
 
         {error ? (
@@ -48,15 +48,15 @@ export default function AdminSubscriptionsPage() {
               <div key={plan.id} className="bg-white p-6 rounded-3xl border border-[#EAEAEA] shadow-2xs space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold font-rubik text-[#111111]">{plan.name}</h3>
-                  <Crown className="w-5 h-5 text-[#FA1EFF]" />
+                  <Crown className="w-5 h-5 text-ls-accent-text" />
                 </div>
                 {!plan.active && <Badge variant="cancelled">{t("adminx.subs.inactive")}</Badge>}
                 <div className="text-2xl font-extrabold font-manrope text-[#111111]">
-                  {f.currency(plan.monthlyPrice)} <span className="text-xs text-[#B7B7B7] font-normal">{t("adminx.dash.perMonthShort")}</span>
+                  {f.currency(plan.monthlyPrice)} <span className="text-xs text-ls-muted font-normal">{t("adminx.dash.perMonthShort")}</span>
                 </div>
                 <p className="text-xs text-[#555555]">{descriptionOf(plan)}</p>
                 <div className="pt-2 border-t border-[#F9F9F9] flex justify-between items-center text-xs">
-                  <span className="text-[#B7B7B7]">{t("adminx.subs.activeShops")}</span>
+                  <span className="text-ls-muted">{t("adminx.subs.activeShops")}</span>
                   <span className="font-bold text-[#111111]">{t("adminx.subs.shopsCount", { n: activeShops })}</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setEditing(plan)} className="w-full justify-center">

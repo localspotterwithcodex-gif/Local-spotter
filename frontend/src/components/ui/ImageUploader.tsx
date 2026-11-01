@@ -75,7 +75,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={preview} alt={t("imgup.logoAlt")} className="w-full h-full object-cover" />
             ) : (
-              <Upload className="w-6 h-6 text-[#B7B7B7]" />
+              <Upload className="w-6 h-6 text-ls-muted" />
             )}
           </div>
           <button
@@ -102,7 +102,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         {label && <span className="text-sm font-bold text-[#111111]">{label}</span>}
-        <span className="text-xs text-[#B7B7B7]">
+        <span className="text-xs text-ls-muted">
           {t("imgup.photosCount", { count: totalCount, max: maxImages })}
         </span>
       </div>
@@ -134,7 +134,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-[#B7B7B7] hover:border-[#FA1EFF] hover:text-[#FA1EFF] transition-colors"
+            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-ls-muted hover:border-[#FA1EFF] hover:text-ls-accent-text transition-colors"
           >
             <Upload className="w-5 h-5" />
             <span className="text-[10px] font-bold">{t("imgup.uploadPhotos")}</span>

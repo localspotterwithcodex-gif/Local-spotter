@@ -85,7 +85,7 @@ function LoginForm() {
             />
 
             <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-xs font-bold text-[#FA1EFF] hover:underline">
+              <Link href="/forgot-password" className="text-xs font-bold text-ls-accent-text hover:underline">
                 {t("auth.forgotPassword")}
               </Link>
             </div>
@@ -108,9 +108,9 @@ function LoginForm() {
             >
               {t("manage.login.guest")}
             </button>
-            <p className="text-xs text-[#B7B7B7]">
+            <p className="text-xs text-ls-muted">
               {t("auth.noAccount")}{" "}
-              <Link href="/signup" className="font-bold text-[#FA1EFF] hover:underline">
+              <Link href="/signup" className="font-bold text-ls-accent-text hover:underline">
                 {t("auth.signUpHere")}
               </Link>
             </p>

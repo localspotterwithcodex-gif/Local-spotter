@@ -123,7 +123,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         {label && <span className="text-sm font-bold text-[#111111]">{label}</span>}
-        <span className="text-xs text-[#B7B7B7]">{t("manage.upload.count", { count: uploadedCount, max })}</span>
+        <span className="text-xs text-ls-muted">{t("manage.upload.count", { count: uploadedCount, max })}</span>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -147,7 +147,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.preview} alt="" className="w-full h-full object-cover opacity-50" />
             <div className="absolute inset-0 flex items-center justify-center" role="status" aria-label={t("manage.upload.uploading")}>
-              <Loader2 className="w-5 h-5 animate-spin text-[#FA1EFF]" />
+              <Loader2 className="w-5 h-5 animate-spin text-ls-accent-text" />
             </div>
           </div>
         ))}
@@ -156,7 +156,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-[#B7B7B7] hover:border-[#FA1EFF] hover:text-[#FA1EFF] transition-colors"
+            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-ls-muted hover:border-[#FA1EFF] hover:text-ls-accent-text transition-colors"
           >
             <Upload className="w-5 h-5" />
             <span className="text-[10px] font-bold">{t("manage.upload.add")}</span>
@@ -166,7 +166,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
-            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-[#B7B7B7] hover:border-[#FA1EFF] hover:text-[#FA1EFF] transition-colors"
+            className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B7B7B7] flex flex-col items-center justify-center gap-1 text-ls-muted hover:border-[#FA1EFF] hover:text-ls-accent-text transition-colors"
           >
             <Camera className="w-5 h-5" />
             <span className="text-[10px] font-bold">{t("manage.upload.camera")}</span>
@@ -182,7 +182,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
         className="hidden"
         onChange={(e) => void handleFiles(e.target.files)}
       />
-      <p className="text-xs text-[#B7B7B7]">{t("manage.upload.hint")}</p>
+      <p className="text-xs text-ls-muted">{t("manage.upload.hint")}</p>
       {errorKey && (
         <p role="alert" className="text-xs font-bold text-[#E54666]">
           {t(errorKey)}
@@ -320,7 +320,7 @@ const CameraCapture: React.FC<CameraProps> = ({ onClose, onCapture, onFallback }
             <Camera className="w-4 h-4" />
             {t("manage.upload.capture")}
           </button>
-          <button type="button" onClick={onFallback} className="text-xs font-bold text-[#B7B7B7] hover:underline">
+          <button type="button" onClick={onFallback} className="text-xs font-bold text-ls-muted hover:underline">
             {t("manage.upload.choose")}
           </button>
         </div>

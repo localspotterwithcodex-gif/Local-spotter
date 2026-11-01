@@ -36,7 +36,7 @@ export default function AdminChatReportsPage() {
         <div className="pb-2 border-b border-[#EAEAEA] flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.chatReports")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.chat.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.chat.subtitle")}</p>
           </div>
           <select
             aria-label={t("adminx.chat.filter")}
@@ -66,7 +66,7 @@ export default function AdminChatReportsPage() {
                   <span className="font-bold text-[#111111]">
                     {r.businessName} · {r.consumerName}
                   </span>
-                  <span className="text-[#B7B7B7]">
+                  <span className="text-ls-muted">
                     {t(REASON_KEY[r.reason])} · {f.date(r.createdAt)}
                   </span>
                 </div>
@@ -76,7 +76,7 @@ export default function AdminChatReportsPage() {
                   </blockquote>
                 )}
                 {r.details && <p className="text-[#555555]">{r.details}</p>}
-                <p className="text-[#B7B7B7]">{t("adminx.chat.reportedBy", { email: r.reporterEmail ?? "—" })}</p>
+                <p className="text-ls-muted">{t("adminx.chat.reportedBy", { email: r.reporterEmail ?? "—" })}</p>
                 {r.status === "OPEN" ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <input

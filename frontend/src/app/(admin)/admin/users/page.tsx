@@ -48,7 +48,7 @@ export default function AdminUsersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EAEAEA]">
           <div>
             <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.userManagement")}</h1>
-            <p className="text-xs text-[#B7B7B7]">{t("adminx.users.subtitle")}</p>
+            <p className="text-xs text-ls-muted">{t("adminx.users.subtitle")}</p>
           </div>
 
         </div>
@@ -104,7 +104,7 @@ export default function AdminUsersPage() {
                           {label("status", u.status)}
                         </Badge>
                       </td>
-                      <td className="p-3 text-[#B7B7B7]">{f.date(u.createdAt)}</td>
+                      <td className="p-3 text-ls-muted">{f.date(u.createdAt)}</td>
                       <td className="p-3 text-right">
                         {u.role !== "SUPER_ADMIN" &&
                           (u.status === "SUSPENDED" ? (

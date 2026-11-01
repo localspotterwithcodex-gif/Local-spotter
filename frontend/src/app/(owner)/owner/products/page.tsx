@@ -68,7 +68,7 @@ export default function OwnerProductsPage() {
               <li key={p.id} className="flex items-center gap-3 rounded-2xl border border-[#EAEAEA] bg-white p-3">
                 <div className="flex shrink-0 gap-1" aria-label={p.images.length === 0 ? t("ownerx.products.noPhotos") : undefined}>
                   {p.images.length === 0 ? (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-[#EAEAEA] text-[9px] text-[#B7B7B7]">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-[#EAEAEA] text-[9px] text-ls-muted">
                       {t("ownerx.products.noPhotos")}
                     </span>
                   ) : (
@@ -80,11 +80,11 @@ export default function OwnerProductsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-[#111111]">{p.name}</p>
-                  <p className="text-xs text-[#B7B7B7]">
+                  <p className="text-xs text-ls-muted">
                     {f.currency(p.price)} · {t("ownerx.products.stock", { n: p.stock })} · {p.isActive ? t("ownerx.products.active") : t("ownerx.products.hidden")}
                   </p>
                 </div>
-                <Link href={`/owner/products/${p.id}/edit`} className="p-1.5 text-[#FA1EFF] hover:bg-[#FAE2F0] rounded-lg" title={t("common.edit")} aria-label={`${t("common.edit")}: ${p.name}`}>
+                <Link href={`/owner/products/${p.id}/edit`} className="p-1.5 text-ls-accent-text hover:bg-[#FAE2F0] rounded-lg" title={t("common.edit")} aria-label={`${t("common.edit")}: ${p.name}`}>
                   <Pencil className="w-4 h-4" />
                 </Link>
                 <button

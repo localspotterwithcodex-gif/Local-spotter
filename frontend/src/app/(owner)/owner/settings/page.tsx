@@ -30,7 +30,7 @@ export default function OwnerSettingsHubPage() {
     { key: "fulfilment", label: t("fulfilmentSettings.title"), href: "/owner/settings/fulfilment", icon: Truck, tint: "bg-[#CFF1F1] text-[#1E9AA0]" },
     { key: "team", label: t("team.title"), href: "/owner/settings/team", icon: Users, tint: "bg-[#DDE4FA] text-[#4D5BD6]" },
     { key: "payouts", label: t("manage.settings.payouts"), href: "/owner/payouts", icon: CreditCard, tint: "bg-[#D5F2E3] text-[#2E9E6B]" },
-    { key: "notifications", label: t("manage.settings.notifications"), href: "/notifications", icon: Bell, tint: "bg-[#FAE2F0] text-[#FA1EFF]" },
+    { key: "notifications", label: t("manage.settings.notifications"), href: "/notifications", icon: Bell, tint: "bg-[#FAE2F0] text-ls-accent-text" },
     { key: "privacy", label: t("privacySettings.title"), href: "/privacy-settings", icon: ShieldCheck, tint: "bg-[#D5F2E3] text-[#2E9E6B]" },
     { key: "terms", label: t("manage.settings.terms"), href: "/terms", icon: FileText, tint: "bg-[#E4E4E4] text-[#121F3E]" },
     { key: "help", label: t("manage.settings.help"), href: "/help", icon: LifeBuoy, tint: "bg-[#CFF1F1] text-[#1E9AA0]" },
@@ -74,7 +74,7 @@ export default function OwnerSettingsHubPage() {
                   <Icon className="w-5 h-5" />
                 </span>
                 <span className="flex-1 text-xs font-bold text-[#121F3E]">{r.label}</span>
-                {r.href ? <ChevronRight className="w-4 h-4 text-[#B7B7B7]" /> : <LanguageSwitcher className="bg-[#F4F5FA]" />}
+                {r.href ? <ChevronRight className="w-4 h-4 text-ls-muted" /> : <LanguageSwitcher className="bg-[#F4F5FA]" />}
               </>
             );
             return (
@@ -90,7 +90,7 @@ export default function OwnerSettingsHubPage() {
             );
           })}
         </ul>
-        {visible.length === 0 && <p className="text-xs text-[#B7B7B7] text-center">{t("manage.settings.noResults")}</p>}
+        {visible.length === 0 && <p className="text-xs text-ls-muted text-center">{t("manage.settings.noResults")}</p>}
 
         <button
           type="button"

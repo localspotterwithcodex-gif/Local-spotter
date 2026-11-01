@@ -44,7 +44,7 @@ export default function NotificationsPage() {
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-bold font-rubik text-[#111111]">{t("manage.notifications.title")}</h1>
           {unread > 0 && (
-            <button type="button" onClick={markAll} className="flex items-center gap-1.5 text-xs font-bold text-[#FA1EFF] hover:underline">
+            <button type="button" onClick={markAll} className="flex items-center gap-1.5 text-xs font-bold text-ls-accent-text hover:underline">
               <CheckCheck className="w-4 h-4" /> {t("manage.notifications.markAll")}
             </button>
           )}
@@ -69,9 +69,9 @@ export default function NotificationsPage() {
 
         {inbox.data && items.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center space-y-2">
-            <Bell className="w-8 h-8 mx-auto text-[#B7B7B7]" />
+            <Bell className="w-8 h-8 mx-auto text-ls-muted" />
             <p className="text-sm font-bold text-[#121F3E]">{t("manage.notifications.empty")}</p>
-            <p className="text-xs text-[#B7B7B7]">{t("manage.notifications.emptyHint")}</p>
+            <p className="text-xs text-ls-muted">{t("manage.notifications.emptyHint")}</p>
           </div>
         )}
 
@@ -83,7 +83,7 @@ export default function NotificationsPage() {
                 <span className="flex-1 min-w-0">
                   <span className="block text-xs font-bold text-[#121F3E]">{n.title}</span>
                   <span className="block text-xs text-[#555555] mt-0.5 break-words">{n.message}</span>
-                  <span className="block text-[10px] text-[#B7B7B7] mt-1">{fmt.dateTime(n.createdAt)}</span>
+                  <span className="block text-[10px] text-ls-muted mt-1">{fmt.dateTime(n.createdAt)}</span>
                 </span>
               </>
             );

@@ -70,14 +70,14 @@ export default function ConsumerOrdersPage() {
   return (
     <ConsumerLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/account" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("account.back")}
         </Link>
 
         <div>
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("account.myOrders")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("account.ordersSubtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("account.ordersSubtitle")}</p>
         </div>
 
         <GuestClaimCard />
@@ -107,7 +107,7 @@ export default function ConsumerOrdersPage() {
                 <div className="flex items-center justify-between pb-2 border-b border-[#F9F9F9]">
                   <div>
                     <span className="text-xs font-bold text-[#111111]">{order.orderNumber}</span>
-                    <span className="text-[11px] text-[#B7B7B7] block">{f.date(order.createdAt)}</span>
+                    <span className="text-[11px] text-ls-muted block">{f.date(order.createdAt)}</span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge status={order.status} fulfilment={order.fulfilmentMethod} />
@@ -117,11 +117,11 @@ export default function ConsumerOrdersPage() {
 
                 {/* Business Info */}
                 <div className="flex items-center gap-2">
-                  <Store className="w-4 h-4 text-[#FA1EFF]" />
+                  <Store className="w-4 h-4 text-ls-accent-text" />
                   <span className="text-xs font-bold text-[#111111]">{order.businessName}</span>
                 </div>
 
-                <p className="text-[11px] text-[#B7B7B7]">{t(`checkout.fulfilment.${order.fulfilmentMethod}` as never)}</p>
+                <p className="text-[11px] text-ls-muted">{t(`checkout.fulfilment.${order.fulfilmentMethod}` as never)}</p>
 
                 {/* Items Summary */}
                 <div className="space-y-2 pt-1">
@@ -139,7 +139,7 @@ export default function ConsumerOrdersPage() {
 
                 {/* Total */}
                 <div className="flex items-center justify-between pt-2 border-t border-[#F9F9F9] text-xs">
-                  <span className="text-[#B7B7B7]">{t("account.orderTotal")}</span>
+                  <span className="text-ls-muted">{t("account.orderTotal")}</span>
                   <span className="text-sm font-extrabold text-[#111111]">{f.currency(order.total)}</span>
                 </div>
 

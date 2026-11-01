@@ -60,9 +60,9 @@ export default function OwnerDashboardPage() {
   const hasBanner = Boolean(business.heroImageUrl);
   const stats: Array<{ icon: React.ReactNode; value: string; label: string }> = [
     { icon: <Star className="w-5 h-5 fill-[#D4B011] text-[#D4B011]" />, value: `${business.rating} (${business.reviewCount})`, label: t("manage.shop.rating") },
-    { icon: <Users className="w-5 h-5 text-[#FA1EFF]" />, value: String(business.followerCount), label: t("manage.shop.followers") },
-    { icon: <Package className="w-5 h-5 text-[#FA1EFF]" />, value: String(productList.length), label: t("manage.shop.productsStat") },
-    { icon: <Eye className="w-5 h-5 text-[#FA1EFF]" />, value: String(business.viewCount ?? 0), label: t("shops.detail.views") },
+    { icon: <Users className="w-5 h-5 text-ls-accent-text" />, value: String(business.followerCount), label: t("manage.shop.followers") },
+    { icon: <Package className="w-5 h-5 text-ls-accent-text" />, value: String(productList.length), label: t("manage.shop.productsStat") },
+    { icon: <Eye className="w-5 h-5 text-ls-accent-text" />, value: String(business.viewCount ?? 0), label: t("shops.detail.views") },
   ];
   const addLinks = [
     { href: "/owner/products/new", label: t("owner.addProduct") },
@@ -77,7 +77,7 @@ export default function OwnerDashboardPage() {
           business.status === "ACTIVE" && subRes.data?.status === "ACTIVE" ? (
             <div className="mb-3 rounded-2xl bg-[#E8F8F7] border border-[#54D1CA] p-3 flex items-center justify-between gap-3 text-xs">
               <span className="text-[#121F3E]">{t("ownerx.visible.live")}</span>
-              <Link href={`/businesses/${business.id}`} className="font-bold text-[#FA1EFF] whitespace-nowrap">
+              <Link href={`/businesses/${business.id}`} className="font-bold text-ls-accent-text whitespace-nowrap">
                 {t("ownerx.visible.view")}
               </Link>
             </div>
@@ -87,7 +87,7 @@ export default function OwnerDashboardPage() {
                 {business.status !== "ACTIVE" ? t("ownerx.visible.pendingApproval") : t("ownerx.visible.needsPlan")}
               </span>
               {business.status === "ACTIVE" && (
-                <Link href="/owner/subscription" className="font-bold text-[#FA1EFF] whitespace-nowrap">
+                <Link href="/owner/subscription" className="font-bold text-ls-accent-text whitespace-nowrap">
                   {t("ownerx.visible.activate")}
                 </Link>
               )}
@@ -99,7 +99,7 @@ export default function OwnerDashboardPage() {
           {hasBanner ? (
             <Image src={business.heroImageUrl as string} alt={business.name} fill className="object-cover" sizes="640px" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[#B7B7B7]" aria-hidden="true">
+            <div className="absolute inset-0 flex items-center justify-center text-ls-muted" aria-hidden="true">
               <ImageOff className="w-10 h-10" />
             </div>
           )}
@@ -120,7 +120,7 @@ export default function OwnerDashboardPage() {
         {/* Info card overlapping the banner */}
         <div className="relative -mt-10 mx-4 sm:mx-6 bg-white rounded-2xl shadow-md p-4">
           <div className="flex items-start gap-3">
-            <div className="relative w-14 h-14 shrink-0 rounded-full overflow-hidden bg-[#FAE2F0] flex items-center justify-center text-[#FA1EFF] font-bold font-rubik">
+            <div className="relative w-14 h-14 shrink-0 rounded-full overflow-hidden bg-[#FAE2F0] flex items-center justify-center text-ls-accent-text font-bold font-rubik">
               {business.logoUrl ? (
                 <Image src={business.logoUrl} alt={business.name} fill className="object-cover" sizes="56px" />
               ) : (
@@ -130,13 +130,13 @@ export default function OwnerDashboardPage() {
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-sm font-bold text-[#121F3E] truncate">{business.name}</h1>
-              <p className="text-[11px] text-[#B7B7B7]">{business.shopType || business.category}</p>
+              <p className="text-[11px] text-ls-muted">{business.shopType || business.category}</p>
               <p className="text-[11px] text-[#555555] line-clamp-2">{business.description}</p>
             </div>
             <Link
               href="/owner/settings/store"
               aria-label={t("manage.shop.editStore")}
-              className="w-9 h-9 shrink-0 rounded-full border border-[#FA1EFF] text-[#FA1EFF] flex items-center justify-center hover:bg-[#FAE2F0]"
+              className="w-9 h-9 shrink-0 rounded-full border border-[#FA1EFF] text-ls-accent-text flex items-center justify-center hover:bg-[#FAE2F0]"
             >
               <Pencil className="w-4 h-4" />
             </Link>
@@ -170,7 +170,7 @@ export default function OwnerDashboardPage() {
           onClick={() => setFabOpen((v) => !v)}
           aria-label={t("manage.shop.add")}
           aria-expanded={fabOpen}
-          className="w-12 h-12 rounded-full bg-[#EA89B1] text-white flex items-center justify-center shadow-lg hover:bg-[#D977A0]"
+          className="w-12 h-12 rounded-full bg-[#EA89B1] text-[#0A182E] flex items-center justify-center shadow-lg hover:bg-[#D977A0]"
         >
           {fabOpen ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
         </button>

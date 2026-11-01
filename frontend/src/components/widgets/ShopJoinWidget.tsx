@@ -52,7 +52,7 @@ export const ShopJoinWidget: React.FC = () => {
             className="max-w-[220px] rounded-2xl rounded-br-sm bg-white px-4 py-3 text-left text-sm font-medium text-[#111111] shadow-lg ring-1 ring-black/5 duration-300 animate-in fade-in slide-in-from-bottom-2"
           >
             {t("joinw.hint")}{" "}
-            <span className="font-bold text-[#FA1EFF]">{t("joinw.hintCta")}</span>
+            <span className="font-bold text-ls-accent-text">{t("joinw.hintCta")}</span>
           </button>
         )}
 

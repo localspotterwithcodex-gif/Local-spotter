@@ -38,7 +38,7 @@ function RequestLinkForm({ reason }: { reason?: string }) {
     <div className="max-w-md mx-auto my-6 space-y-4">
       <div className="space-y-1 text-center">
         <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("guest.orders.title")}</h1>
-        <p className="text-xs text-[#B7B7B7]">{t("guest.orders.subtitle")}</p>
+        <p className="text-xs text-ls-muted">{t("guest.orders.subtitle")}</p>
       </div>
       {reason && <p role="alert" className="text-xs text-[#ED4C5C] text-center">{reason}</p>}
       {sent ? (

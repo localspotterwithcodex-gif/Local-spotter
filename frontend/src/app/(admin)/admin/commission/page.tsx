@@ -42,7 +42,7 @@ function PlanRow({ plan, defaultBps, onSaved }: { plan: AdminPlanCommission; def
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[#111111]">{plan.name}</p>
-          <p className="text-[11px] text-[#B7B7B7]">{f.currency(plan.monthlyPrice)} / {t("adminx.commission.month")}</p>
+          <p className="text-[11px] text-ls-muted">{f.currency(plan.monthlyPrice)} / {t("adminx.commission.month")}</p>
         </div>
         <p className="text-xs text-[#555555]">
           {plan.commissionBps === null ? t("adminx.commission.usingDefault", { percent: defaultBps / 100 }) : t("adminx.commission.own", { percent: plan.commissionBps / 100 })}
@@ -79,7 +79,7 @@ export default function AdminCommissionPage() {
       <div className="space-y-6 max-w-3xl mx-auto">
         <div className="pb-2 border-b border-[#EAEAEA]">
           <h1 className="text-xl font-bold font-rubik text-[#111111]">{t("admin.commission")}</h1>
-          <p className="text-xs text-[#B7B7B7]">{t("adminx.commission.subtitle")}</p>
+          <p className="text-xs text-ls-muted">{t("adminx.commission.subtitle")}</p>
         </div>
         {error ? (
           <ErrorState message={error} onRetry={reload} />
@@ -87,7 +87,7 @@ export default function AdminCommissionPage() {
           <LoadingState />
         ) : (
           <>
-            <p className="text-[11px] text-[#B7B7B7]">{t("adminx.commission.note", { percent: data.defaultBps / 100 })}</p>
+            <p className="text-[11px] text-ls-muted">{t("adminx.commission.note", { percent: data.defaultBps / 100 })}</p>
             <ul className="space-y-3">
               {data.plans.map((p) => (
                 <PlanRow key={p.id} plan={p} defaultBps={data.defaultBps} onSaved={reload} />

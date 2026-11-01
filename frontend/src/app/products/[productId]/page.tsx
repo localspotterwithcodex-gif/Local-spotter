@@ -137,7 +137,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     <ConsumerLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Back Link */}
-        <Link href="/products" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-[#B7B7B7] hover:text-[#111111]">
+        <Link href="/products" className="flex w-fit ml-auto items-center gap-1.5 text-xs font-bold text-ls-muted hover:text-[#111111]">
           <ArrowLeft className="w-4 h-4" />
           {t("products.detail.back")}
         </Link>
@@ -149,7 +149,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               {product.images[selectedImageIndex] ? (
                 <Image src={product.images[selectedImageIndex]} alt={product.name} fill className="object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[#B7B7B7]">
+                <div className="w-full h-full flex items-center justify-center text-ls-muted">
                   <ImageOff className="w-10 h-10" />
                 </div>
               )}
@@ -179,7 +179,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               {/* Business Name Link */}
               <Link
                 href={`/businesses/${product.businessId}`}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FA1EFF] hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-ls-accent-text hover:underline"
               >
                 <Store className="w-3.5 h-3.5" />
                 {product.businessName}
@@ -195,7 +195,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-[#D4B011] text-[#D4B011]" />
                   <span className="font-bold text-[#111111]">{product.rating}</span>
-                  <span className="text-[#B7B7B7]">({t("products.detail.reviews", { n: product.reviewCount })})</span>
+                  <span className="text-ls-muted">({t("products.detail.reviews", { n: product.reviewCount })})</span>
                 </div>
                 <button
                   type="button"
@@ -209,7 +209,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                     await toggleFavorite("product", product.id);
                     reload(); // the like count comes from the server
                   }}
-                  className="flex items-center gap-1 text-[#B7B7B7] hover:text-[#111111]"
+                  className="flex items-center gap-1 text-ls-muted hover:text-[#111111]"
                 >
                   <Heart className={`w-3.5 h-3.5 text-[#ED4C5C] ${isFavorite("product", product.id) ? "fill-[#ED4C5C]" : ""}`} />
                   <span>{t("products.detail.likes", { n: product.likeCount })}</span>
@@ -222,7 +222,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   {f.currency(product.price)}
                 </span>
                 {product.compareAtPrice && product.compareAtPrice > product.price && (
-                  <span className="text-sm text-[#B7B7B7] line-through font-medium">
+                  <span className="text-sm text-ls-muted line-through font-medium">
                     {f.currency(product.compareAtPrice)}
                   </span>
                 )}
@@ -333,21 +333,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-[#F1F1F1] pt-3 text-xs">
                 {product.brand && (
                   <>
-                    <dt className="text-[#B7B7B7]">{t("ownerx.product.brandLabel")}</dt>
+                    <dt className="text-ls-muted">{t("ownerx.product.brandLabel")}</dt>
                     <dd className="font-bold text-[#111111]">{product.brand}</dd>
                   </>
                 )}
-                <dt className="text-[#B7B7B7]">{t("products.detail.vat")}</dt>
+                <dt className="text-ls-muted">{t("products.detail.vat")}</dt>
                 <dd className="font-bold text-[#111111]">{t("products.detail.vatIncluded", { n: product.vatRate })}</dd>
                 {product.weightGrams != null && (
                   <>
-                    <dt className="text-[#B7B7B7]">{t("ownerx.product.weightLabel")}</dt>
+                    <dt className="text-ls-muted">{t("ownerx.product.weightLabel")}</dt>
                     <dd className="font-bold text-[#111111]">{f.number(product.weightGrams)} g</dd>
                   </>
                 )}
                 {product.lengthMm != null && product.widthMm != null && product.heightMm != null && (
                   <>
-                    <dt className="text-[#B7B7B7]">{t("products.detail.dimensions")}</dt>
+                    <dt className="text-ls-muted">{t("products.detail.dimensions")}</dt>
                     <dd className="font-bold text-[#111111]">{product.lengthMm} × {product.widthMm} × {product.heightMm} mm</dd>
                   </>
                 )}
@@ -358,7 +358,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
                   href={product.externalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full h-12 rounded-xl bg-[#FAE2F0] text-[#FA1EFF] font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#F5CEE6] transition-colors"
+                  className="w-full h-12 rounded-xl bg-[#FAE2F0] text-ls-accent-text font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#F5CEE6] transition-colors"
                 >
                   <ExternalLink className="w-4 h-4" /> {t("products.detail.viewWebshop")}
                 </a>

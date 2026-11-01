@@ -63,13 +63,13 @@ function ResetPasswordForm() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
-        <div className="w-14 h-14 rounded-full bg-[#FAE2F0] text-[#FA1EFF] flex items-center justify-center mx-auto mb-2">
+        <div className="w-14 h-14 rounded-full bg-[#FAE2F0] text-ls-accent-text flex items-center justify-center mx-auto mb-2">
           <Lock className="w-7 h-7" />
         </div>
         <h1 className="text-2xl font-bold font-rubik text-[#111111]">
           {t("authx.reset.title")}
         </h1>
-        <p className="text-xs text-[#B7B7B7]">
+        <p className="text-xs text-ls-muted">
           {t("authx.reset.subtitle")}
         </p>
       </div>
@@ -83,7 +83,7 @@ function ResetPasswordForm() {
             <h2 className="text-lg font-bold text-[#111111] font-rubik">
               {t("authx.reset.doneTitle")}
             </h2>
-            <p className="text-xs text-[#B7B7B7]">
+            <p className="text-xs text-ls-muted">
               {t("authx.reset.doneText")}
             </p>
           </div>
@@ -118,7 +118,7 @@ function ResetPasswordForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? t("authx.reset.hide") : t("authx.reset.show")}
-              className="absolute right-3 top-[38px] text-[#B7B7B7] hover:text-[#111111] transition-colors"
+              className="absolute right-3 top-[38px] text-ls-muted hover:text-[#111111] transition-colors"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -138,7 +138,7 @@ function ResetPasswordForm() {
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               aria-label={showConfirmPassword ? t("authx.reset.hide") : t("authx.reset.show")}
-              className="absolute right-3 top-[38px] text-[#B7B7B7] hover:text-[#111111] transition-colors"
+              className="absolute right-3 top-[38px] text-ls-muted hover:text-[#111111] transition-colors"
             >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -148,22 +148,22 @@ function ResetPasswordForm() {
           <div className="p-3 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] space-y-2 text-xs">
             <span className="font-bold text-[#111111] block mb-1">{t("authx.reset.requirements")}</span>
             <div className="flex items-center gap-2 text-[#111111]">
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasMinLength ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasMinLength ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-ls-muted"}`}>
                 ✓
               </div>
-              <span className={hasMinLength ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleLength")}</span>
+              <span className={hasMinLength ? "text-[#111111]" : "text-ls-muted"}>{t("authx.reset.ruleLength")}</span>
             </div>
             <div className="flex items-center gap-2 text-[#111111]">
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasNumber ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${hasNumber ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-ls-muted"}`}>
                 ✓
               </div>
-              <span className={hasNumber ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleNumber")}</span>
+              <span className={hasNumber ? "text-[#111111]" : "text-ls-muted"}>{t("authx.reset.ruleNumber")}</span>
             </div>
             <div className="flex items-center gap-2 text-[#111111]">
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${passwordsMatch ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-[#B7B7B7]"}`}>
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${passwordsMatch ? "bg-[#CBF5D5] text-[#3B9B52]" : "bg-[#EAEAEA] text-ls-muted"}`}>
                 ✓
               </div>
-              <span className={passwordsMatch ? "text-[#111111]" : "text-[#B7B7B7]"}>{t("authx.reset.ruleMatch")}</span>
+              <span className={passwordsMatch ? "text-[#111111]" : "text-ls-muted"}>{t("authx.reset.ruleMatch")}</span>
             </div>
           </div>
 
@@ -180,7 +180,7 @@ function ResetPasswordForm() {
           <div className="text-center pt-2">
             <Link
               href="/login"
-              className="text-xs text-[#FA1EFF] hover:underline font-bold"
+              className="text-xs text-ls-accent-text hover:underline font-bold"
             >
               {t("authx.reset.backToLogin")}
             </Link>

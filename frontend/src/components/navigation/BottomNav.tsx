@@ -88,7 +88,7 @@ export const BottomNav: React.FC = () => {
               className="flex flex-col items-center gap-1 w-16 py-1"
             >
               <span className="relative">
-                <Icon className={`w-6 h-6 ${active[i] ? "text-[#FA1EFF]" : "text-[#B7B7B7]"}`} strokeWidth={active[i] ? 2.4 : 2} />
+                <Icon className={`w-6 h-6 ${active[i] ? "text-ls-accent-text" : "text-ls-muted"}`} strokeWidth={active[i] ? 2.4 : 2} />
                 {item.href === "/chat" && unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-[#ED4C5C] text-white text-[9px] font-bold flex items-center justify-center" aria-hidden="true">
                     {unreadCount > 9 ? "9+" : unreadCount}

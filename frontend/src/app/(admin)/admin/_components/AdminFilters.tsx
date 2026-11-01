@@ -28,7 +28,7 @@ export function AdminFilters({ search, selects = [], onReset }: Props) {
       {search && (
         <label className="relative block w-full sm:w-64">
           <span className="sr-only">{t("common.search")}</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B7B7B7]" aria-hidden="true" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ls-muted" aria-hidden="true" />
           <input
             type="search"
             value={search.value}

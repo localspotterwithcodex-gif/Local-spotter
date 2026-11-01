@@ -30,7 +30,7 @@ export function ReviewReminders() {
           <li key={`${it.kind}:${it.id}`} className="flex items-center justify-between gap-3 bg-white rounded-xl px-3 py-2">
             <span className="min-w-0">
               <span className="block text-xs font-bold text-[#111111] truncate">{it.businessName}</span>
-              <span className="block text-[11px] text-[#B7B7B7] truncate">{it.label} · {f.date(it.date)}</span>
+              <span className="block text-[11px] text-ls-muted truncate">{it.label} · {f.date(it.date)}</span>
             </span>
             <button type="button" onClick={() => setActive(it)} className="shrink-0 rounded-xl bg-[#FA1EFF] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#E000EC]">
               {t("manage.review.button")}

@@ -185,9 +185,9 @@ export default function SignupPage() {
                 />
                 <span>
                   {t("authx.signup.acceptPrefix")}{" "}
-                  <Link href="/terms" target="_blank" className="font-bold text-[#FA1EFF] hover:underline">{t("authx.signup.terms")}</Link>{" "}
+                  <Link href="/terms" target="_blank" className="font-bold text-ls-accent-text hover:underline">{t("authx.signup.terms")}</Link>{" "}
                   {t("authx.signup.and")}{" "}
-                  <Link href="/privacy-policy" target="_blank" className="font-bold text-[#FA1EFF] hover:underline">{t("authx.signup.privacy")}</Link>.
+                  <Link href="/privacy-policy" target="_blank" className="font-bold text-ls-accent-text hover:underline">{t("authx.signup.privacy")}</Link>.
                 </span>
               </label>
 
@@ -199,7 +199,7 @@ export default function SignupPage() {
 
           {step === "verify" && (
             <form onSubmit={handleVerify} className="space-y-4">
-              <p className="text-xs text-[#B7B7B7] text-center">
+              <p className="text-xs text-ls-muted text-center">
                 {t("authx.signup.codeSent")}{" "}
                 <strong className="text-[#111111]">{pendingVerification?.identifier}</strong> {t("authx.signup.via")}{" "}
                 {pendingVerification?.channel === "EMAIL" ? t("authx.signup.channelEmail") : t("authx.signup.channelSms")}.
@@ -218,7 +218,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => resendCode()}
-                className="w-full text-xs font-bold text-[#FA1EFF] hover:underline text-center"
+                className="w-full text-xs font-bold text-ls-accent-text hover:underline text-center"
               >
                 {t("authx.signup.resend")}
               </button>
@@ -233,9 +233,9 @@ export default function SignupPage() {
           )}
 
           <div className="text-center pt-2">
-            <p className="text-xs text-[#B7B7B7]">
+            <p className="text-xs text-ls-muted">
               {t("auth.haveAccount")}{" "}
-              <Link href="/login" className="font-bold text-[#FA1EFF] hover:underline">
+              <Link href="/login" className="font-bold text-ls-accent-text hover:underline">
                 {t("auth.logInHere")}
               </Link>
             </p>
@@ -248,7 +248,7 @@ export default function SignupPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-xl text-center space-y-5">
             <h2 className="text-lg font-bold font-rubik text-[#111111]">{t("auth.chooseAccountType")}</h2>
-            <p className="text-xs text-[#B7B7B7]">{t("auth.howUse")}</p>
+            <p className="text-xs text-ls-muted">{t("auth.howUse")}</p>
 
             <div className="space-y-3">
               <button
@@ -262,10 +262,10 @@ export default function SignupPage() {
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="block text-sm font-bold text-[#111111] group-hover:text-[#FA1EFF]">
+                    <span className="block text-sm font-bold text-[#111111] group-hover:text-ls-accent-text">
                       {t("auth.iAmConsumer")}
                     </span>
-                    <span className="block text-[11px] text-[#B7B7B7]">
+                    <span className="block text-[11px] text-ls-muted">
                       {t("auth.consumerDesc")}
                     </span>
                   </div>
@@ -284,7 +284,7 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <span className="block text-sm font-bold text-[#111111]">{t("auth.iAmBusinessOwner")}</span>
-                    <span className="block text-[11px] text-[#B7B7B7]">
+                    <span className="block text-[11px] text-ls-muted">
                       {t("auth.businessOwnerDesc")}
                     </span>
                   </div>
