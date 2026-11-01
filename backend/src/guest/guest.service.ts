@@ -63,7 +63,7 @@ export class GuestService {
       });
       return { ...created, consumerProfile: profile };
     });
-    return { accessToken: this.jwt.sign({ sub: user.id, role: user.role }, { expiresIn: GUEST_SESSION_TTL }), user: this.view(user) };
+    return { accessToken: this.jwt.sign({ sub: user.id, role: user.role, sv: user.sessionVersion }, { expiresIn: GUEST_SESSION_TTL }), user: this.view(user) };
   }
 
   private view(user: { id: string; role: UserRole; status: UserStatus; isGuest: boolean; consumerProfile: { id: string; displayName: string } | null; createdAt: Date }) {
@@ -129,7 +129,7 @@ export class GuestService {
     if (!user.isGuest) {
       throw new BadRequestException('Dit account is al omgezet naar een volledig account. Log in met je wachtwoord.');
     }
-    return { accessToken: this.jwt.sign({ sub: user.id, role: user.role }, { expiresIn: GUEST_SESSION_TTL }), user: this.view(user) };
+    return { accessToken: this.jwt.sign({ sub: user.id, role: user.role, sv: user.sessionVersion }, { expiresIn: GUEST_SESSION_TTL }), user: this.view(user) };
   }
 
   // ---------- claiming a real account ----------

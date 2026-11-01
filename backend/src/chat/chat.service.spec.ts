@@ -118,7 +118,8 @@ describe('ChatService', () => {
   it('scopes the list per role', async () => {
     const { svc, prisma } = make();
     await svc.list(consumer);
-    expect(prisma.conversation.findMany.mock.calls[0][0].where).toEqual({ consumerProfileId: 'c1' });
+    // Customers don't see conversations they hid themselves (the shop still does).
+    expect(prisma.conversation.findMany.mock.calls[0][0].where).toEqual({ consumerProfileId: 'c1', consumerHiddenAt: null });
     await svc.list(owner);
     expect(prisma.conversation.findMany.mock.calls[1][0].where).toEqual({ business: { ownerProfileId: 'o1' } });
     await expect(svc.list(admin)).rejects.toBeInstanceOf(ForbiddenException);

@@ -12,7 +12,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { AllowedOrderStatusInput, UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-import { BusinessStatus, FulfilmentMethod, NotificationType, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+import { BusinessStatus, FulfilmentMethod, NotificationType, OrderStatus, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import { EmployeesService } from '../employees/employees.service';
 import { PaymentsService } from '../payments/payments.service';
 import { quoteFulfilment, requiresAddress } from './fulfilment';
@@ -436,6 +436,9 @@ export class OrdersService {
         ? OrderStatus.CONFIRMED
         : (dto.status as OrderStatus);
 
+    // Re-sending the current status is a no-op (no second stock release, event or refund).
+    if (order.status === targetStatus) return order;
+
     // Validate transition
     this.validateStatusTransition(order.status, targetStatus);
 
@@ -460,6 +463,8 @@ export class OrdersService {
         updateData.cancelledAt = new Date();
       }
 
+      await this.claimStatus(tx, orderId, order.status, updateData);
+
       // If transitioning to CANCELLED or REJECTED: restore stock
       if (
         targetStatus === OrderStatus.CANCELLED ||
@@ -468,9 +473,8 @@ export class OrdersService {
         await this.restoreOrderStock(tx, order.items);
       }
 
-      const updatedOrder = await tx.order.update({
+      const updatedOrder = await tx.order.findUniqueOrThrow({
         where: { id: orderId },
-        data: updateData,
         include: {
           business: { select: { id: true, name: true, slug: true } },
           items: true,
@@ -542,16 +546,14 @@ export class OrdersService {
     }
 
     const cancelled = await this.prisma.$transaction(async (tx) => {
-      // 1. Restore stock
+      // 1. Claim the status change (fails if someone else changed the order meanwhile)
+      await this.claimStatus(tx, orderId, order.status, { status: OrderStatus.CANCELLED, cancelledAt: new Date() });
+
+      // 2. Restore stock
       await this.restoreOrderStock(tx, order.items);
 
-      // 2. Update order status
-      const updatedOrder = await tx.order.update({
+      const updatedOrder = await tx.order.findUniqueOrThrow({
         where: { id: orderId },
-        data: {
-          status: OrderStatus.CANCELLED,
-          cancelledAt: new Date(),
-        },
         include: {
           business: { select: { id: true, name: true, slug: true } },
           items: true,
@@ -629,6 +631,14 @@ export class OrdersService {
       throw new BadRequestException(
         `Ongeldige statusovergang van ${current} naar ${target}`,
       );
+    }
+  }
+
+  /** Compare-and-set: applies `data` only while the order still has status `from`, so concurrent changes can't both win. */
+  private async claimStatus(tx: Prisma.TransactionClient, orderId: string, from: OrderStatus, data: Prisma.OrderUpdateManyMutationInput) {
+    const claimed = await tx.order.updateMany({ where: { id: orderId, status: from }, data });
+    if (claimed.count !== 1) {
+      throw new ConflictException('De bestelling is intussen gewijzigd. Vernieuw de pagina en probeer het opnieuw.');
     }
   }
 

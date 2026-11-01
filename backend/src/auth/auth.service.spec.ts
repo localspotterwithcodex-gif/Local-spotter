@@ -11,6 +11,8 @@ import { AuthService, MAX_VERIFICATION_ATTEMPTS } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_PROVIDER } from '../mail/mail.provider';
 import { RegisterDto } from './dto/register.dto';
+import { encryptSecret } from '../common/crypto/secret-box';
+import { generateTotpSecret, hashRecoveryCode, totpAt } from './mfa/totp';
 
 // bcrypt is a native module; a deterministic fake keeps this suite portable across OS/CI images.
 // Hash-format and cost-factor behaviour is bcrypt's own responsibility, not under test here.
@@ -20,6 +22,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 const SECRET = 'x'.repeat(48);
+const ENC_KEY = Buffer.alloc(32, 7);
 
 function hashFor(userId: string, code: string) {
   return crypto.createHmac('sha256', SECRET).update(`otp:${userId}:${code}`).digest('hex');
@@ -30,7 +33,7 @@ describe('AuthService', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let prisma: any;
   const mail = { isConfigured: jest.fn(), supports: jest.fn(), send: jest.fn() };
-  const jwt = { sign: jest.fn(() => 'signed.jwt.token'), decode: jest.fn() };
+  const jwt = { sign: jest.fn(() => 'signed.jwt.token'), decode: jest.fn(), verify: jest.fn() };
 
   const baseUser = {
     id: 'u1',
@@ -43,6 +46,7 @@ describe('AuthService', () => {
     verificationCode: null,
     verificationCodeExpiresAt: null,
     verificationAttempts: 0,
+    sessionVersion: 0,
     emailVerifiedAt: null,
     mobileVerifiedAt: null,
     createdAt: new Date(),
@@ -60,10 +64,12 @@ describe('AuthService', () => {
     mail.supports.mockReturnValue(true);
     mail.send.mockResolvedValue(undefined);
     prisma = {
-      user: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      user: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       consumerProfile: { create: jest.fn() },
       businessOwnerProfile: { create: jest.fn() },
       passwordResetToken: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+      auditLog: { create: jest.fn() },
+      $executeRaw: jest.fn(),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(async (arg: unknown) => (typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as unknown[])));
@@ -73,7 +79,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwt },
-        { provide: ConfigService, useValue: { getOrThrow: () => SECRET, get: (k: string) => (k === 'CORS_ORIGIN' ? 'http://localhost:3000' : undefined) } },
+        { provide: ConfigService, useValue: { getOrThrow: () => SECRET, get: (k: string) => (k === 'CORS_ORIGIN' ? 'http://localhost:3000' : k === 'ENCRYPTION_KEY' ? ENC_KEY.toString('base64') : undefined) } },
         { provide: MAIL_PROVIDER, useValue: mail },
       ],
     }).compile();
@@ -144,18 +150,23 @@ describe('AuthService', () => {
       prisma.user.update.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
       const res = await service.verifyCode('sophie@example.nl', '123456');
       expect(res.accessToken).toBe('signed.jwt.token');
-      expect(jwt.sign).toHaveBeenCalledWith({ sub: 'u1', role: UserRole.CONSUMER });
+      expect(jwt.sign).toHaveBeenCalledWith({ sub: 'u1', role: UserRole.CONSUMER, sv: 0 });
       expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: UserStatus.ACTIVE, verificationCode: null }) }));
     });
 
-    it('counts wrong attempts and rejects', async () => {
+    it('counts every attempt atomically before comparing, and rejects a wrong code', async () => {
       prisma.user.findFirst.mockResolvedValue(pending('123456'));
       await expect(service.verifyCode('sophie@example.nl', '000000')).rejects.toThrow(BadRequestException);
-      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { verificationAttempts: { increment: 1 } } });
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u1', verificationAttempts: { lt: MAX_VERIFICATION_ATTEMPTS } },
+        data: { verificationAttempts: { increment: 1 } },
+      });
     });
 
     it('burns the code after too many attempts (429) even if the code is right', async () => {
       prisma.user.findFirst.mockResolvedValue(pending('123456', { verificationAttempts: MAX_VERIFICATION_ATTEMPTS }));
+      // The conditional increment finds no row under the limit (also what parallel guesses race into).
+      prisma.user.updateMany.mockResolvedValueOnce({ count: 0 });
       await expect(service.verifyCode('sophie@example.nl', '123456')).rejects.toMatchObject({ status: 429 });
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { verificationCode: null, verificationCodeExpiresAt: null } });
     });
@@ -165,6 +176,80 @@ describe('AuthService', () => {
       await expect(service.verifyCode('x', '123456')).rejects.toThrow(BadRequestException);
       prisma.user.findFirst.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
       await expect(service.verifyCode('x', '123456')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('admin MFA', () => {
+    const totpSecret = generateTotpSecret();
+    const admin = {
+      ...baseUser,
+      id: 'a1',
+      role: UserRole.SUPER_ADMIN,
+      username: 'admin',
+      consumerProfile: null,
+      sessionVersion: 3,
+      mfaEnabledAt: new Date(),
+      mfaSecret: encryptSecret(totpSecret, ENC_KEY),
+    };
+    const nowCode = () => totpAt(totpSecret, Date.now() / 1000);
+
+    it('issues no session after the password, only a short-lived second-step token', async () => {
+      prisma.user.findFirst.mockResolvedValue({ ...admin, passwordHash: baseUser.passwordHash }); // hash is set in beforeAll
+      const res = await service.login({ identifier: 'admin', password: 'Correct-Horse-1' });
+      expect(res).toEqual({ mfaRequired: true, mfaToken: 'signed.jwt.token' });
+      expect(jwt.sign).toHaveBeenCalledWith({ sub: 'a1', purpose: 'mfa-login', sv: 3 }, { expiresIn: '5m' });
+    });
+
+    it('accepts a valid authenticator code and marks the session as MFA', async () => {
+      jwt.verify.mockReturnValue({ sub: 'a1', purpose: 'mfa-login', sv: 3 });
+      prisma.user.findUnique.mockResolvedValue(admin);
+      const res = await service.verifyMfaLogin('t', nowCode());
+      expect(res.accessToken).toBe('signed.jwt.token');
+      expect(jwt.sign).toHaveBeenLastCalledWith({ sub: 'a1', role: UserRole.SUPER_ADMIN, sv: 3, mfa: true });
+    });
+
+    it('rejects a wrong code, a session token used as step token, and a revoked or expired step token', async () => {
+      prisma.user.findUnique.mockResolvedValue(admin);
+      jwt.verify.mockReturnValue({ sub: 'a1', purpose: 'mfa-login', sv: 3 });
+      await expect(service.verifyMfaLogin('t', '000000')).rejects.toThrow(UnauthorizedException);
+      jwt.verify.mockReturnValue({ sub: 'a1', role: 'SUPER_ADMIN', sv: 3 });
+      await expect(service.verifyMfaLogin('t', nowCode())).rejects.toThrow(UnauthorizedException);
+      jwt.verify.mockReturnValue({ sub: 'a1', purpose: 'mfa-login', sv: 2 });
+      await expect(service.verifyMfaLogin('t', nowCode())).rejects.toThrow(UnauthorizedException);
+      jwt.verify.mockImplementation(() => {
+        throw new Error('expired');
+      });
+      await expect(service.verifyMfaLogin('t', nowCode())).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('accepts a recovery code once (atomic removal) and audits its use', async () => {
+      jwt.verify.mockReset().mockReturnValue({ sub: 'a1', purpose: 'mfa-login', sv: 3 });
+      prisma.user.findUnique.mockResolvedValue(admin);
+      prisma.$executeRaw.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      await expect(service.verifyMfaLogin('t', 'abcde-12345')).resolves.toMatchObject({ accessToken: expect.any(String) });
+      expect(prisma.$executeRaw.mock.calls[0]).toContain(hashRecoveryCode('abcde-12345'));
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'MFA_RECOVERY_CODE_USED' }) });
+      await expect(service.verifyMfaLogin('t', 'abcde-12345')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('enrols: secret stored encrypted; a valid code enables MFA, revokes old sessions, returns recovery codes', async () => {
+      const fresh = { ...admin, mfaEnabledAt: null, mfaSecret: null };
+      prisma.user.findUnique.mockResolvedValue(fresh);
+      prisma.user.update.mockResolvedValue({});
+      const { secret } = await service.startMfaEnrollment('a1');
+      const stored = prisma.user.update.mock.calls[0][0].data.mfaSecret as string;
+      expect(stored).toMatch(/^v1:/);
+      expect(stored).not.toContain(secret);
+
+      prisma.user.findUnique.mockResolvedValue({ ...fresh, mfaSecret: stored });
+      prisma.user.update.mockResolvedValue({ ...admin, sessionVersion: 4 });
+      await expect(service.enableMfa('a1', '000000')).rejects.toThrow(BadRequestException);
+      const res = await service.enableMfa('a1', totpAt(secret, Date.now() / 1000));
+      expect(res.recoveryCodes).toHaveLength(10);
+      expect(prisma.user.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ sessionVersion: { increment: 1 }, mfaRecoveryCodes: expect.any(Array) }) }),
+      );
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'MFA_ENABLED' }) });
     });
   });
 
@@ -217,7 +302,22 @@ describe('AuthService', () => {
       prisma.passwordResetToken.findFirst.mockResolvedValueOnce(null);
       await expect(service.resetPassword({ token: 'bad', newPassword: 'NewPassword1' })).rejects.toThrow(BadRequestException);
       prisma.passwordResetToken.findFirst.mockResolvedValueOnce({ id: 't1', userId: 'u1' });
+      prisma.passwordResetToken.updateMany.mockResolvedValueOnce({ count: 1 });
       await expect(service.resetPassword({ token: 'good', newPassword: 'NewPassword1' })).resolves.toMatchObject({ message: expect.any(String) });
+      // Every existing session is revoked by bumping the session version.
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { passwordHash: expect.any(String), sessionVersion: { increment: 1 } } });
+    });
+
+    it('lets only one of two concurrent requests redeem the same reset token', async () => {
+      prisma.passwordResetToken.findFirst.mockResolvedValue({ id: 't1', userId: 'u1' });
+      prisma.passwordResetToken.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+      const results = await Promise.allSettled([
+        service.resetPassword({ token: 'same', newPassword: 'NewPassword1' }),
+        service.resetPassword({ token: 'same', newPassword: 'OtherPassword2' }),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+      expect(prisma.user.update).toHaveBeenCalledTimes(1);
     });
   });
 

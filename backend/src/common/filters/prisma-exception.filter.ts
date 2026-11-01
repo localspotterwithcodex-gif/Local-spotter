@@ -21,6 +21,8 @@ export function mapPrismaError(err: unknown): Mapped | null {
         return { status: HttpStatus.BAD_REQUEST, code: 'INVALID_REFERENCE', message: 'Referenced item does not exist' };
       case 'P2025':
         return { status: HttpStatus.NOT_FOUND, code: 'NOT_FOUND', message: 'Not found' };
+      case 'P2023': // malformed id (e.g. not a UUID) in a path or body
+        return { status: HttpStatus.BAD_REQUEST, code: 'INVALID_ID', message: 'Invalid identifier' };
       default:
         return null;
     }

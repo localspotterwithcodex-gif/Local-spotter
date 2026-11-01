@@ -12,6 +12,8 @@ export interface User {
   onboardingComplete?: boolean;
   /** Guest-checkout account: no password, limited to cart, orders and payments. */
   isGuest?: boolean;
+  /** Admin signed in without a second factor yet: the admin app shows MFA enrolment. */
+  mfaSetupRequired?: boolean;
 }
 
 export interface ConsumerProfile {

@@ -15,6 +15,7 @@ interface BackendUser {
   avatarUrl?: string | null;
   profileId?: string;
   isGuest?: boolean;
+  mfaSetupRequired?: boolean;
   createdAt: string;
 }
 
@@ -28,6 +29,7 @@ function mapBackendUser(u: BackendUser): User {
     avatarUrl: u.avatarUrl ?? undefined,
     role: u.role,
     isGuest: u.isGuest === true,
+    mfaSetupRequired: u.mfaSetupRequired === true,
     createdAt: u.createdAt,
   };
 }
@@ -56,7 +58,9 @@ interface AuthContextType {
   isLoading: boolean;
   pendingVerification: PendingVerification | null;
   /** Logs in with an email, mobile number, or username (admins use username). */
-  login: (identifier: string, password: string) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User | { mfaToken: string }>;
+  /** Admin login step 2: authenticator or recovery code. */
+  verifyMfa: (mfaToken: string, code: string) => Promise<User>;
   /** Signs in / up with a Google ID token. `role` is only needed for a brand-new account. */
   socialLogin: (provider: "google", token: string, role?: UserRole) => Promise<User>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -87,8 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((me) => {
         if (!cancelled) setUser(mapBackendUser(me));
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) setUser(null);
+        // A cookie the API rejects (expired, revoked) would make the middleware bounce between
+        // /login and the portal forever; ask the API to clear it.
+        if (err instanceof ApiError && err.status === 401) apiClient.post("/auth/logout").catch(() => undefined);
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -99,7 +106,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (identifier: string, password: string) => {
-    const res = await apiClient.post<{ user: BackendUser }>("/auth/login", { identifier, password });
+    const res = await apiClient.post<{ user: BackendUser } | { mfaRequired: true; mfaToken: string }>("/auth/login", { identifier, password });
+    if ("mfaToken" in res) return { mfaToken: res.mfaToken };
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const verifyMfa = useCallback(async (mfaToken: string, code: string) => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/mfa/verify", { mfaToken, code });
     const mapped = mapBackendUser(res.user);
     setUser(mapped);
     return mapped;
@@ -198,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         pendingVerification,
         login,
+        verifyMfa,
         socialLogin,
         register,
         startGuest,

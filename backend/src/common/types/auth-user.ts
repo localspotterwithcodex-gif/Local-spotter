@@ -11,4 +11,7 @@ export interface AuthUser {
   displayName?: string;
   /** Password-less guest-checkout account (see AllowGuest). */
   isGuest?: boolean;
+  /** Session established with the admin second factor. */
+  mfa?: boolean;
+  mfaEnrolled?: boolean;
 }

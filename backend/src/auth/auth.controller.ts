@@ -14,6 +14,12 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AllowGuest } from '../common/decorators/allow-guest.decorator';
+import { AllowWithoutMfa } from '../common/decorators/allow-without-mfa.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { UserRole } from '@prisma/client';
+import type { AuthUser } from '../common/types/auth-user';
+import { MfaCodeDto, MfaVerifyDto } from './dto/mfa.dto';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
 
@@ -51,9 +57,45 @@ export class AuthController {
   @ApiOperation({ summary: 'Authenticate user with email/mobile/username and password (sets HttpOnly session cookie)' })
   @ApiResponse({ status: 200, description: 'Login successful.', type: AuthResponseDto })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, user } = await this.authService.login(dto);
+    const result = await this.authService.login(dto);
+    if ('mfaRequired' in result) return result; // admin: no session until the second factor
+    this.startSession(res, result.accessToken);
+    return { user: result.user };
+  }
+
+  @Post('mfa/verify')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, windowMs: 5 * 60 * 1000 })
+  @ApiOperation({ summary: 'Admin login step 2: authenticator or recovery code (sets the session cookie)' })
+  async verifyMfa(@Body() dto: MfaVerifyDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, user } = await this.authService.verifyMfaLogin(dto.mfaToken, dto.code);
     this.startSession(res, accessToken);
     return { user };
+  }
+
+  @Post('mfa/setup')
+  @HttpCode(HttpStatus.OK)
+  @AllowWithoutMfa()
+  @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @RateLimit({ limit: 10, windowMs: 15 * 60 * 1000 })
+  @ApiOperation({ summary: 'Admin: start MFA enrolment (returns the authenticator secret)' })
+  startMfa(@CurrentUser('id') userId: string) {
+    return this.authService.startMfaEnrollment(userId);
+  }
+
+  @Post('mfa/enable')
+  @HttpCode(HttpStatus.OK)
+  @AllowWithoutMfa()
+  @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @RateLimit({ limit: 5, windowMs: 5 * 60 * 1000 })
+  @ApiOperation({ summary: 'Admin: confirm MFA enrolment with a code; returns one-time recovery codes' })
+  async enableMfa(@CurrentUser('id') userId: string, @Body() dto: MfaCodeDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, user, recoveryCodes } = await this.authService.enableMfa(userId, dto.code);
+    this.startSession(res, accessToken);
+    return { user, recoveryCodes };
   }
 
   @Post('social')
@@ -100,12 +142,15 @@ export class AuthController {
 
   @Get('me')
   @AllowGuest()
+  @AllowWithoutMfa()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get profile information for authenticated user' })
   @ApiResponse({ status: 200, description: 'Authenticated user profile retrieved.' })
-  async getMe(@CurrentUser('id') userId: string) {
-    return this.authService.getMe(userId);
+  async getMe(@CurrentUser() current: AuthUser) {
+    const me = await this.authService.getMe(current.id);
+    // Tells the admin app to show the enrolment screen instead of the dashboard.
+    return current.role === UserRole.SUPER_ADMIN && !current.mfa ? { ...me, mfaSetupRequired: true } : me;
   }
 
   @Post('forgot-password')

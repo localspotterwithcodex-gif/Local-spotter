@@ -10,10 +10,11 @@ import { BottomNav } from "@/components/navigation/BottomNav";
 import { adminNavLinks } from "@/components/navigation/adminLinks";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
+import { AdminMfaSetup } from "@/features/auth/AdminMfaSetup";
 
 export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { t } = useLocale();
 
   const adminLinks = adminNavLinks(t);
@@ -37,7 +38,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <aside className="w-64 shrink-0 bg-white border-r border-[#EAEAEA] p-4 flex-col justify-between hidden md:flex">
           <div className="space-y-4">
             <div className="p-3 bg-[#790166] text-white rounded-2xl flex items-center gap-2.5">
-              <ShieldCheck className="w-6 h-6 text-ls-accent-text" />
+              <ShieldCheck className="w-6 h-6 text-[#FA1EFF]" />
               <div>
                 <span className="block text-xs font-bold font-rubik">LocalSpotter</span>
                 <span className="block text-[10px] text-white/80">{t("admin.panelTitle")}</span>
@@ -79,7 +80,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         </aside>
 
         <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 md:pb-12 w-full overflow-x-hidden">
-          {children}
+          {user?.mfaSetupRequired ? <AdminMfaSetup /> : children}
         </main>
       </div>
 

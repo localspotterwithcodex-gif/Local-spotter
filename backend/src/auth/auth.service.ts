@@ -7,6 +7,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,11 +21,15 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { decryptSecret, encryptSecret, parseEncryptionKey } from '../common/crypto/secret-box';
+import { generateRecoveryCodes, generateTotpSecret, hashRecoveryCode, otpauthUrl, verifyTotp } from './mfa/totp';
 
 export const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 export const MAX_VERIFICATION_ATTEMPTS = 5;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+/** Purpose of the short-lived token between password and TOTP step; never accepted as a session. */
+export const MFA_LOGIN_PURPOSE = 'mfa-login';
 /** Pre-computed hash so login timing does not reveal whether an account exists. */
 const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO5VnVTfKkfUlZqe1k3sFvD0jV6mQXZ3W';
 
@@ -195,7 +200,12 @@ export class AuthService {
       throw invalid();
     }
 
-    if (user.verificationAttempts >= MAX_VERIFICATION_ATTEMPTS) {
+    // Count the attempt before comparing, atomically, so parallel guesses can't exceed the limit.
+    const counted = await this.prisma.user.updateMany({
+      where: { id: user.id, verificationAttempts: { lt: MAX_VERIFICATION_ATTEMPTS } },
+      data: { verificationAttempts: { increment: 1 } },
+    });
+    if (counted.count === 0) {
       // Code burned: the user must request a new one.
       await this.prisma.user.update({ where: { id: user.id }, data: { verificationCode: null, verificationCodeExpiresAt: null } });
       throw new HttpException('Te veel pogingen. Vraag een nieuwe code aan.', HttpStatus.TOO_MANY_REQUESTS);
@@ -205,10 +215,7 @@ export class AuthService {
     const actual = Buffer.from(this.hashCode(user.id, code), 'hex');
     const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 
-    if (!matches) {
-      await this.prisma.user.update({ where: { id: user.id }, data: { verificationAttempts: { increment: 1 } } });
-      throw invalid();
-    }
+    if (!matches) throw invalid();
 
     const updated = await this.prisma.user.update({
       where: { id: user.id },
@@ -258,9 +265,82 @@ export class AuthService {
       throw new UnauthorizedException('Account is nog niet geverifieerd. Controleer je e-mail of telefoon voor de verificatiecode.');
     }
 
+    if (user.role === UserRole.SUPER_ADMIN && user.mfaEnabledAt) {
+      // Password was right; the session is only issued after the second factor (verifyMfaLogin).
+      return { mfaRequired: true as const, mfaToken: this.jwtService.sign({ sub: user.id, purpose: MFA_LOGIN_PURPOSE, sv: user.sessionVersion }, { expiresIn: '5m' }) };
+    }
+
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
+  }
+
+  // ==========================================
+  // ADMIN MFA (TOTP + one-time recovery codes)
+  // ==========================================
+
+  private mfaKey(): Buffer {
+    const key = parseEncryptionKey(this.config.get<string>('ENCRYPTION_KEY'));
+    if (!key) throw new ServiceUnavailableException('MFA is unavailable: ENCRYPTION_KEY is not configured');
+    return key;
+  }
+
+  /** Step 1 of enrolment: stores a new (not yet active) secret and returns it for the authenticator app. */
+  async startMfaEnrollment(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== UserRole.SUPER_ADMIN) throw new NotFoundException('Gebruiker niet gevonden');
+    if (user.mfaEnabledAt) throw new ConflictException('Tweestapsverificatie is al ingeschakeld');
+    const secret = generateTotpSecret();
+    await this.prisma.user.update({ where: { id: userId }, data: { mfaSecret: encryptSecret(secret, this.mfaKey()) } });
+    return { secret, otpauthUrl: otpauthUrl(secret, user.username ?? user.email ?? 'admin') };
+  }
+
+  /** Step 2: a valid code activates MFA, revokes older sessions and returns the recovery codes (shown once). */
+  async enableMfa(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== UserRole.SUPER_ADMIN || !user.mfaSecret) throw new BadRequestException('Start eerst het instellen van tweestapsverificatie');
+    if (user.mfaEnabledAt) throw new ConflictException('Tweestapsverificatie is al ingeschakeld');
+    if (!verifyTotp(decryptSecret(user.mfaSecret, this.mfaKey()), code)) throw new BadRequestException('Ongeldige code');
+    const { codes, hashes } = generateRecoveryCodes();
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { mfaEnabledAt: new Date(), mfaRecoveryCodes: hashes, sessionVersion: { increment: 1 } },
+      include: WITH_PROFILES,
+    });
+    await this.prisma.auditLog.create({ data: { actorUserId: userId, action: 'MFA_ENABLED', targetType: 'USER', targetId: userId } });
+    return { accessToken: this.generateJwt(updated, true), user: this.sanitizeUser(updated), recoveryCodes: codes };
+  }
+
+  /** Second login step: TOTP code or one recovery code (consumed atomically). */
+  async verifyMfaLogin(mfaToken: string, code: string) {
+    const invalid = () => new UnauthorizedException('Ongeldige of verlopen code');
+    let payload: { sub?: string; purpose?: string; sv?: number };
+    try {
+      payload = this.jwtService.verify(mfaToken);
+    } catch {
+      throw invalid();
+    }
+    if (payload.purpose !== MFA_LOGIN_PURPOSE || !payload.sub) throw invalid();
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, include: WITH_PROFILES });
+    if (!user || user.status !== UserStatus.ACTIVE || !user.mfaEnabledAt || !user.mfaSecret || (payload.sv ?? 0) !== user.sessionVersion) throw invalid();
+
+    const ok = /^\d{6}$/.test(code)
+      ? verifyTotp(decryptSecret(user.mfaSecret, this.mfaKey()), code)
+      : await this.useRecoveryCode(user.id, code);
+    if (!ok) throw invalid();
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    return { accessToken: this.generateJwt(user, true), user: this.sanitizeUser(user) };
+  }
+
+  private async useRecoveryCode(userId: string, code: string): Promise<boolean> {
+    const hash = hashRecoveryCode(code);
+    const removed = await this.prisma.$executeRaw`
+      UPDATE "users" SET "mfa_recovery_codes" = array_remove("mfa_recovery_codes", ${hash})
+      WHERE "id" = ${userId}::uuid AND ${hash} = ANY("mfa_recovery_codes")`;
+    if (removed !== 1) return false;
+    await this.prisma.auditLog.create({ data: { actorUserId: userId, action: 'MFA_RECOVERY_CODE_USED', targetType: 'USER', targetId: userId } });
+    return true;
   }
 
   /** Removes the provider link (idempotent). The user's own account is kept until they ask for full deletion. */
@@ -400,10 +480,16 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } }),
-      this.prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: new Date() } }),
-    ]);
+    await this.prisma.$transaction(async (tx) => {
+      // Claim the token atomically: a concurrent request with the same token gets count 0.
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: resetToken.id, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt: new Date() },
+      });
+      if (claimed.count !== 1) throw new BadRequestException('Ongeldige of verlopen reset token');
+      // New password ends every existing session.
+      await tx.user.update({ where: { id: resetToken.userId }, data: { passwordHash, sessionVersion: { increment: 1 } } });
+    });
 
     return { message: 'Wachtwoord succesvol bijgewerkt. Je kunt nu inloggen.' };
   }
@@ -415,9 +501,9 @@ export class AuthService {
     return 24 * 60 * 60 * 1000;
   }
 
-  private generateJwt(user: { id: string; role: UserRole }): string {
+  private generateJwt(user: { id: string; role: UserRole; sessionVersion: number }, mfa = false): string {
     // No PII in the token: it is also readable by the Next.js edge middleware.
-    return this.jwtService.sign({ sub: user.id, role: user.role });
+    return this.jwtService.sign({ sub: user.id, role: user.role, sv: user.sessionVersion, ...(mfa ? { mfa: true } : {}) });
   }
 
   private sanitizeUser(user: UserWithProfiles) {
