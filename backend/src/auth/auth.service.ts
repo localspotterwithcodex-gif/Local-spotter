@@ -20,6 +20,11 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { normalizeMobile } from '../common/phone';
+import { SMS_VERIFIER, SmsVerifier } from './sms/sms-verifier';
+
+/** Stored instead of a code hash when the SMS provider owns the code (Twilio Verify). */
+const SMS_PROVIDER_CODE = 'sms-provider';
 
 export const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 /** Minimum time between two verification codes (the sign-up screen shows the same countdown). */
@@ -55,12 +60,16 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     @Inject(MAIL_PROVIDER) private mail: MailProvider,
+    @Inject(SMS_VERIFIER) private sms: SmsVerifier,
   ) {}
 
   async register(dto: RegisterDto) {
     const email = dto.email?.toLowerCase().trim() || null;
-    const mobile = dto.phone?.trim() || null;
+    const mobile = dto.phone ? normalizeMobile(dto.phone) : null;
 
+    if (!email && dto.phone && !mobile) {
+      throw new BadRequestException({ code: 'PHONE_FORMAT', message: 'Voer je mobiele nummer in met landcode, bijv. +31 6 12345678 of +91 63741 74789' });
+    }
     if (!email && !mobile) {
       throw new BadRequestException('E-mailadres of telefoonnummer is verplicht');
     }
@@ -70,7 +79,11 @@ export class AuthService {
       throw new BadRequestException('Rol moet CONSUMER of BUSINESS_OWNER zijn');
     }
     const verificationChannel: 'EMAIL' | 'MOBILE' = email ? 'EMAIL' : 'MOBILE';
-    if (!this.mail.isConfigured() || !this.mail.supports(verificationChannel === 'EMAIL' ? 'EMAIL' : 'SMS')) {
+    const canDeliver =
+      verificationChannel === 'EMAIL'
+        ? this.mail.isConfigured() && this.mail.supports('EMAIL')
+        : this.sms.isConfigured() || (this.mail.isConfigured() && this.mail.supports('SMS'));
+    if (!canDeliver) {
       // Do not create accounts nobody can verify (e.g. mobile signup while no SMS provider exists).
       throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
     }
@@ -109,12 +122,12 @@ export class AuthService {
             displayName: dto.displayName,
             firstName: dto.firstName || null,
             lastName: dto.lastName || null,
-            phone: dto.phone || null,
+            phone: mobile ?? (dto.phone || null),
           },
         });
       } else {
         await tx.businessOwnerProfile.create({
-          data: { userId: newUser.id, displayName: dto.displayName, phone: dto.phone || null },
+          data: { userId: newUser.id, displayName: dto.displayName, phone: mobile ?? (dto.phone || null) },
         });
       }
       return newUser;
@@ -124,11 +137,20 @@ export class AuthService {
     return GENERIC_REGISTER_RESPONSE(identifier, verificationChannel);
   }
 
-  private async notifyExistingAccount(user: { id: string; status: UserStatus }, channel: 'EMAIL' | 'MOBILE', identifier: string) {
+  /** A new code (email or paid SMS) at most once per RESEND_COOLDOWN_MS per account. */
+  private codeRecentlySent(user: { verificationCodeExpiresAt: Date | null }): boolean {
+    // The current code was issued at (expiry - TTL).
+    const issuedAt = user.verificationCodeExpiresAt ? user.verificationCodeExpiresAt.getTime() - VERIFICATION_CODE_TTL_MS : 0;
+    return Date.now() - issuedAt < RESEND_COOLDOWN_MS;
+  }
+
+  private async notifyExistingAccount(user: { id: string; status: UserStatus; verificationCodeExpiresAt: Date | null }, channel: 'EMAIL' | 'MOBILE', identifier: string) {
     try {
       if (user.status === UserStatus.PENDING_VERIFICATION) {
+        if (this.codeRecentlySent(user)) return;
         await this.issueVerificationCode(user.id, channel, identifier);
-      } else {
+      } else if (channel === 'EMAIL' || !this.sms.isConfigured()) {
+        // Verify-style SMS providers only send codes, so an existing mobile account gets no free-text notice.
         await this.mail.send({
           to: identifier,
           channel: channel === 'EMAIL' ? 'EMAIL' : 'SMS',
@@ -152,6 +174,15 @@ export class AuthService {
    * configured provider. The code is never logged or returned.
    */
   private async issueVerificationCode(userId: string, channel: 'EMAIL' | 'MOBILE', to: string) {
+    if (channel === 'MOBILE' && this.sms.isConfigured()) {
+      // The SMS provider generates, sends and checks the code; we keep expiry, attempts and cooldown.
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verificationCode: SMS_PROVIDER_CODE, verificationCodeExpiresAt: new Date(Date.now() + VERIFICATION_CODE_TTL_MS), verificationAttempts: 0 },
+      });
+      await this.sms.start(to);
+      return;
+    }
     const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
 
     await this.prisma.user.update({
@@ -175,9 +206,8 @@ export class AuthService {
     const response = { message: 'Als het account bestaat en nog niet geverifieerd is, is er een nieuwe code verzonden.' };
     const user = await this.findByIdentifier(identifier);
     if (!user || user.status !== UserStatus.PENDING_VERIFICATION) return response;
-    // The current code was issued at (expiry - TTL); within the cooldown keep it and send nothing.
-    const issuedAt = user.verificationCodeExpiresAt ? user.verificationCodeExpiresAt.getTime() - VERIFICATION_CODE_TTL_MS : 0;
-    if (Date.now() - issuedAt < RESEND_COOLDOWN_MS) return response;
+    // Within the cooldown keep the current code and send nothing.
+    if (this.codeRecentlySent(user)) return response;
     const channel: 'EMAIL' | 'MOBILE' = user.email ? 'EMAIL' : 'MOBILE';
     const to = (user.email ?? user.mobile) as string;
     try {
@@ -206,9 +236,14 @@ export class AuthService {
       throw new HttpException('Te veel pogingen. Vraag een nieuwe code aan.', HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    const expected = Buffer.from(user.verificationCode, 'hex');
-    const actual = Buffer.from(this.hashCode(user.id, code), 'hex');
-    const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    let matches: boolean;
+    if (user.verificationCode === SMS_PROVIDER_CODE) {
+      matches = !!user.mobile && (await this.sms.check(user.mobile, code));
+    } else {
+      const expected = Buffer.from(user.verificationCode, 'hex');
+      const actual = Buffer.from(this.hashCode(user.id, code), 'hex');
+      matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    }
 
     if (!matches) {
       await this.prisma.user.update({ where: { id: user.id }, data: { verificationAttempts: { increment: 1 } } });
@@ -237,9 +272,11 @@ export class AuthService {
    */
   private async findByIdentifier(identifier: string): Promise<UserWithProfiles | null> {
     const value = identifier.trim();
+    // "06 1234 5678" and "+31612345678" are the same stored number.
+    const mobile = normalizeMobile(value) ?? value;
     return this.prisma.user.findFirst({
       where: {
-        OR: [{ email: { equals: value, mode: 'insensitive' } }, { mobile: value }, { username: { equals: value, mode: 'insensitive' } }],
+        OR: [{ email: { equals: value, mode: 'insensitive' } }, { mobile }, { username: { equals: value, mode: 'insensitive' } }],
       },
       include: WITH_PROFILES,
     });

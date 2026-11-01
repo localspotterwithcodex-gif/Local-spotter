@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SocialTokenVerifier } from './social/social-token.verifier';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
+import { SMS_VERIFIER, TwilioVerify, UnconfiguredSmsVerifier } from './sms/sms-verifier';
 
 @Module({
   imports: [
@@ -23,7 +24,22 @@ import { RateLimitGuard } from '../common/guards/rate-limit.guard';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, RateLimitGuard, SocialTokenVerifier],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    RateLimitGuard,
+    SocialTokenVerifier,
+    {
+      provide: SMS_VERIFIER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const accountSid = config.get<string>('TWILIO_ACCOUNT_SID')?.trim();
+        const authToken = config.get<string>('TWILIO_AUTH_TOKEN')?.trim();
+        const serviceSid = config.get<string>('TWILIO_VERIFY_SERVICE_SID')?.trim();
+        return accountSid && authToken && serviceSid ? new TwilioVerify({ accountSid, authToken, serviceSid }) : new UnconfiguredSmsVerifier();
+      },
+    },
+  ],
   controllers: [AuthController],
   exports: [AuthService, JwtStrategy, PassportModule],
 })

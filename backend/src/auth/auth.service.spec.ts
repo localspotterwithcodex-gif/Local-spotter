@@ -10,6 +10,7 @@ import { plainToInstance } from 'class-transformer';
 import { AuthService, MAX_VERIFICATION_ATTEMPTS, VERIFICATION_CODE_TTL_MS } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_PROVIDER } from '../mail/mail.provider';
+import { SMS_VERIFIER } from './sms/sms-verifier';
 import { RegisterDto } from './dto/register.dto';
 
 // bcrypt is a native module; a deterministic fake keeps this suite portable across OS/CI images.
@@ -30,6 +31,7 @@ describe('AuthService', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let prisma: any;
   const mail = { isConfigured: jest.fn(), supports: jest.fn(), send: jest.fn() };
+  const sms = { isConfigured: jest.fn(), start: jest.fn(), check: jest.fn() };
   const jwt = { sign: jest.fn(() => 'signed.jwt.token'), decode: jest.fn() };
 
   const baseUser = {
@@ -59,6 +61,8 @@ describe('AuthService', () => {
     mail.isConfigured.mockReturnValue(true);
     mail.supports.mockReturnValue(true);
     mail.send.mockResolvedValue(undefined);
+    sms.isConfigured.mockReturnValue(false);
+    sms.start.mockResolvedValue(undefined);
     prisma = {
       user: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       consumerProfile: { create: jest.fn() },
@@ -75,6 +79,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwt },
         { provide: ConfigService, useValue: { getOrThrow: () => SECRET, get: (k: string) => (k === 'CORS_ORIGIN' ? 'http://localhost:3000' : undefined) } },
         { provide: MAIL_PROVIDER, useValue: mail },
+        { provide: SMS_VERIFIER, useValue: sms },
       ],
     }).compile();
     service = moduleRef.get(AuthService);
@@ -127,6 +132,64 @@ describe('AuthService', () => {
       await expect(service.register({ ...dto, email: undefined, phone: '+31612345678' } as RegisterDto)).rejects.toThrow(HttpException);
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(mail.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mobile sign-up via the SMS provider', () => {
+    const dto = { phone: '06 12345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'Jan' } as RegisterDto;
+    const smsUser = (extra: Record<string, unknown> = {}) => ({
+      ...baseUser,
+      email: null,
+      mobile: '+31612345678',
+      status: UserStatus.PENDING_VERIFICATION,
+      verificationCode: 'sms-provider',
+      verificationCodeExpiresAt: new Date(Date.now() + 60_000),
+      ...extra,
+    });
+
+    beforeEach(() => {
+      sms.isConfigured.mockReturnValue(true);
+      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
+    });
+
+    it('stores the number in international format and lets the provider send the code', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'u9' });
+      const res = await service.register(dto);
+      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'MOBILE', identifier: '+31612345678' });
+      expect(prisma.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ mobile: '+31612345678', email: null }) });
+      expect(prisma.user.update.mock.calls[0][0].data).toMatchObject({ verificationCode: 'sms-provider', verificationAttempts: 0 });
+      expect(sms.start).toHaveBeenCalledWith('+31612345678');
+      expect(mail.send).not.toHaveBeenCalled();
+    });
+
+    it('asks for a country code instead of guessing one', async () => {
+      await expect(service.register({ ...dto, phone: '6374174789' } as RegisterDto)).rejects.toMatchObject({ response: { code: 'PHONE_FORMAT' } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(sms.start).not.toHaveBeenCalled();
+    });
+
+    it('activates only when the provider approves the code, and counts every attempt', async () => {
+      prisma.user.findFirst.mockResolvedValue(smsUser());
+      prisma.user.update.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
+      sms.check.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      await expect(service.verifyCode('06 12345678', '000000')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyCode('06 12345678', '123456')).resolves.toMatchObject({ accessToken: 'signed.jwt.token' });
+      expect(sms.check).toHaveBeenLastCalledWith('+31612345678', '123456');
+      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { verificationAttempts: { increment: 1 } } });
+    });
+
+    it('finds the account whether the number is typed as 06... or +31...', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await service.resendVerificationCode('06 1234 5678');
+      expect(prisma.user.findFirst.mock.calls[0][0].where.OR).toEqual(expect.arrayContaining([{ mobile: '+31612345678' }]));
+    });
+
+    it('sends no second paid SMS within 60 s, also when someone re-registers the same number', async () => {
+      prisma.user.findFirst.mockResolvedValue(smsUser({ verificationCodeExpiresAt: new Date(Date.now() + 10 * 60_000 - 5_000) }));
+      await service.register(dto);
+      await service.resendVerificationCode('+31612345678');
+      expect(sms.start).not.toHaveBeenCalled();
     });
   });
 

@@ -55,6 +55,13 @@ describe('RateLimitGuard', () => {
 describe('validateEnv', () => {
   const ok = { JWT_SECRET: 'a'.repeat(40), DATABASE_URL: 'postgresql://x' };
   it('accepts a strong secret', () => expect(validateEnv(ok)).toBe(ok));
+  it('requires the three Twilio Verify values together and in the right format', () => {
+    const sid = 'AC' + 'a'.repeat(32);
+    const service = 'VA' + 'b'.repeat(32);
+    expect(() => validateEnv({ ...ok, TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: 'tok', TWILIO_VERIFY_SERVICE_SID: service })).not.toThrow();
+    expect(() => validateEnv({ ...ok, TWILIO_ACCOUNT_SID: sid })).toThrow(/set together/);
+    expect(() => validateEnv({ ...ok, TWILIO_ACCOUNT_SID: 'MG123', TWILIO_AUTH_TOKEN: 'tok', TWILIO_VERIFY_SERVICE_SID: service })).toThrow(/TWILIO_ACCOUNT_SID/);
+  });
   it('rejects a missing, short or placeholder JWT_SECRET without echoing it', () => {
     expect(() => validateEnv({ DATABASE_URL: 'x' })).toThrow(/JWT_SECRET/);
     expect(() => validateEnv({ ...ok, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);

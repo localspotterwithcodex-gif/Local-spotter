@@ -51,6 +51,14 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     }
   }
 
+  // SMS codes (Twilio Verify): all three or none, so a typo doesn't silently disable mobile sign-up.
+  const twilio = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'].map((k) => (typeof config[k] === 'string' ? (config[k] as string).trim() : ''));
+  if (twilio.some(Boolean)) {
+    if (!twilio.every(Boolean)) errors.push('TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID must be set together');
+    if (twilio[0] && !/^AC[0-9a-f]{32}$/i.test(twilio[0])) errors.push('TWILIO_ACCOUNT_SID must look like AC followed by 32 hex characters');
+    if (twilio[2] && !/^VA[0-9a-f]{32}$/i.test(twilio[2])) errors.push('TWILIO_VERIFY_SERVICE_SID must look like VA followed by 32 hex characters');
+  }
+
   const encryptionKey = typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
   if (encryptionKey && Buffer.from(encryptionKey, 'base64').length !== 32) {
     errors.push('ENCRYPTION_KEY must be base64 of exactly 32 bytes (node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))")');

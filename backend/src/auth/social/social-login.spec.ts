@@ -25,7 +25,7 @@ function makeService() {
     $transaction: jest.fn(async (arg: any) => (typeof arg === 'function' ? arg(tx) : Promise.all(arg))),
   };
   const jwt: any = { sign: jest.fn(() => 'jwt') };
-  const svc = new AuthService(prisma, jwt, {} as any, {} as any);
+  const svc = new AuthService(prisma, jwt, {} as any, {} as any, {} as any);
   return { svc, prisma, tx };
 }
 

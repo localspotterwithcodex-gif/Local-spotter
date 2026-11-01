@@ -20,8 +20,8 @@ import { UserRole } from "@/types/user";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?[0-9()\-.\s]{7,15}$/;
 
-// Phone verification needs an SMS provider (no free production option yet), so
-// mobile sign-up is off unless the deployment explicitly enables it.
+// Mobile codes go through the SMS provider (Twilio Verify) configured on the API;
+// mobile sign-up stays off unless the deployment explicitly enables it.
 const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === "true";
 
 function isEmail(value: string) {
@@ -29,6 +29,11 @@ function isEmail(value: string) {
 }
 function isPhone(value: string) {
   return PHONE_REGEX.test(value.trim());
+}
+/** Same rule as the API: +country code, 00country code, or a Dutch 06 number. */
+function hasCountryCode(value: string) {
+  const v = value.trim().replace(/[\s().-]/g, "");
+  return /^(\+|00)[1-9]\d{7,14}$/.test(v) || /^06\d{8}$/.test(v);
 }
 
 type Step = "form" | "role" | "verify";
@@ -74,6 +79,10 @@ export default function SignupPage() {
     }
     if (!isEmail(identifier) && !SMS_ENABLED) {
       setError(t("authx.signup.mobileUnavailable"));
+      return;
+    }
+    if (!isEmail(identifier) && !hasCountryCode(identifier)) {
+      setError(t("authx.signup.phoneFormat"));
       return;
     }
     if (password !== confirmPassword) {
