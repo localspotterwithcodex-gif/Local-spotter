@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Mail, Lock, Store, ShoppingBag } from "lucide-react";
@@ -33,6 +33,8 @@ function isPhone(value: string) {
 
 type Step = "form" | "role" | "verify";
 
+const RESEND_COOLDOWN_S = 60;
+
 export default function SignupPage() {
   const router = useRouter();
   const { register, verifyCode, resendCode, pendingVerification } = useAuth();
@@ -50,6 +52,14 @@ export default function SignupPage() {
   const [step, setStep] = useState<Step>("form");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Seconds until "Resend code" unlocks (the API enforces the same 60 s).
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = window.setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [resendIn]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +101,7 @@ export default function SignupPage() {
         acceptTerms: true,
       });
       setStep("verify");
+      setResendIn(RESEND_COOLDOWN_S);
     } catch (err) {
       setError(errMsg(err, { conflict: "authx.signup.exists", unavailable: "authx.signup.emailUnavailable", unknown: "authx.signup.failed" }));
       setStep("form");
@@ -217,10 +228,14 @@ export default function SignupPage() {
               </Button>
               <button
                 type="button"
-                onClick={() => resendCode()}
-                className="w-full text-xs font-bold text-ls-accent-text hover:underline text-center"
+                disabled={resendIn > 0}
+                onClick={() => {
+                  setResendIn(RESEND_COOLDOWN_S);
+                  void resendCode();
+                }}
+                className="w-full text-xs font-bold text-ls-accent-text hover:underline text-center disabled:text-ls-muted disabled:no-underline disabled:cursor-not-allowed"
               >
-                {t("authx.signup.resend")}
+                {resendIn > 0 ? t("authx.signup.resendIn", { s: resendIn }) : t("authx.signup.resend")}
               </button>
             </form>
           )}

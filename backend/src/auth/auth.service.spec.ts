@@ -7,7 +7,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { AuthService, MAX_VERIFICATION_ATTEMPTS } from './auth.service';
+import { AuthService, MAX_VERIFICATION_ATTEMPTS, VERIFICATION_CODE_TTL_MS } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_PROVIDER } from '../mail/mail.provider';
 import { RegisterDto } from './dto/register.dto';
@@ -165,6 +165,30 @@ describe('AuthService', () => {
       await expect(service.verifyCode('x', '123456')).rejects.toThrow(BadRequestException);
       prisma.user.findFirst.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
       await expect(service.verifyCode('x', '123456')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('resendVerificationCode', () => {
+    const pendingIssued = (msAgo: number) => ({
+      ...baseUser,
+      status: UserStatus.PENDING_VERIFICATION,
+      verificationCode: 'x',
+      verificationCodeExpiresAt: new Date(Date.now() - msAgo + VERIFICATION_CODE_TTL_MS),
+    });
+
+    it('sends nothing within 60 s of the previous code, with the same generic answer', async () => {
+      prisma.user.findFirst.mockResolvedValue(pendingIssued(20_000));
+      const res = await service.resendVerificationCode('sophie@example.nl');
+      expect(res.message).toEqual(expect.any(String));
+      expect(mail.send).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('issues a new code once 60 s have passed', async () => {
+      prisma.user.findFirst.mockResolvedValue(pendingIssued(61_000));
+      prisma.user.update.mockResolvedValue({});
+      await service.resendVerificationCode('sophie@example.nl');
+      expect(mail.send).toHaveBeenCalledTimes(1);
     });
   });
 

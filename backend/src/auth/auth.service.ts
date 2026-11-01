@@ -22,6 +22,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 export const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
+/** Minimum time between two verification codes (the sign-up screen shows the same countdown). */
+export const RESEND_COOLDOWN_MS = 60 * 1000;
 export const MAX_VERIFICATION_ATTEMPTS = 5;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
@@ -173,6 +175,9 @@ export class AuthService {
     const response = { message: 'Als het account bestaat en nog niet geverifieerd is, is er een nieuwe code verzonden.' };
     const user = await this.findByIdentifier(identifier);
     if (!user || user.status !== UserStatus.PENDING_VERIFICATION) return response;
+    // The current code was issued at (expiry - TTL); within the cooldown keep it and send nothing.
+    const issuedAt = user.verificationCodeExpiresAt ? user.verificationCodeExpiresAt.getTime() - VERIFICATION_CODE_TTL_MS : 0;
+    if (Date.now() - issuedAt < RESEND_COOLDOWN_MS) return response;
     const channel: 'EMAIL' | 'MOBILE' = user.email ? 'EMAIL' : 'MOBILE';
     const to = (user.email ?? user.mobile) as string;
     try {
