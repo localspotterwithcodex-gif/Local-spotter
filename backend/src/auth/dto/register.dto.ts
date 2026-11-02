@@ -3,13 +3,10 @@ import { Equals, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, Min
 import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
-  @ApiPropertyOptional({
-    example: 'consument@example.nl',
-    description: 'User email address. Either email or phone must be provided.',
-  })
-  @IsOptional()
-  @IsEmail({}, { message: 'Geldig e-mailadres is verplicht' })
-  email?: string;
+  @ApiProperty({ example: 'consument@example.nl', description: 'E-mail address (its domain must accept mail)' })
+  @IsEmail({ require_tld: true, allow_ip_domain: false }, { message: 'Geldig e-mailadres is verplicht' })
+  @MaxLength(254)
+  email: string;
 
   @ApiProperty({ example: 'Password123!', description: 'Minimum 8 characters' })
   @IsString()
@@ -36,10 +33,11 @@ export class RegisterDto {
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional({ example: '06-12345678' })
-  @IsOptional()
+  @ApiProperty({ example: '+31 6 12345678', description: 'Mobile number with country code (Dutch 06... is accepted); verified by SMS code' })
   @IsString()
-  phone?: string;
+  @IsNotEmpty({ message: 'Mobiel nummer is verplicht' })
+  @MaxLength(32)
+  phone: string;
 
   @ApiProperty({ description: 'Must be true: acceptance of the terms and the privacy policy' })
   @Equals(true, { message: 'Je moet de voorwaarden en het privacybeleid accepteren' })

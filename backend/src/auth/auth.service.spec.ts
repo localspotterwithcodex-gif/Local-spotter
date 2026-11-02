@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, HttpException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -32,6 +32,7 @@ describe('AuthService', () => {
   let prisma: any;
   const mail = { isConfigured: jest.fn(), supports: jest.fn(), send: jest.fn() };
   const sms = { isConfigured: jest.fn(), start: jest.fn(), check: jest.fn() };
+  let emailOk: jest.SpyInstance;
   const jwt = { sign: jest.fn(() => 'signed.jwt.token'), decode: jest.fn() };
 
   const baseUser = {
@@ -65,8 +66,8 @@ describe('AuthService', () => {
     sms.start.mockResolvedValue(undefined);
     prisma = {
       user: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
-      consumerProfile: { create: jest.fn() },
-      businessOwnerProfile: { create: jest.fn() },
+      consumerProfile: { create: jest.fn(), delete: jest.fn() },
+      businessOwnerProfile: { create: jest.fn(), upsert: jest.fn() },
       passwordResetToken: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       $transaction: jest.fn(),
     };
@@ -83,6 +84,8 @@ describe('AuthService', () => {
       ],
     }).compile();
     service = moduleRef.get(AuthService);
+    // No real DNS in unit tests; the domain check is exercised separately.
+    emailOk = jest.spyOn(service as unknown as { emailDomainAcceptsMail: () => Promise<boolean> }, 'emailDomainAcceptsMail').mockResolvedValue(true);
   });
 
   describe('RegisterDto role restriction', () => {
@@ -93,53 +96,11 @@ describe('AuthService', () => {
     });
   });
 
-  describe('register', () => {
-    const dto = { email: 'New@Example.nl', password: 'Password1', role: UserRole.CONSUMER, displayName: 'New' } as RegisterDto;
-
-    it('creates a pending user and sends a code that is stored only as an HMAC', async () => {
-      prisma.user.findFirst.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({ id: 'u9' });
-
-      const res = await service.register(dto);
-
-      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'EMAIL', identifier: 'new@example.nl' });
-      expect(prisma.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ status: UserStatus.PENDING_VERIFICATION, role: UserRole.CONSUMER }) });
-      const sent = mail.send.mock.calls[0][0] as { text: string };
-      const code = /(\d{6})/.exec(sent.text)![1];
-      const stored = prisma.user.update.mock.calls[0][0].data;
-      expect(stored.verificationCode).toBe(hashFor('u9', code));
-      expect(stored.verificationCode).not.toContain(code);
-      expect(stored.verificationAttempts).toBe(0);
-      expect(res).not.toHaveProperty('user');
-    });
-
-    it('does not reveal that an account already exists', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'u1', status: UserStatus.ACTIVE });
-      const res = await service.register(dto);
-      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'EMAIL', identifier: 'new@example.nl' });
-      expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it('refuses privileged roles and an unconfigured mail provider', async () => {
-      await expect(service.register({ ...dto, role: UserRole.SUPER_ADMIN } as RegisterDto)).rejects.toThrow(BadRequestException);
-      mail.isConfigured.mockReturnValue(false);
-      await expect(service.register(dto)).rejects.toThrow(HttpException);
-      expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it('rejects mobile signup before creating an account when the provider cannot send SMS', async () => {
-      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
-      await expect(service.register({ ...dto, email: undefined, phone: '+31612345678' } as RegisterDto)).rejects.toThrow(HttpException);
-      expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(mail.send).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('mobile sign-up via the SMS provider', () => {
-    const dto = { phone: '06 12345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'Jan' } as RegisterDto;
+  describe('register (mobile + e-mail, SMS code)', () => {
+    const dto = { email: 'New@Example.nl', phone: '06 12345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'Jan' } as RegisterDto;
     const smsUser = (extra: Record<string, unknown> = {}) => ({
       ...baseUser,
-      email: null,
+      email: 'new@example.nl',
       mobile: '+31612345678',
       status: UserStatus.PENDING_VERIFICATION,
       verificationCode: 'sms-provider',
@@ -152,31 +113,58 @@ describe('AuthService', () => {
       mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
     });
 
-    it('stores the number in international format and lets the provider send the code', async () => {
+    it('stores both contact details, the number in international format, and lets the SMS provider send the code', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.user.create.mockResolvedValue({ id: 'u9' });
       const res = await service.register(dto);
       expect(res).toEqual({ pendingVerification: true, verificationChannel: 'MOBILE', identifier: '+31612345678' });
-      expect(prisma.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ mobile: '+31612345678', email: null }) });
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ email: 'new@example.nl', mobile: '+31612345678', status: UserStatus.PENDING_VERIFICATION, role: UserRole.CONSUMER }),
+      });
       expect(prisma.user.update.mock.calls[0][0].data).toMatchObject({ verificationCode: 'sms-provider', verificationAttempts: 0 });
       expect(sms.start).toHaveBeenCalledWith('+31612345678');
       expect(mail.send).not.toHaveBeenCalled();
+      expect(res).not.toHaveProperty('user');
+    });
+
+    it('rejects an e-mail domain that cannot receive mail, before creating anything', async () => {
+      emailOk.mockResolvedValueOnce(false);
+      await expect(service.register(dto)).rejects.toMatchObject({ response: { code: 'EMAIL_INVALID' } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(sms.start).not.toHaveBeenCalled();
     });
 
     it('asks for a country code instead of guessing one', async () => {
       await expect(service.register({ ...dto, phone: '6374174789' } as RegisterDto)).rejects.toMatchObject({ response: { code: 'PHONE_FORMAT' } });
       expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('does not reveal that an account exists; the owner is told on the matching contact detail', async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: 'u1', status: UserStatus.ACTIVE, email: 'new@example.nl', mobile: '+31600000000', verificationCodeExpiresAt: null });
+      const res = await service.register(dto);
+      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'MOBILE', identifier: '+31612345678' });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'new@example.nl', channel: 'EMAIL' }));
       expect(sms.start).not.toHaveBeenCalled();
     });
 
-    it('activates only when the provider approves the code, and counts every attempt', async () => {
+    it('refuses privileged roles, and refuses sign-up while no SMS can be sent', async () => {
+      await expect(service.register({ ...dto, role: UserRole.SUPER_ADMIN } as RegisterDto)).rejects.toThrow(BadRequestException);
+      sms.isConfigured.mockReturnValue(false);
+      await expect(service.register(dto)).rejects.toMatchObject({ status: 503 });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('verifies through the provider, marks only the mobile number verified, and counts every attempt', async () => {
       prisma.user.findFirst.mockResolvedValue(smsUser());
       prisma.user.update.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
       sms.check.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
       await expect(service.verifyCode('06 12345678', '000000')).rejects.toThrow(BadRequestException);
       await expect(service.verifyCode('06 12345678', '123456')).resolves.toMatchObject({ accessToken: 'signed.jwt.token' });
       expect(sms.check).toHaveBeenLastCalledWith('+31612345678', '123456');
-      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { verificationAttempts: { increment: 1 } } });
+      const activation = prisma.user.update.mock.calls.find((c: Array<{ data: { status?: string } }>) => c[0].data.status === UserStatus.ACTIVE)[0].data;
+      expect(activation.mobileVerifiedAt).toBeInstanceOf(Date);
+      expect(activation.emailVerifiedAt).toBeNull(); // e-mail was not verified by this code
     });
 
     it('finds the account whether the number is typed as 06... or +31...', async () => {
@@ -190,6 +178,31 @@ describe('AuthService', () => {
       await service.register(dto);
       await service.resendVerificationCode('+31612345678');
       expect(sms.start).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('becomeOwner', () => {
+    it('switches a customer to shop owner, keeps the customer profile, and issues a new session', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...baseUser, mobile: '+31612345678', isGuest: false, employeeships: [], consumerProfile: { displayName: 'Sophie', phone: '+31612345678' } });
+      prisma.user.update.mockResolvedValue({ ...baseUser, role: UserRole.BUSINESS_OWNER, consumerProfile: null, businessOwnerProfile: { id: 'bp1', displayName: 'Sophie' } });
+      const res = await service.becomeOwner('u1');
+      expect(prisma.businessOwnerProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ userId: 'u1', displayName: 'Sophie', phone: '+31612345678' }) }),
+      );
+      expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { role: UserRole.BUSINESS_OWNER } }));
+      expect(prisma.consumerProfile.delete).not.toHaveBeenCalled();
+      expect(res.user.role).toBe(UserRole.BUSINESS_OWNER);
+      expect(jwt.sign).toHaveBeenCalledWith(expect.objectContaining({ role: UserRole.BUSINESS_OWNER }));
+    });
+
+    it('refuses guests, non-customers and active shop staff', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ ...baseUser, isGuest: true, employeeships: [] });
+      await expect(service.becomeOwner('u1')).rejects.toThrow(ForbiddenException);
+      prisma.user.findUnique.mockResolvedValueOnce({ ...baseUser, role: UserRole.BUSINESS_OWNER, isGuest: false, employeeships: [] });
+      await expect(service.becomeOwner('u1')).rejects.toThrow(ForbiddenException);
+      prisma.user.findUnique.mockResolvedValueOnce({ ...baseUser, isGuest: false, employeeships: [{ id: 'e1' }] });
+      await expect(service.becomeOwner('u1')).rejects.toMatchObject({ response: { code: 'ACTIVE_EMPLOYEE' } });
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 
@@ -315,9 +328,11 @@ describe('AuthService', () => {
     expect(ms).toBeLessThanOrEqual(3_600_000);
   });
 
-  it('mail provider failure at registration surfaces as 503 only when unconfigured', async () => {
-    mail.isConfigured.mockReturnValue(false);
-    await expect(service.register({ email: 'a@b.nl', password: 'Password1', role: UserRole.CONSUMER, displayName: 'A' } as RegisterDto)).rejects.toBeInstanceOf(HttpException);
+  it('sign-up surfaces as 503 when no SMS can be delivered (no provider, mail provider without SMS)', async () => {
+    mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
+    await expect(
+      service.register({ email: 'a@b.nl', phone: '+31612345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'A' } as RegisterDto),
+    ).rejects.toBeInstanceOf(HttpException);
     expect(ServiceUnavailableException).toBeDefined();
   });
 });

@@ -66,6 +66,8 @@ interface AuthContextType {
   openGuestLink: (token: string) => Promise<User>;
   /** Re-reads the signed-in user (e.g. after a guest created a real account). */
   reloadUser: () => Promise<User | null>;
+  /** Customer account becomes a shop-owner account (the API issues a new session). */
+  becomeOwner: () => Promise<User>;
   verifyCode: (code: string) => Promise<User>;
   resendCode: () => Promise<void>;
   logout: () => void;
@@ -140,6 +142,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return mapped;
   }, []);
 
+  const becomeOwner = useCallback(async () => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/become-owner");
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
   const reloadUser = useCallback(async () => {
     try {
       const me = await apiClient.get<BackendUser>("/auth/me");
@@ -203,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startGuest,
         openGuestLink,
         reloadUser,
+        becomeOwner,
         verifyCode,
         resendCode,
         logout,

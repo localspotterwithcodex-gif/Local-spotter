@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { User, MapPin, ShoppingBag, Heart, Star, Languages, Bell, FileText, LifeBuoy, ChevronRight, type LucideIcon, Users, ShieldCheck, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ApiError } from "@/lib/api/client";
+import { User, MapPin, ShoppingBag, Heart, Star, Languages, Bell, FileText, LifeBuoy, ChevronRight, type LucideIcon, Users, ShieldCheck, Trash2, Store } from "lucide-react";
 import { ConsumerLayout } from "@/layouts/ConsumerLayout";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -19,7 +21,25 @@ interface Row {
 
 /** Account settings: the card list from the Figma Settings frame (every row is a working link or control). */
 export default function AccountPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, becomeOwner } = useAuth();
+  const router = useRouter();
+  const [ownerBusy, setOwnerBusy] = useState(false);
+  const [ownerError, setOwnerError] = useState("");
+
+  const handleBecomeOwner = async () => {
+    if (!window.confirm(t("account.owner.confirm"))) return;
+    setOwnerError("");
+    setOwnerBusy(true);
+    try {
+      await becomeOwner();
+      // The existing shop onboarding collects the shop details.
+      router.push("/onboarding/business");
+    } catch (err) {
+      const code = err instanceof ApiError ? (err.body as { code?: string } | null)?.code : undefined;
+      setOwnerError(code === "ACTIVE_EMPLOYEE" ? t("account.owner.staff") : t("authx.signup.failed"));
+      setOwnerBusy(false);
+    }
+  };
   const { t } = useLocale();
 
   // Guests only have orders (and can turn the guest account into a real one).
@@ -61,6 +81,27 @@ export default function AccountPage() {
         <GuestClaimCard />
 
         {!user?.isGuest && <ReviewReminders />}
+
+        {!user?.isGuest && (
+          <section className="bg-white rounded-xl shadow-sm p-4 flex items-start gap-4">
+            <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-[#121F3E] text-white">
+              <Store className="w-5 h-5" aria-hidden="true" />
+            </span>
+            <div className="flex-1 min-w-0 space-y-2">
+              <h2 className="text-sm font-bold text-[#121F3E]">{t("account.owner.title")}</h2>
+              <p className="text-xs text-[#555555]">{t("account.owner.body")}</p>
+              {ownerError && <p role="alert" className="text-xs font-bold text-[#E54666]">{ownerError}</p>}
+              <button
+                type="button"
+                onClick={() => void handleBecomeOwner()}
+                disabled={ownerBusy}
+                className="h-10 px-4 rounded-lg bg-[#FA1EFF] text-white text-xs font-bold hover:bg-[#E000EC] disabled:opacity-50"
+              >
+                {t("account.owner.cta")}
+              </button>
+            </div>
+          </section>
+        )}
 
         <ul className="space-y-3">
           {rows.map((r) => {

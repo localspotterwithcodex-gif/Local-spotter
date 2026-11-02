@@ -15,6 +15,9 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
 
 @ApiTags('Authentication')
@@ -106,6 +109,18 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Authenticated user profile retrieved.' })
   async getMe(@CurrentUser('id') userId: string) {
     return this.authService.getMe(userId);
+  }
+
+  @Post('become-owner')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Customer account becomes a shop-owner account (re-issues the session)' })
+  async becomeOwner(@CurrentUser('id') userId: string, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, user } = await this.authService.becomeOwner(userId);
+    this.startSession(res, accessToken);
+    return { user };
   }
 
   @Post('forgot-password')

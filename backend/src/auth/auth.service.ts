@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Inject,
@@ -14,6 +15,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { Resolver } from 'dns/promises';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_PROVIDER, MailProvider } from '../mail/mail.provider';
 import { RegisterDto } from './dto/register.dto';
@@ -64,39 +66,37 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const email = dto.email?.toLowerCase().trim() || null;
-    const mobile = dto.phone ? normalizeMobile(dto.phone) : null;
-
-    if (!email && dto.phone && !mobile) {
+    // Sign-up needs both: the mobile number is verified with an SMS code, the e-mail address must exist.
+    const email = dto.email.toLowerCase().trim();
+    const mobile = normalizeMobile(dto.phone);
+    if (!mobile) {
       throw new BadRequestException({ code: 'PHONE_FORMAT', message: 'Voer je mobiele nummer in met landcode, bijv. +31 6 12345678 of +91 63741 74789' });
     }
-    if (!email && !mobile) {
-      throw new BadRequestException('E-mailadres of telefoonnummer is verplicht');
+    if (!(await this.emailDomainAcceptsMail(email))) {
+      throw new BadRequestException({ code: 'EMAIL_INVALID', message: 'Dit e-mailadres kan geen e-mail ontvangen. Controleer het adres.' });
     }
     if (dto.role !== UserRole.CONSUMER && dto.role !== UserRole.BUSINESS_OWNER) {
       // Defence in depth: the DTO already restricts this; privileged roles are
       // never created through public registration.
       throw new BadRequestException('Rol moet CONSUMER of BUSINESS_OWNER zijn');
     }
-    const verificationChannel: 'EMAIL' | 'MOBILE' = email ? 'EMAIL' : 'MOBILE';
-    const canDeliver =
-      verificationChannel === 'EMAIL'
-        ? this.mail.isConfigured() && this.mail.supports('EMAIL')
-        : this.sms.isConfigured() || (this.mail.isConfigured() && this.mail.supports('SMS'));
+    const verificationChannel = 'MOBILE' as const;
+    const canDeliver = this.sms.isConfigured() || (this.mail.isConfigured() && this.mail.supports('SMS'));
     if (!canDeliver) {
       // Do not create accounts nobody can verify (e.g. mobile signup while no SMS provider exists).
       throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
     }
-    const identifier = (email || mobile) as string;
+    const identifier = mobile;
 
     const existingUser = await this.prisma.user.findFirst({
-      where: { OR: [...(email ? [{ email }] : []), ...(mobile ? [{ mobile }] : [])] },
+      where: { OR: [{ email: { equals: email, mode: 'insensitive' } }, { mobile }] },
     });
 
     if (existingUser) {
       // Same response as a fresh registration (no account enumeration). The
-      // real owner is told by message that an account already exists.
-      await this.notifyExistingAccount(existingUser, verificationChannel, identifier);
+      // real owner is told on the contact detail that matched.
+      if (existingUser.email?.toLowerCase() === email) await this.notifyExistingAccount(existingUser, 'EMAIL', email);
+      else await this.notifyExistingAccount(existingUser, 'MOBILE', mobile);
       return GENERIC_REGISTER_RESPONSE(identifier, verificationChannel);
     }
 
@@ -122,12 +122,12 @@ export class AuthService {
             displayName: dto.displayName,
             firstName: dto.firstName || null,
             lastName: dto.lastName || null,
-            phone: mobile ?? (dto.phone || null),
+            phone: mobile,
           },
         });
       } else {
         await tx.businessOwnerProfile.create({
-          data: { userId: newUser.id, displayName: dto.displayName, phone: mobile ?? (dto.phone || null) },
+          data: { userId: newUser.id, displayName: dto.displayName, phone: mobile },
         });
       }
       return newUser;
@@ -135,6 +135,28 @@ export class AuthService {
 
     await this.issueVerificationCode(user.id, verificationChannel, identifier);
     return GENERIC_REGISTER_RESPONSE(identifier, verificationChannel);
+  }
+
+  /**
+   * True when the domain has mail servers (MX, or an A record as the RFC 5321 fallback). DNS errors
+   * other than "does not exist" let the address through, so a resolver hiccup never blocks sign-ups.
+   */
+  protected async emailDomainAcceptsMail(email: string): Promise<boolean> {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    const resolver = new Resolver({ timeout: 3000, tries: 1 });
+    const missing = (err: unknown) => ['ENOTFOUND', 'ENODATA', 'ENONAME'].includes((err as { code?: string }).code ?? '');
+    try {
+      const mx = await resolver.resolveMx(domain);
+      return mx.some((r) => r.exchange && r.exchange !== '.'); // "." = null MX: domain refuses mail
+    } catch (err) {
+      if (!missing(err)) return true;
+    }
+    try {
+      return (await resolver.resolve4(domain)).length > 0;
+    } catch (err) {
+      return !missing(err);
+    }
   }
 
   /** A new code (email or paid SMS) at most once per RESEND_COOLDOWN_MS per account. */
@@ -208,8 +230,9 @@ export class AuthService {
     if (!user || user.status !== UserStatus.PENDING_VERIFICATION) return response;
     // Within the cooldown keep the current code and send nothing.
     if (this.codeRecentlySent(user)) return response;
-    const channel: 'EMAIL' | 'MOBILE' = user.email ? 'EMAIL' : 'MOBILE';
-    const to = (user.email ?? user.mobile) as string;
+    // Accounts with a mobile number verify it; older e-mail-only accounts keep the e-mail code.
+    const channel: 'EMAIL' | 'MOBILE' = user.mobile ? 'MOBILE' : 'EMAIL';
+    const to = (user.mobile ?? user.email) as string;
     try {
       await this.issueVerificationCode(user.id, channel, to);
     } catch (err) {
@@ -257,7 +280,8 @@ export class AuthService {
         verificationCode: null,
         verificationCodeExpiresAt: null,
         verificationAttempts: 0,
-        emailVerifiedAt: user.email ? new Date() : user.emailVerifiedAt,
+        // Only the channel the code went to counts as verified.
+        emailVerifiedAt: user.mobile ? user.emailVerifiedAt : new Date(),
         mobileVerifiedAt: user.mobile ? new Date() : user.mobileVerifiedAt,
       },
       include: WITH_PROFILES,
@@ -384,6 +408,34 @@ export class AuthService {
 
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
+  }
+
+  /**
+   * A customer turns their account into a shop-owner account (the shop details follow in onboarding).
+   * The customer profile and its order history stay in the database. Staff of another shop can't
+   * switch, because their staff access belongs to the customer role.
+   */
+  async becomeOwner(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { consumerProfile: true, employeeships: { where: { status: 'ACTIVE' }, select: { id: true } } },
+    });
+    if (!user || user.role !== UserRole.CONSUMER || user.isGuest) {
+      throw new ForbiddenException('Alleen klantaccounts kunnen winkeleigenaar worden');
+    }
+    if (user.employeeships.length > 0) {
+      throw new ConflictException({ code: 'ACTIVE_EMPLOYEE', message: 'Je werkt voor een winkel. Stop daar eerst als medewerker of gebruik een ander account.' });
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.businessOwnerProfile.upsert({
+        where: { userId },
+        create: { userId, displayName: user.consumerProfile?.displayName ?? 'Winkeleigenaar', phone: user.consumerProfile?.phone ?? user.mobile },
+        update: {},
+      });
+      return tx.user.update({ where: { id: userId }, data: { role: UserRole.BUSINESS_OWNER }, include: WITH_PROFILES });
+    });
+    // New role = new session (the role is in the token the frontend routes on).
+    return { accessToken: this.generateJwt(updated), user: this.sanitizeUser(updated) };
   }
 
   async getMe(userId: string) {

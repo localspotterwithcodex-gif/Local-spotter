@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Store, ShoppingBag } from "lucide-react";
+import { User, Mail, Lock, Phone } from "lucide-react";
 import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -12,34 +12,26 @@ import { routeForRole } from "@/lib/auth/redirect";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useLocale } from "@/i18n/LocaleContext";
 import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
-import { UserRole } from "@/types/user";
+import { ApiError } from "@/lib/api/client";
 
-// Accepts either a valid email OR a phone number (loose E.164 / NL-style),
-// unlike the previous native type="email" input which rejected phone
-// numbers outright. See PROMPT.md item 2.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9()\-.\s]{7,15}$/;
+// Format check only; the API also checks that the domain can receive mail (e.g. rejects "gmial.con").
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[a-zA-Z]{2,}$/;
 
-// Mobile codes go through the SMS provider (Twilio Verify) configured on the API;
-// mobile sign-up stays off unless the deployment explicitly enables it.
-const SMS_ENABLED = process.env.NEXT_PUBLIC_SMS_ENABLED === "true";
-
-function isEmail(value: string) {
-  return EMAIL_REGEX.test(value.trim());
-}
-function isPhone(value: string) {
-  return PHONE_REGEX.test(value.trim());
-}
 /** Same rule as the API: +country code, 00country code, or a Dutch 06 number. */
 function hasCountryCode(value: string) {
   const v = value.trim().replace(/[\s().-]/g, "");
   return /^(\+|00)[1-9]\d{7,14}$/.test(v) || /^06\d{8}$/.test(v);
 }
 
-type Step = "form" | "role" | "verify";
+type Step = "form" | "verify";
 
 const RESEND_COOLDOWN_S = 60;
 
+/**
+ * Everyone signs up as a customer: name, mobile number (verified with an SMS code),
+ * e-mail address and password. Customers can turn their account into a shop-owner
+ * account later from their profile ("Become a shop owner").
+ */
 export default function SignupPage() {
   const router = useRouter();
   const { register, verifyCode, resendCode, pendingVerification } = useAuth();
@@ -47,16 +39,19 @@ export default function SignupPage() {
   const errMsg = useErrorMessage();
 
   const [name, setName] = useState("");
-  const [identifier, setIdentifier] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [code, setCode] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [step, setStep] = useState<Step>("form");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Field-level messages, shown under the field itself.
+  const [mobileError, setMobileError] = useState("");
+  const [emailError, setEmailError] = useState("");
   // Seconds until "Resend code" unlocks (the API enforces the same 60 s).
   const [resendIn, setResendIn] = useState(0);
 
@@ -66,23 +61,25 @@ export default function SignupPage() {
     return () => window.clearTimeout(id);
   }, [resendIn]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!name || !identifier || !password) {
+    setMobileError("");
+    setEmailError("");
+    if (!name.trim() || !mobile.trim() || !email.trim() || !password) {
       setError(t("authx.signup.fillRequired"));
       return;
     }
-    if (!isEmail(identifier) && !isPhone(identifier)) {
-      setError(t("authx.signup.invalidContact"));
+    if (!hasCountryCode(mobile)) {
+      setMobileError(t("authx.signup.phoneFormat"));
       return;
     }
-    if (!isEmail(identifier) && !SMS_ENABLED) {
-      setError(t("authx.signup.mobileUnavailable"));
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setEmailError(t("authx.signup.emailInvalid"));
       return;
     }
-    if (!isEmail(identifier) && !hasCountryCode(identifier)) {
-      setError(t("authx.signup.phoneFormat"));
+    if (password.length < 8) {
+      setError(t("authx.signup.passwordShort"));
       return;
     }
     if (password !== confirmPassword) {
@@ -93,27 +90,17 @@ export default function SignupPage() {
       setError(t("authx.signup.acceptRequired"));
       return;
     }
-    setStep("role");
-  };
 
-  const handleRoleSelect = async (role: UserRole) => {
-    setSelectedRole(role);
     setIsSubmitting(true);
-    setError("");
     try {
-      await register({
-        email: isEmail(identifier) ? identifier : undefined,
-        phone: isPhone(identifier) ? identifier : undefined,
-        password,
-        role,
-        displayName: name,
-        acceptTerms: true,
-      });
+      await register({ email: email.trim(), phone: mobile.trim(), password, role: "CONSUMER", displayName: name.trim(), acceptTerms: true });
       setStep("verify");
       setResendIn(RESEND_COOLDOWN_S);
     } catch (err) {
-      setError(errMsg(err, { conflict: "authx.signup.exists", unavailable: "authx.signup.emailUnavailable", unknown: "authx.signup.failed" }));
-      setStep("form");
+      const errCode = err instanceof ApiError ? (err.body as { code?: string } | null)?.code : undefined;
+      if (errCode === "EMAIL_INVALID") setEmailError(t("authx.signup.emailInvalid"));
+      else if (errCode === "PHONE_FORMAT") setMobileError(t("authx.signup.phoneFormat"));
+      else setError(errMsg(err, { conflict: "authx.signup.exists", unavailable: "authx.signup.smsUnavailable", unknown: "authx.signup.failed" }));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,11 +116,7 @@ export default function SignupPage() {
     setIsSubmitting(true);
     try {
       await verifyCode(code);
-      if (selectedRole === "BUSINESS_OWNER") {
-        router.push("/onboarding/business");
-      } else {
-        router.push("/products");
-      }
+      router.push("/products");
     } catch (err) {
       setError(errMsg(err, { unauthorized: "authx.signup.invalidCode", validation: "authx.signup.invalidCode", notFound: "authx.signup.invalidCode" }));
     } finally {
@@ -153,34 +136,51 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <div className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">
+            <div role="alert" className="p-3 bg-[#F2D9DE] text-[#E54666] text-xs font-bold rounded-xl text-center">
               {error}
             </div>
           )}
 
           {step === "form" && (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <Input
                 label={t("auth.fullName")}
                 placeholder={t("authx.signup.namePlaceholder")}
+                autoComplete="name"
                 icon={<User className="w-4 h-4" />}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
 
               <Input
-                label={t("auth.emailOrMobile")}
-                type="text"
+                label={t("authx.signup.mobileLabel")}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="+31 6 12345678"
+                icon={<Phone className="w-4 h-4" />}
+                value={mobile}
+                error={mobileError}
+                helperText={t("authx.signup.mobileHelp")}
+                onChange={(e) => setMobile(e.target.value)}
+              />
+
+              <Input
+                label={t("authx.signup.emailLabel")}
+                type="email"
                 inputMode="email"
-                placeholder={t("authx.signup.contactPlaceholder")}
+                autoComplete="email"
+                placeholder={t("authx.signup.emailPlaceholder")}
                 icon={<Mail className="w-4 h-4" />}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                value={email}
+                error={emailError}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <Input
                 label={t("auth.password")}
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 icon={<Lock className="w-4 h-4" />}
                 value={password}
@@ -190,6 +190,7 @@ export default function SignupPage() {
               <Input
                 label={t("auth.confirmPassword")}
                 type="password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 icon={<Lock className="w-4 h-4" />}
                 value={confirmPassword}
@@ -211,7 +212,7 @@ export default function SignupPage() {
                 </span>
               </label>
 
-              <Button type="submit" variant="primary" className={authButtonClass}>
+              <Button type="submit" variant="primary" className={authButtonClass} isLoading={isSubmitting}>
                 {t("auth.signUp")}
               </Button>
             </form>
@@ -228,6 +229,7 @@ export default function SignupPage() {
                 label={t("authx.signup.codeLabel")}
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -266,58 +268,6 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-
-      {/* ACCOUNT TYPE MODAL */}
-      {step === "role" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-xl text-center space-y-5">
-            <h2 className="text-lg font-bold font-rubik text-[#111111]">{t("auth.chooseAccountType")}</h2>
-            <p className="text-xs text-ls-muted">{t("auth.howUse")}</p>
-
-            <div className="space-y-3">
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => handleRoleSelect("CONSUMER")}
-                className="w-full p-4 rounded-2xl border-2 border-[#FAE2F0] bg-[#F9F9F9] hover:bg-[#FAE2F0] hover:border-[#FA1EFF] text-left transition-all group disabled:opacity-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FA1EFF] text-white flex items-center justify-center">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-bold text-[#111111] group-hover:text-ls-accent-text">
-                      {t("auth.iAmConsumer")}
-                    </span>
-                    <span className="block text-[11px] text-ls-muted">
-                      {t("auth.consumerDesc")}
-                    </span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => handleRoleSelect("BUSINESS_OWNER")}
-                className="w-full p-4 rounded-2xl border-2 border-[#121F3E]/20 bg-[#F9F9F9] hover:bg-[#121F3E]/10 hover:border-[#121F3E] text-left transition-all group disabled:opacity-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#121F3E] text-white flex items-center justify-center">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-bold text-[#111111]">{t("auth.iAmBusinessOwner")}</span>
-                    <span className="block text-[11px] text-ls-muted">
-                      {t("auth.businessOwnerDesc")}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </AuthShell>
   );
 }
