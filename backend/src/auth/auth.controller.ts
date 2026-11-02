@@ -16,6 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AllowGuest } from '../common/decorators/allow-guest.decorator';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { SignupPhoneDto, SignupPhoneVerifyDto } from './dto/signup-phone.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
@@ -41,10 +42,30 @@ export class AuthController {
   @Post('register')
   @UseGuards(RateLimitGuard)
   @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000 })
-  @ApiOperation({ summary: 'Register a new Consumer or Business Owner account' })
+  @ApiOperation({ summary: 'Create the account (needs a verified phone token; sets HttpOnly session cookie)' })
   @ApiResponse({ status: 201, description: 'Account successfully created.', type: AuthResponseDto })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, user } = await this.authService.register(dto);
+    this.startSession(res, accessToken);
+    return { user };
+  }
+
+  @Post('signup/phone/send')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000 }) // per IP; per-number limits live in the service
+  @ApiOperation({ summary: 'Sign-up: send an SMS code to a new mobile number' })
+  async sendSignupCode(@Body() dto: SignupPhoneDto) {
+    return this.authService.sendSignupCode(dto.phone);
+  }
+
+  @Post('signup/phone/verify')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 20, windowMs: 15 * 60 * 1000 })
+  @ApiOperation({ summary: 'Sign-up: check the SMS code; returns a one-time token for /auth/register' })
+  async verifySignupCode(@Body() dto: SignupPhoneVerifyDto) {
+    return this.authService.verifySignupCode(dto.phone, dto.code);
   }
 
   @Post('login')

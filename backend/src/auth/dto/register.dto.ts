@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Equals, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Equals, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
@@ -12,7 +12,17 @@ export class RegisterDto {
   @IsString()
   @MinLength(8, { message: 'Wachtwoord moet minimaal 8 tekens lang zijn' })
   @MaxLength(72, { message: 'Wachtwoord mag maximaal 72 tekens lang zijn' })
+  @Matches(/[A-Z]/, { message: 'Wachtwoord moet een hoofdletter bevatten' })
+  @Matches(/[a-z]/, { message: 'Wachtwoord moet een kleine letter bevatten' })
+  @Matches(/\d/, { message: 'Wachtwoord moet een cijfer bevatten' })
+  @Matches(/[^A-Za-z0-9]/, { message: 'Wachtwoord moet een speciaal teken bevatten' })
   password: string;
+
+  @ApiProperty({ description: 'One-time token from POST /auth/signup/phone/verify' })
+  @IsString()
+  @IsNotEmpty({ message: 'Bevestig eerst je mobiele nummer' })
+  @MaxLength(100)
+  phoneVerificationToken: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.CONSUMER, description: 'CONSUMER or BUSINESS_OWNER' })
   @IsIn([UserRole.CONSUMER, UserRole.BUSINESS_OWNER], { message: 'Rol moet CONSUMER of BUSINESS_OWNER zijn' })

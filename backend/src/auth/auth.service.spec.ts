@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException, ForbiddenException, HttpException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { UserRole, UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { validate } from 'class-validator';
@@ -96,88 +96,214 @@ describe('AuthService', () => {
     });
   });
 
-  describe('register (mobile + e-mail, SMS code)', () => {
-    const dto = { email: 'New@Example.nl', phone: '06 12345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'Jan' } as RegisterDto;
-    const smsUser = (extra: Record<string, unknown> = {}) => ({
-      ...baseUser,
-      email: 'new@example.nl',
-      mobile: '+31612345678',
-      status: UserStatus.PENDING_VERIFICATION,
-      verificationCode: 'sms-provider',
-      verificationCodeExpiresAt: new Date(Date.now() + 60_000),
-      ...extra,
-    });
+  describe('sign-up: phone OTP first, then the account', () => {
+    // In-memory stand-ins for the two tables sign-up touches, honouring the conditional where-clauses
+    // the service relies on (so cooldown, replay and race behaviour is really exercised).
+    type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    let verifications: Row[];
+    let users: Row[];
+    const fits = (row: Row, where: Row): boolean =>
+      Object.entries(where).every(([k, cond]) => {
+        const v = row[k];
+        if (cond && typeof cond === 'object' && !(cond instanceof Date)) {
+          if ('not' in cond) return v !== cond.not;
+          if ('gt' in cond) return v > cond.gt;
+          if ('lt' in cond) return v < cond.lt;
+          if ('lte' in cond) return v <= cond.lte;
+          if ('equals' in cond) return String(v ?? '').toLowerCase() === String(cond.equals).toLowerCase();
+        }
+        return v === cond;
+      });
+    const apply = (row: Row, data: Row) => {
+      for (const [k, v] of Object.entries(data)) row[k] = v && typeof v === 'object' && 'increment' in v ? row[k] + v.increment : v;
+    };
+    const p2002 = () => new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' });
+
+    const PHONE = '06 12345678';
+    const MOBILE = '+31612345678';
+    const STRONG = 'Sterk-Wachtw00rd';
+    const dto = (token: string, extra: Record<string, unknown> = {}) =>
+      ({ email: 'New@Example.nl', phone: PHONE, password: STRONG, role: UserRole.CONSUMER, displayName: 'Jan', acceptTerms: true, phoneVerificationToken: token, ...extra }) as RegisterDto;
+    /** The code the dev SMS channel (mail provider) delivered last. */
+    const lastCode = () => /(\d{6})/.exec(mail.send.mock.calls.at(-1)[0].text)![1];
+    const verified = async (phone = PHONE) => {
+      await service.sendSignupCode(phone);
+      return (await service.verifySignupCode(phone, lastCode())).verificationToken;
+    };
+    const age = (ms: number) => {
+      const row = verifications[0];
+      row.lastSentAt = new Date(row.lastSentAt.getTime() - ms);
+      row.sendWindowStart = new Date(row.sendWindowStart.getTime() - ms);
+    };
 
     beforeEach(() => {
-      sms.isConfigured.mockReturnValue(true);
-      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
-    });
-
-    it('stores both contact details, the number in international format, and lets the SMS provider send the code', async () => {
-      prisma.user.findFirst.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({ id: 'u9' });
-      const res = await service.register(dto);
-      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'MOBILE', identifier: '+31612345678' });
-      expect(prisma.user.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ email: 'new@example.nl', mobile: '+31612345678', status: UserStatus.PENDING_VERIFICATION, role: UserRole.CONSUMER }),
+      verifications = [];
+      users = [{ id: 'old', email: 'taken@example.nl', mobile: '+31600000000' }];
+      prisma.phoneVerification = {
+        findUnique: jest.fn(async ({ where }) => verifications.find((r) => fits(r, where)) ?? null),
+        findFirst: jest.fn(async ({ where }) => verifications.find((r) => fits(r, where)) ?? null),
+        create: jest.fn(async ({ data }) => {
+          if (verifications.some((r) => r.mobile === data.mobile)) throw p2002();
+          const row = { id: `v${verifications.length + 1}`, ...data };
+          verifications.push(row);
+          return row;
+        }),
+        updateMany: jest.fn(async ({ where, data }) => {
+          const hit = verifications.filter((r) => fits(r, where));
+          hit.forEach((r) => apply(r, data));
+          return { count: hit.length };
+        }),
+        deleteMany: jest.fn(async ({ where }) => {
+          const before = verifications.length;
+          verifications = verifications.filter((r) => !fits(r, where));
+          return { count: before - verifications.length };
+        }),
+      };
+      prisma.user.findMany = jest.fn(async ({ where }) => users.filter((u) => where.OR.some((w: Row) => fits(u, w))));
+      prisma.user.create = jest.fn(async ({ data }) => {
+        // The database's unique constraints on users.email and users.mobile.
+        if (users.some((u) => u.email === data.email || u.mobile === data.mobile)) throw p2002();
+        const user = { ...baseUser, id: `u${users.length + 1}`, ...data };
+        users.push(user);
+        return user;
       });
-      expect(prisma.user.update.mock.calls[0][0].data).toMatchObject({ verificationCode: 'sms-provider', verificationAttempts: 0 });
-      expect(sms.start).toHaveBeenCalledWith('+31612345678');
-      expect(mail.send).not.toHaveBeenCalled();
-      expect(res).not.toHaveProperty('user');
+      prisma.user.findUniqueOrThrow = jest.fn(async ({ where }) => ({ ...users.find((u) => u.id === where.id), consumerProfile: { id: 'cp', displayName: 'Jan' }, businessOwnerProfile: null }));
     });
 
-    it('rejects an e-mail domain that cannot receive mail, before creating anything', async () => {
+    it('1. new e-mail + new number: account created after the code, active, mobile verified, session issued', async () => {
+      const token = await verified();
+      expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: MOBILE, channel: 'SMS' }));
+      expect(verifications[0].codeHash).not.toContain(lastCode()); // only the HMAC is stored
+      const res = await service.register(dto(token));
+      expect(res.accessToken).toBe('signed.jwt.token');
+      const created = users.at(-1)!;
+      expect(created).toMatchObject({ email: 'new@example.nl', mobile: MOBILE, status: UserStatus.ACTIVE });
+      expect(created.mobileVerifiedAt).toBeInstanceOf(Date);
+      expect(verifications).toHaveLength(0); // the verification is consumed
+    });
+
+    it.each([
+      ['2. existing e-mail', { email: 'TAKEN@example.nl' }, PHONE, 'EMAIL_EXISTS'],
+      ['3. existing number', {}, '+31600000000', 'MOBILE_EXISTS'],
+      ['4. existing e-mail and number', { email: 'taken@example.nl' }, '+31600000000', 'ACCOUNT_EXISTS'],
+    ])('%s: rejected with its own message, nothing created', async (_name, extra, phone, code) => {
+      const token = await verified(phone);
+      await expect(service.register(dto(token, { phone, ...extra }))).rejects.toMatchObject({ status: 409, response: { code } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('5. a wrong code is rejected and counted; the 6th try is refused even with the right code', async () => {
+      await service.sendSignupCode(PHONE);
+      const good = lastCode();
+      const bad = good === '000000' ? '111111' : '000000';
+      for (let i = 0; i < MAX_VERIFICATION_ATTEMPTS; i++) {
+        await expect(service.verifySignupCode(PHONE, bad)).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+      }
+      await expect(service.verifySignupCode(PHONE, good)).rejects.toMatchObject({ status: 429, response: { code: 'OTP_ATTEMPTS' } });
+    });
+
+    it('6. an expired code is rejected', async () => {
+      await service.sendSignupCode(PHONE);
+      verifications[0].expiresAt = new Date(Date.now() - 1);
+      await expect(service.verifySignupCode(PHONE, lastCode())).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+    });
+
+    it('7. a code can be used once; a token can create one account', async () => {
+      await service.sendSignupCode(PHONE);
+      const code = lastCode();
+      const { verificationToken } = await service.verifySignupCode(PHONE, code);
+      await expect(service.verifySignupCode(PHONE, code)).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+      await service.register(dto(verificationToken));
+      await expect(service.register(dto(verificationToken, { email: 'other@example.nl' }))).rejects.toMatchObject({ response: { code: 'PHONE_NOT_VERIFIED' } });
+    });
+
+    it('8. a new code within 60 s is refused by the server', async () => {
+      await service.sendSignupCode(PHONE);
+      age(30_000);
+      await expect(service.sendSignupCode(PHONE)).rejects.toMatchObject({ status: 429, response: { code: 'OTP_COOLDOWN' } });
+      expect(mail.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('9. after 60 s a new code is sent (old one invalid), up to 5 per hour per number', async () => {
+      await service.sendSignupCode(PHONE);
+      const first = lastCode();
+      for (let i = 2; i <= 5; i++) {
+        verifications[0].lastSentAt = new Date(verifications[0].lastSentAt.getTime() - 61_000);
+        await service.sendSignupCode(PHONE);
+      }
+      expect(mail.send).toHaveBeenCalledTimes(5);
+      if (lastCode() !== first) await expect(service.verifySignupCode(PHONE, first)).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+      verifications[0].lastSentAt = new Date(verifications[0].lastSentAt.getTime() - 61_000);
+      verifications[0].attempts = 0;
+      await expect(service.sendSignupCode(PHONE)).rejects.toMatchObject({ status: 429, response: { code: 'OTP_LIMIT' } });
+      age(60 * 60_000); // a new hour
+      await expect(service.sendSignupCode(PHONE)).resolves.toMatchObject({ phone: MOBILE });
+    });
+
+    it('15. parallel sign-ups: one token creates one account; two numbers racing for one e-mail create one account', async () => {
+      const token = await verified();
+      // Different e-mails: consuming the token, and failing that the unique mobile number, stop the second one.
+      const same = await Promise.allSettled([service.register(dto(token, { email: 'a1@example.nl' })), service.register(dto(token, { email: 'a2@example.nl' }))]);
+      expect(same.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+
+      const t1 = await verified('+31611111111');
+      const t2 = await verified('+31622222222');
+      const race = await Promise.allSettled([
+        service.register(dto(t1, { phone: '+31611111111', email: 'race@example.nl' })),
+        service.register(dto(t2, { phone: '+31622222222', email: 'race@example.nl' })),
+      ]);
+      expect(race.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(race.find((r) => r.status === 'rejected')).toMatchObject({ reason: { status: 409, response: { code: 'EMAIL_EXISTS' } } });
+      expect(users.filter((u) => u.email === 'race@example.nl')).toHaveLength(1);
+    });
+
+    it('16. an unverified number (no or a made-up token) cannot sign up', async () => {
+      await service.sendSignupCode(PHONE);
+      await expect(service.register(dto('made-up-token'))).rejects.toMatchObject({ response: { code: 'PHONE_NOT_VERIFIED' } });
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a mistyped e-mail domain, and a number without country code before sending anything', async () => {
+      const token = await verified();
       emailOk.mockResolvedValueOnce(false);
-      await expect(service.register(dto)).rejects.toMatchObject({ response: { code: 'EMAIL_INVALID' } });
-      expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(sms.start).not.toHaveBeenCalled();
+      await expect(service.register(dto(token))).rejects.toMatchObject({ response: { code: 'EMAIL_INVALID' } });
+      await expect(service.sendSignupCode('6374174789')).rejects.toMatchObject({ response: { code: 'PHONE_FORMAT' } });
     });
 
-    it('asks for a country code instead of guessing one', async () => {
-      await expect(service.register({ ...dto, phone: '6374174789' } as RegisterDto)).rejects.toMatchObject({ response: { code: 'PHONE_FORMAT' } });
-      expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it('does not reveal that an account exists; the owner is told on the matching contact detail', async () => {
-      prisma.user.findFirst.mockResolvedValue({ id: 'u1', status: UserStatus.ACTIVE, email: 'new@example.nl', mobile: '+31600000000', verificationCodeExpiresAt: null });
-      const res = await service.register(dto);
-      expect(res).toEqual({ pendingVerification: true, verificationChannel: 'MOBILE', identifier: '+31612345678' });
-      expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'new@example.nl', channel: 'EMAIL' }));
-      expect(sms.start).not.toHaveBeenCalled();
-    });
-
-    it('refuses privileged roles, and refuses sign-up while no SMS can be sent', async () => {
-      await expect(service.register({ ...dto, role: UserRole.SUPER_ADMIN } as RegisterDto)).rejects.toThrow(BadRequestException);
-      sms.isConfigured.mockReturnValue(false);
-      await expect(service.register(dto)).rejects.toMatchObject({ status: 503 });
-      expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it('verifies through the provider, marks only the mobile number verified, and counts every attempt', async () => {
-      prisma.user.findFirst.mockResolvedValue(smsUser());
-      prisma.user.update.mockResolvedValue({ ...baseUser, status: UserStatus.ACTIVE });
+    it('with Twilio Verify the provider sends and checks the code; we store no code', async () => {
+      sms.isConfigured.mockReturnValue(true);
       sms.check.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-      await expect(service.verifyCode('06 12345678', '000000')).rejects.toThrow(BadRequestException);
-      await expect(service.verifyCode('06 12345678', '123456')).resolves.toMatchObject({ accessToken: 'signed.jwt.token' });
-      expect(sms.check).toHaveBeenLastCalledWith('+31612345678', '123456');
-      const activation = prisma.user.update.mock.calls.find((c: Array<{ data: { status?: string } }>) => c[0].data.status === UserStatus.ACTIVE)[0].data;
-      expect(activation.mobileVerifiedAt).toBeInstanceOf(Date);
-      expect(activation.emailVerifiedAt).toBeNull(); // e-mail was not verified by this code
+      await service.sendSignupCode(PHONE);
+      expect(sms.start).toHaveBeenCalledWith(MOBILE);
+      expect(mail.send).not.toHaveBeenCalled();
+      expect(verifications[0].codeHash).toBe('sms-provider');
+      await expect(service.verifySignupCode(PHONE, '000000')).rejects.toMatchObject({ response: { code: 'OTP_INVALID' } });
+      await expect(service.verifySignupCode(PHONE, '123456')).resolves.toMatchObject({ phone: MOBILE });
+      expect(sms.check).toHaveBeenLastCalledWith(MOBILE, '123456');
     });
 
-    it('finds the account whether the number is typed as 06... or +31...', async () => {
-      prisma.user.findFirst.mockResolvedValue(null);
-      await service.resendVerificationCode('06 1234 5678');
-      expect(prisma.user.findFirst.mock.calls[0][0].where.OR).toEqual(expect.arrayContaining([{ mobile: '+31612345678' }]));
+    it('refuses to send while no SMS channel exists (503)', async () => {
+      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
+      await expect(service.sendSignupCode(PHONE)).rejects.toMatchObject({ status: 503 });
+      expect(verifications).toHaveLength(0);
+    });
+  });
+
+  describe('RegisterDto password rules (10-13)', () => {
+    it.each([
+      ['no uppercase', 'sterk-wachtw00rd'],
+      ['no lowercase', 'STERK-WACHTW00RD'],
+      ['no number', 'Sterk-Wachtwoord'],
+      ['no special character', 'SterkWachtw00rd'],
+      ['too short', 'Aa1-aaa'],
+    ])('%s is rejected', async (_name, password) => {
+      const errors = await validate(plainToInstance(RegisterDto, { email: 'a@b.nl', phone: '+31612345678', password, role: 'CONSUMER', displayName: 'A', acceptTerms: true, phoneVerificationToken: 't' }));
+      expect(errors.some((e) => e.property === 'password')).toBe(true);
     });
 
-    it('sends no second paid SMS within 60 s, also when someone re-registers the same number', async () => {
-      prisma.user.findFirst.mockResolvedValue(smsUser({ verificationCodeExpiresAt: new Date(Date.now() + 10 * 60_000 - 5_000) }));
-      await service.register(dto);
-      await service.resendVerificationCode('+31612345678');
-      expect(sms.start).not.toHaveBeenCalled();
+    it('a password meeting every rule passes', async () => {
+      const errors = await validate(plainToInstance(RegisterDto, { email: 'a@b.nl', phone: '+31612345678', password: 'Sterk-Wachtw00rd', role: 'CONSUMER', displayName: 'A', acceptTerms: true, phoneVerificationToken: 't' }));
+      expect(errors).toEqual([]);
     });
   });
 
@@ -328,11 +454,4 @@ describe('AuthService', () => {
     expect(ms).toBeLessThanOrEqual(3_600_000);
   });
 
-  it('sign-up surfaces as 503 when no SMS can be delivered (no provider, mail provider without SMS)', async () => {
-    mail.supports.mockImplementation((channel: string) => channel === 'EMAIL');
-    await expect(
-      service.register({ email: 'a@b.nl', phone: '+31612345678', password: 'Password1', role: UserRole.CONSUMER, displayName: 'A' } as RegisterDto),
-    ).rejects.toBeInstanceOf(HttpException);
-    expect(ServiceUnavailableException).toBeDefined();
-  });
 });

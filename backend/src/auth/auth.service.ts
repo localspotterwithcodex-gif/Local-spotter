@@ -37,11 +37,16 @@ const BCRYPT_ROUNDS = 12;
 /** Pre-computed hash so login timing does not reveal whether an account exists. */
 const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO5VnVTfKkfUlZqe1k3sFvD0jV6mQXZ3W';
 
-const GENERIC_REGISTER_RESPONSE = (identifier: string, channel: 'EMAIL' | 'MOBILE') => ({
-  pendingVerification: true,
-  verificationChannel: channel,
-  identifier,
-});
+/** Sign-up: a verified number must be used within this time. */
+const SIGNUP_TOKEN_TTL_MS = 30 * 60 * 1000;
+/** Sign-up: at most this many codes per number per window (on top of the 60 s cooldown). */
+const MAX_SIGNUP_SENDS_PER_WINDOW = 5;
+const SIGNUP_SEND_WINDOW_MS = 60 * 60 * 1000;
+
+const PHONE_FORMAT_ERROR = () =>
+  new BadRequestException({ code: 'PHONE_FORMAT', message: 'Voer je mobiele nummer in met landcode, bijv. +31 6 12345678 of +91 63741 74789' });
+const sha256 = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+const isUniqueViolation = (err: unknown) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 
 /** Profiles plus their picture, so every auth response can carry the avatar URL. */
 const WITH_PROFILES = {
@@ -65,76 +70,162 @@ export class AuthService {
     @Inject(SMS_VERIFIER) private sms: SmsVerifier,
   ) {}
 
+  /**
+   * Sign-up step 1: sends a code to a number before any account exists. The server enforces the
+   * 60 s cooldown and an hourly cap per number; the route adds a per-IP limit.
+   */
+  async sendSignupCode(phone: string) {
+    const mobile = normalizeMobile(phone);
+    if (!mobile) throw PHONE_FORMAT_ERROR();
+    const viaProvider = this.sms.isConfigured();
+    if (!viaProvider && !(this.mail.isConfigured() && this.mail.supports('SMS'))) {
+      throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const now = new Date();
+    const code = viaProvider ? null : crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const fresh = {
+      codeHash: code ? this.hashCode(`signup:${mobile}`, code) : SMS_PROVIDER_CODE,
+      expiresAt: new Date(now.getTime() + VERIFICATION_CODE_TTL_MS),
+      attempts: 0,
+      lastSentAt: now,
+      verifiedAt: null,
+      tokenHash: null,
+    };
+    const cooldown = (lastSentAt: Date) =>
+      new HttpException(
+        { code: 'OTP_COOLDOWN', message: 'Wacht even voordat je een nieuwe code aanvraagt.', retryAfterSeconds: Math.max(1, Math.ceil((lastSentAt.getTime() + RESEND_COOLDOWN_MS - now.getTime()) / 1000)) },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+
+    const existing = await this.prisma.phoneVerification.findUnique({ where: { mobile } });
+    if (!existing) {
+      try {
+        await this.prisma.phoneVerification.create({ data: { mobile, ...fresh, sendCount: 1, sendWindowStart: now } });
+      } catch (err) {
+        if (isUniqueViolation(err)) throw cooldown(now); // a parallel request just sent one
+        throw err;
+      }
+    } else {
+      const newWindow = now.getTime() - existing.sendWindowStart.getTime() >= SIGNUP_SEND_WINDOW_MS;
+      if (!newWindow && existing.sendCount >= MAX_SIGNUP_SENDS_PER_WINDOW) {
+        throw new HttpException({ code: 'OTP_LIMIT', message: 'Te veel codes aangevraagd. Probeer het over een uur opnieuw.' }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+      // Conditional update, so two parallel requests can't both pass the cooldown.
+      const { count } = await this.prisma.phoneVerification.updateMany({
+        where: { id: existing.id, lastSentAt: { lte: new Date(now.getTime() - RESEND_COOLDOWN_MS) } },
+        data: { ...fresh, ...(newWindow ? { sendCount: 1, sendWindowStart: now } : { sendCount: { increment: 1 } }) },
+      });
+      if (count === 0) throw cooldown(existing.lastSentAt);
+    }
+
+    if (code) {
+      await this.mail.send({ to: mobile, channel: 'SMS', subject: 'Je LocalSpotter verificatiecode', text: `Je verificatiecode is ${code}. Deze is 10 minuten geldig. Deel deze code met niemand.` });
+    } else {
+      await this.sms.start(mobile);
+    }
+    return { phone: mobile, resendAfterSeconds: RESEND_COOLDOWN_MS / 1000, expiresInSeconds: VERIFICATION_CODE_TTL_MS / 1000 };
+  }
+
+  /**
+   * Sign-up step 2: checks the code and returns a one-time token bound to this number. Each attempt is
+   * counted before the check; a used or expired code is refused (no replay).
+   */
+  async verifySignupCode(phone: string, code: string) {
+    const invalid = () => new BadRequestException({ code: 'OTP_INVALID', message: 'Ongeldige of verlopen code' });
+    const mobile = normalizeMobile(phone);
+    const row = mobile ? await this.prisma.phoneVerification.findUnique({ where: { mobile } }) : null;
+    if (!mobile || !row || row.verifiedAt || row.expiresAt < new Date()) throw invalid();
+
+    const { count } = await this.prisma.phoneVerification.updateMany({
+      where: { id: row.id, verifiedAt: null, attempts: { lt: MAX_VERIFICATION_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (count === 0) throw new HttpException({ code: 'OTP_ATTEMPTS', message: 'Te veel pogingen. Vraag een nieuwe code aan.' }, HttpStatus.TOO_MANY_REQUESTS);
+
+    const matches = row.codeHash === SMS_PROVIDER_CODE ? await this.sms.check(mobile, code) : this.codeMatches(row.codeHash, `signup:${mobile}`, code);
+    if (!matches) throw invalid();
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const { count: won } = await this.prisma.phoneVerification.updateMany({
+      where: { id: row.id, verifiedAt: null },
+      data: { verifiedAt: new Date(), tokenHash: sha256(token), expiresAt: new Date(Date.now() + SIGNUP_TOKEN_TTL_MS) },
+    });
+    if (won === 0) throw invalid(); // a parallel request verified first
+    return { phone: mobile, verificationToken: token };
+  }
+
+  /**
+   * Sign-up step 3. Needs the token from a verified phone; the token is consumed in the same
+   * transaction that creates the account, and the database's unique email/mobile constraints
+   * decide any race between parallel sign-ups.
+   */
   async register(dto: RegisterDto) {
-    // Sign-up needs both: the mobile number is verified with an SMS code, the e-mail address must exist.
     const email = dto.email.toLowerCase().trim();
     const mobile = normalizeMobile(dto.phone);
-    if (!mobile) {
-      throw new BadRequestException({ code: 'PHONE_FORMAT', message: 'Voer je mobiele nummer in met landcode, bijv. +31 6 12345678 of +91 63741 74789' });
-    }
-    if (!(await this.emailDomainAcceptsMail(email))) {
-      throw new BadRequestException({ code: 'EMAIL_INVALID', message: 'Dit e-mailadres kan geen e-mail ontvangen. Controleer het adres.' });
-    }
+    if (!mobile) throw PHONE_FORMAT_ERROR();
     if (dto.role !== UserRole.CONSUMER && dto.role !== UserRole.BUSINESS_OWNER) {
       // Defence in depth: the DTO already restricts this; privileged roles are
       // never created through public registration.
       throw new BadRequestException('Rol moet CONSUMER of BUSINESS_OWNER zijn');
     }
-    const verificationChannel = 'MOBILE' as const;
-    const canDeliver = this.sms.isConfigured() || (this.mail.isConfigured() && this.mail.supports('SMS'));
-    if (!canDeliver) {
-      // Do not create accounts nobody can verify (e.g. mobile signup while no SMS provider exists).
-      throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
+    const verification = { mobile, tokenHash: sha256(dto.phoneVerificationToken), verifiedAt: { not: null }, expiresAt: { gt: new Date() } };
+    const notVerified = () => new BadRequestException({ code: 'PHONE_NOT_VERIFIED', message: 'Bevestig eerst je mobiele nummer met de sms-code.' });
+    // Checked before the duplicate check, so only the owner of the number learns which details are taken.
+    if (!(await this.prisma.phoneVerification.findFirst({ where: verification, select: { id: true } }))) throw notVerified();
+    if (!(await this.emailDomainAcceptsMail(email))) {
+      throw new BadRequestException({ code: 'EMAIL_INVALID', message: 'Dit e-mailadres kan geen e-mail ontvangen. Controleer het adres.' });
     }
-    const identifier = mobile;
-
-    const existingUser = await this.prisma.user.findFirst({
-      where: { OR: [{ email: { equals: email, mode: 'insensitive' } }, { mobile }] },
-    });
-
-    if (existingUser) {
-      // Same response as a fresh registration (no account enumeration). The
-      // real owner is told on the contact detail that matched.
-      if (existingUser.email?.toLowerCase() === email) await this.notifyExistingAccount(existingUser, 'EMAIL', email);
-      else await this.notifyExistingAccount(existingUser, 'MOBILE', mobile);
-      return GENERIC_REGISTER_RESPONSE(identifier, verificationChannel);
-    }
+    await this.assertContactsAreNew(email, mobile);
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-
-    const user = await this.prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: {
-          email,
-          mobile,
-          passwordHash,
-          role: dto.role,
-          status: UserStatus.PENDING_VERIFICATION,
-          consentAcceptedAt: new Date(),
-          consentVersion: CONSENT_VERSION,
-        },
-      });
-
-      if (dto.role === UserRole.CONSUMER) {
-        await tx.consumerProfile.create({
+    let user: UserWithProfiles;
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.phoneVerification.deleteMany({ where: verification });
+        if (count !== 1) throw notVerified();
+        const now = new Date();
+        const newUser = await tx.user.create({
           data: {
-            userId: newUser.id,
-            displayName: dto.displayName,
-            firstName: dto.firstName || null,
-            lastName: dto.lastName || null,
-            phone: mobile,
+            email,
+            mobile,
+            passwordHash,
+            role: dto.role,
+            status: UserStatus.ACTIVE,
+            mobileVerifiedAt: now,
+            consentAcceptedAt: now,
+            consentVersion: CONSENT_VERSION,
           },
         });
-      } else {
-        await tx.businessOwnerProfile.create({
-          data: { userId: newUser.id, displayName: dto.displayName, phone: mobile },
-        });
+        if (dto.role === UserRole.CONSUMER) {
+          await tx.consumerProfile.create({
+            data: { userId: newUser.id, displayName: dto.displayName, firstName: dto.firstName || null, lastName: dto.lastName || null, phone: mobile },
+          });
+        } else {
+          await tx.businessOwnerProfile.create({ data: { userId: newUser.id, displayName: dto.displayName, phone: mobile } });
+        }
+        return tx.user.findUniqueOrThrow({ where: { id: newUser.id }, include: WITH_PROFILES });
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        await this.assertContactsAreNew(email, mobile); // says which detail a parallel sign-up took
+        throw new ConflictException({ code: 'ACCOUNT_EXISTS', message: 'Er bestaat al een account met deze gegevens. Log in.' });
       }
-      return newUser;
-    });
+      throw err;
+    }
+    return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
+  }
 
-    await this.issueVerificationCode(user.id, verificationChannel, identifier);
-    return GENERIC_REGISTER_RESPONSE(identifier, verificationChannel);
+  /** Sign-up refuses an e-mail address or number that already has an account, and says which. */
+  private async assertContactsAreNew(email: string, mobile: string) {
+    const taken = await this.prisma.user.findMany({
+      where: { OR: [{ email: { equals: email, mode: 'insensitive' } }, { mobile }] },
+      select: { email: true, mobile: true },
+    });
+    const emailTaken = taken.some((u) => u.email?.toLowerCase() === email);
+    const mobileTaken = taken.some((u) => u.mobile === mobile);
+    if (emailTaken && mobileTaken) throw new ConflictException({ code: 'ACCOUNT_EXISTS', message: 'Er bestaat al een account met deze gegevens. Log in.' });
+    if (emailTaken) throw new ConflictException({ code: 'EMAIL_EXISTS', message: 'Er bestaat al een account met dit e-mailadres. Log in.' });
+    if (mobileTaken) throw new ConflictException({ code: 'MOBILE_EXISTS', message: 'Dit mobiele nummer is al geregistreerd. Log in.' });
   }
 
   /**
@@ -166,28 +257,15 @@ export class AuthService {
     return Date.now() - issuedAt < RESEND_COOLDOWN_MS;
   }
 
-  private async notifyExistingAccount(user: { id: string; status: UserStatus; verificationCodeExpiresAt: Date | null }, channel: 'EMAIL' | 'MOBILE', identifier: string) {
-    try {
-      if (user.status === UserStatus.PENDING_VERIFICATION) {
-        if (this.codeRecentlySent(user)) return;
-        await this.issueVerificationCode(user.id, channel, identifier);
-      } else if (channel === 'EMAIL' || !this.sms.isConfigured()) {
-        // Verify-style SMS providers only send codes, so an existing mobile account gets no free-text notice.
-        await this.mail.send({
-          to: identifier,
-          channel: channel === 'EMAIL' ? 'EMAIL' : 'SMS',
-          subject: 'Je hebt al een LocalSpotter-account',
-          text: 'Iemand probeerde een account aan te maken met dit adres. Je hebt al een account: log in of gebruik "Wachtwoord vergeten".',
-        });
-      }
-    } catch (err) {
-      this.logger.warn(`Could not notify existing account holder (${err instanceof Error ? err.name : 'error'})`);
-    }
-  }
-
   /** HMAC so a database leak alone does not reveal valid one-time codes. */
   private hashCode(userId: string, code: string): string {
     return crypto.createHmac('sha256', this.config.getOrThrow<string>('JWT_SECRET')).update(`otp:${userId}:${code}`).digest('hex');
+  }
+
+  private codeMatches(storedHash: string, id: string, code: string): boolean {
+    const expected = Buffer.from(storedHash, 'hex');
+    const actual = Buffer.from(this.hashCode(id, code), 'hex');
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
   }
 
   /**
@@ -263,9 +341,7 @@ export class AuthService {
     if (user.verificationCode === SMS_PROVIDER_CODE) {
       matches = !!user.mobile && (await this.sms.check(user.mobile, code));
     } else {
-      const expected = Buffer.from(user.verificationCode, 'hex');
-      const actual = Buffer.from(this.hashCode(user.id, code), 'hex');
-      matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+      matches = this.codeMatches(user.verificationCode, user.id, code);
     }
 
     if (!matches) {

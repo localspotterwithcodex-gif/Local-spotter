@@ -1410,3 +1410,24 @@ model ReturnItem {
   @@index([orderItemId])
   @@map("return_items")
 }
+
+/// Sign-up phone check that happens before the account exists: one row per number, removed when the
+/// account is created. The code itself is stored as an HMAC (or held by the SMS provider).
+model PhoneVerification {
+  id              String    @id @default(uuid()) @db.Uuid
+  mobile          String    @unique
+  /// HMAC of the code, or "sms-provider" when Twilio Verify generates and checks it.
+  codeHash        String    @map("code_hash")
+  expiresAt       DateTime  @map("expires_at")
+  attempts        Int       @default(0)
+  lastSentAt      DateTime  @map("last_sent_at")
+  /// Codes sent to this number since sendWindowStart (per-number send limit).
+  sendCount       Int       @default(1) @map("send_count")
+  sendWindowStart DateTime  @map("send_window_start")
+  verifiedAt      DateTime? @map("verified_at")
+  /// SHA-256 of the one-time token handed out after a correct code; sign-up must present it.
+  tokenHash       String?   @map("token_hash")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("phone_verifications")
+}

@@ -8,10 +8,12 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   error?: string;
   helperText?: string;
   icon?: React.ReactNode;
+  /** Control inside the field on the right (e.g. a "Send code" button). */
+  trailing?: React.ReactNode;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, icon, id, type, ...props }, ref) => {
+  ({ className, label, error, helperText, icon, trailing, id, type, ...props }, ref) => {
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
     const { t } = useLocale();
     // Password fields get a show/hide toggle.
@@ -36,6 +38,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               "w-full h-12 bg-[#EAEAEA] text-[#111111] text-[15px] px-4 rounded-lg font-normal transition-all placeholder:text-[#B7B7B7] focus:outline-none focus:ring-2 focus:ring-[#FA1EFF] focus:bg-white border border-transparent",
               icon ? "pl-11" : "",
               isPassword ? "pr-12" : "",
+              trailing ? "pr-32" : "",
               error ? "border-[#ED4C5C] focus:ring-[#ED4C5C]" : "",
               className
             )}
@@ -52,6 +55,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               {visible ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
             </button>
           )}
+          {trailing && <div className="absolute right-1.5 flex items-center">{trailing}</div>}
         </div>
         {error && <span className="text-xs text-[#ED4C5C] font-medium mt-0.5">{error}</span>}
         {helperText && !error && <span className="text-xs text-ls-muted mt-0.5">{helperText}</span>}
