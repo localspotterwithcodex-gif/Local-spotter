@@ -6,9 +6,9 @@ import { RateLimit, RateLimitGuard } from './rate-limit.guard';
 import { validateEnv } from '../../config/env.validation';
 import { readCookie } from '../../auth/utils/session-cookie';
 
-function ctx(req: Record<string, unknown>, handler: object = function handle() {}): ExecutionContext {
+function ctx(req: Record<string, unknown>, handler: object = function handle() {}, res: Record<string, unknown> = {}): ExecutionContext {
   return {
-    switchToHttp: () => ({ getRequest: () => req }),
+    switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
     getHandler: () => handler,
     getClass: () => class Dummy {},
   } as unknown as ExecutionContext;
@@ -41,14 +41,50 @@ describe('RateLimitGuard', () => {
     login() {}
   }
   const handler = Limited.prototype.login;
-  const guard = new RateLimitGuard(new Reflector());
 
-  it('blocks after the limit per ip+identifier but not for another identifier', () => {
+  it('blocks after the limit per ip+identifier but not for another identifier, with Retry-After', async () => {
+    const guard = new RateLimitGuard(new Reflector());
     const req = (identifier: string) => ({ ip: '1.2.3.4', body: { identifier } });
-    expect(guard.canActivate(ctx(req('a'), handler))).toBe(true);
-    expect(guard.canActivate(ctx(req('a'), handler))).toBe(true);
-    expect(() => guard.canActivate(ctx(req('a'), handler))).toThrow(HttpException);
-    expect(guard.canActivate(ctx(req('b'), handler))).toBe(true);
+    const headers: Record<string, string> = {};
+    const res = { setHeader: (k: string, v: string) => (headers[k] = v) };
+    await expect(guard.canActivate(ctx(req('a'), handler, res))).resolves.toBe(true);
+    await expect(guard.canActivate(ctx(req('a'), handler, res))).resolves.toBe(true);
+    await expect(guard.canActivate(ctx(req('a'), handler, res))).rejects.toThrow(HttpException);
+    expect(Number(headers['Retry-After'])).toBeGreaterThan(0);
+    await expect(guard.canActivate(ctx(req('b'), handler, res))).resolves.toBe(true);
+  });
+
+  it('counts signed-in callers per account, not per shared IP', async () => {
+    const guard = new RateLimitGuard(new Reflector());
+    const req = (id: string) => ({ ip: '10.0.0.1', body: { identifier: 'x' }, user: { id } });
+    await guard.canActivate(ctx(req('u1'), handler));
+    await guard.canActivate(ctx(req('u1'), handler));
+    await expect(guard.canActivate(ctx(req('u1'), handler))).rejects.toThrow(HttpException);
+    await expect(guard.canActivate(ctx(req('u2'), handler))).resolves.toBe(true);
+  });
+
+  it('uses the shared store (hashed keys) and falls back to memory when it fails', async () => {
+    const counts = new Map<string, number>();
+    const queryRaw = jest.fn((_s: TemplateStringsArray, key: string) => {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      return Promise.resolve([{ count: counts.get(key), reset_at: new Date(Date.now() + 60_000) }]);
+    });
+    const shared = { $queryRaw: queryRaw, $executeRaw: jest.fn().mockResolvedValue(0) } as never;
+    // Two instances sharing one store share the counter.
+    const a = new RateLimitGuard(new Reflector(), shared);
+    const b = new RateLimitGuard(new Reflector(), shared);
+    const req = { ip: '5.6.7.8', body: { identifier: 'Someone@Example.com' } };
+    await a.canActivate(ctx(req, handler));
+    await b.canActivate(ctx(req, handler));
+    await expect(a.canActivate(ctx(req, handler))).rejects.toThrow(HttpException);
+    const storedKey = queryRaw.mock.calls[0][1];
+    expect(storedKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(storedKey).not.toContain('someone');
+
+    const broken = new RateLimitGuard(new Reflector(), { $queryRaw: jest.fn().mockRejectedValue(new Error('down')) } as never);
+    await expect(broken.canActivate(ctx(req, handler))).resolves.toBe(true);
+    await expect(broken.canActivate(ctx(req, handler))).resolves.toBe(true);
+    await expect(broken.canActivate(ctx(req, handler))).rejects.toThrow(HttpException);
   });
 });
 

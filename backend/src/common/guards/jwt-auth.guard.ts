@@ -2,6 +2,7 @@ import { Injectable, ExecutionContext, ForbiddenException, UnauthorizedException
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ALLOW_GUEST_KEY } from '../decorators/allow-guest.decorator';
+import { ALLOW_WITHOUT_MFA_KEY } from '../decorators/allow-without-mfa.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -18,6 +19,17 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       const allowed = this.reflector?.getAllAndOverride<boolean>(ALLOW_GUEST_KEY, [context.getHandler(), context.getClass()]);
       if (!allowed) {
         throw new ForbiddenException('Maak een account aan om deze functie te gebruiken');
+      }
+    }
+    // Every admin action needs a session made with the second factor; until then only enrolment works.
+    if (user.role === 'SUPER_ADMIN' && !user.mfa && context) {
+      const allowed = this.reflector?.getAllAndOverride<boolean>(ALLOW_WITHOUT_MFA_KEY, [context.getHandler(), context.getClass()]);
+      if (!allowed) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: user.mfaEnrolled ? 'MFA_REQUIRED' : 'MFA_ENROLLMENT_REQUIRED',
+          message: 'Tweestapsverificatie is vereist voor beheerders',
+        });
       }
     }
     return user;

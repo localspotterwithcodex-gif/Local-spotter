@@ -72,6 +72,8 @@ describe('OrdersService', () => {
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockImplementation(async ({ data }: any) => ({ id: `order-${++orderSeq}`, ...data })),
         update: jest.fn().mockResolvedValue({ id: 'order-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'order-1' }),
       },
       orderItem: { createMany: jest.fn() },
       orderStatusEvent: { create: jest.fn() },
@@ -257,10 +259,18 @@ describe('OrdersService', () => {
       prisma.business.findUnique.mockResolvedValue(shop('bus-1'));
     });
 
+    it('treats re-sending the current status as a no-op (no second stock release or refund)', async () => {
+      prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.CANCELLED }));
+      await service.updateOrderStatus('order-1', owner, { status: OrderStatus.CANCELLED as never });
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(payments.refundOrder).not.toHaveBeenCalled();
+    });
+
     it('accepts a paid order and tells the customer', async () => {
       prisma.order.findUnique.mockResolvedValue(base());
       await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.ACCEPTED });
-      expect(prisma.order.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CONFIRMED }) }));
+      expect(prisma.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'order-1', status: OrderStatus.PENDING }, data: expect.objectContaining({ status: OrderStatus.CONFIRMED }) }));
       expect(notifications.notifyUser).toHaveBeenCalledWith('user-consumer-1', 'ORDER', 'Bestelling geaccepteerd', expect.any(String), expect.any(Object));
     });
 
@@ -320,7 +330,7 @@ describe('OrdersService', () => {
       payments.refundOrder.mockResolvedValue({ status: 'REFUNDED', refundedCents: 2000 });
       const result: any = await service.cancelOrder('order-1', consumer, { reason: 'Verkeerd artikel' });
       expect(prisma.$executeRaw).toHaveBeenCalled();
-      expect(prisma.order.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CANCELLED }) }));
+      expect(prisma.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'order-1', status: OrderStatus.PENDING }, data: expect.objectContaining({ status: OrderStatus.CANCELLED }) }));
       expect(payments.refundOrder).toHaveBeenCalledWith('order-1', 'Verkeerd artikel');
       expect(result.refund.status).toBe('REFUNDED');
     });
@@ -334,6 +344,14 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue(base());
       prisma.business.findUnique.mockResolvedValue(shop('bus-1'));
       await expect(service.cancelOrder('order-1', otherConsumer, {})).rejects.toThrow(ForbiddenException);
+    });
+
+    it('loses cleanly to a concurrent change: no stock is restored and no refund is started', async () => {
+      prisma.order.findUnique.mockResolvedValue(base());
+      prisma.order.updateMany.mockResolvedValueOnce({ count: 0 }); // another request changed the status first
+      await expect(service.cancelOrder('order-1', consumer, {})).rejects.toThrow(ConflictException);
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(payments.refundOrder).not.toHaveBeenCalled();
     });
 
     it('lets the shop cancel an order that is in preparation', async () => {

@@ -3,7 +3,7 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, ShieldCheck } from "lucide-react";
 import { AuthShell, authButtonClass } from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +17,7 @@ import type { User } from "@/types/user";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, verifyMfa } = useAuth();
   const { t } = useLocale();
   const errMsg = useErrorMessage();
 
@@ -25,6 +25,9 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  // Admin second step: set after a correct password when the account has MFA.
+  const [mfaToken, setMfaToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +39,30 @@ function LoginForm() {
 
     setIsLoading(true);
     try {
-      const user = await login(identifier, password);
+      const result = await login(identifier, password);
+      if ("mfaToken" in result) {
+        setMfaToken(result.mfaToken);
+        return;
+      }
+      const user = result;
       // Honour ?redirectTo= only when it is a safe same-origin path.
       router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
     } catch (err) {
       setError(errMsg(err, { unauthorized: "authx.invalidCredentials" }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      const user = await verifyMfa(mfaToken, mfaCode.trim());
+      router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
+    } catch (err) {
+      setError(errMsg(err, { unauthorized: "manage.mfa.invalid" }));
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +87,29 @@ function LoginForm() {
             </div>
           )}
 
+          {mfaToken ? (
+            <form onSubmit={handleMfa} className="space-y-4">
+              <p className="text-xs text-[#111111]">
+                <span className="block text-sm font-bold">{t("manage.mfa.title")}</span>
+                {t("manage.mfa.prompt")}
+              </p>
+              <Input
+                label={t("manage.mfa.code")}
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={11}
+                placeholder="123456"
+                icon={<ShieldCheck className="w-4 h-4" />}
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+              />
+              <Button type="submit" variant="primary" className={authButtonClass} isLoading={isLoading} disabled={mfaCode.trim().length < 6}>
+                {t("manage.mfa.verify")}
+              </Button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label={t("auth.emailMobileUsername")}
@@ -94,6 +139,7 @@ function LoginForm() {
               {t("auth.login")}
             </Button>
           </form>
+          )}
 
           <SocialButtons onSuccess={handleSocialSuccess} onError={setError} />
 

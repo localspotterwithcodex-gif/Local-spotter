@@ -11,6 +11,10 @@ export interface JwtPayload {
   role: string;
   /** Present on one-purpose tokens (e.g. the guest order link); those are never sessions. */
   purpose?: string;
+  /** Session version; absent on tokens issued before revocation existed (treated as 0). */
+  sv?: number;
+  /** Set when the session was established with the admin second factor. */
+  mfa?: boolean;
 }
 
 @Injectable()
@@ -44,6 +48,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || user.status === 'SUSPENDED' || user.status === 'DELETED') {
       throw new UnauthorizedException('User account inactive, suspended, or not found');
     }
+    if ((payload.sv ?? 0) !== user.sessionVersion) {
+      throw new UnauthorizedException('Session has been revoked');
+    }
 
     const profileId =
       user.role === 'CONSUMER'
@@ -67,6 +74,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       profileId,
       displayName,
       isGuest: user.isGuest,
+      mfa: payload.mfa === true,
+      mfaEnrolled: user.mfaEnabledAt != null,
     };
   }
 }

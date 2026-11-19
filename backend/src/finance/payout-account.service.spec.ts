@@ -42,7 +42,7 @@ describe('PayoutAccountService', () => {
     const out = await svc.upsert('b1', owner, { accountHolderName: 'Priyadharshini V', iban: '1669 1200 0008 8', bankName: 'HDFC Bank', bic: 'hdfcinbb', country: 'in' });
     expect(out.ibanMasked).toBe('•••• 0088');
     const stored = decryptSecret(prisma.payoutAccount.upsert.mock.calls[0][0].update.ibanEncrypted, KEY);
-    expect(stored).toBe('166912000088 | BIC HDFCINBB | HDFC Bank | IN');
+    expect(stored).toBe('1669120000088 | BIC HDFCINBB | HDFC Bank | IN'); // '1669 1200 0008 8' = 13 digits
     await expect(make().svc.upsert('b1', owner, { accountHolderName: 'X', iban: '166912000088' })).rejects.toMatchObject({ response: { code: 'BANK_DETAILS_REQUIRED' } });
     await expect(make().svc.upsert('b1', owner, { accountHolderName: 'X', iban: 'NL91ABNA0417164301', bankName: 'B', bic: 'ABNANL2A', country: 'NL' })).rejects.toMatchObject({ response: { code: 'IBAN_INVALID' } });
     await expect(make().svc.upsert('b1', owner, { accountHolderName: 'X', iban: '166912000088', bankName: 'B', bic: '123', country: 'IN' })).rejects.toMatchObject({ response: { code: 'BANK_DETAILS_INVALID' } });
