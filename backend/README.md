@@ -71,15 +71,13 @@ npx prisma migrate dev --name init
 
 ### 4. Seed Development Data
 
+Local development database only. The seed creates demo logins whose passwords are in the code, so it refuses to run unless you opt in:
+
 ```bash
-npm run prisma:seed
+ALLOW_DEMO_SEED=yes npm run prisma:seed
 ```
 
-This seeds initial accounts:
-- **Super Admin**: `admin@localspotter.nl` (Password: `Password123!`)
-- **Business Owner**: `eigenaar@boetiek-amsterdam.nl` (Password: `Password123!`)
-- **Consumer**: `sophie.vis@example.nl` (Password: `Password123!`)
-- **Subscription Plans**: Webshop (€50/m), Shoproutes (€100/m), Workshop (€150/m)
+It seeds a super admin, a business owner and a consumer (see `prisma/seed.ts`), plus the subscription plans. Never run it on staging or production: there, use `scripts/seed-plans.ts` and `scripts/create-admin.ts`. Lock the demo logins again with `npm run seed:demo:disable`.
 
 ### 5. Run Server
 

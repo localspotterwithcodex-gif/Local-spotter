@@ -21,14 +21,11 @@ Covered by the fixes above — same `t()` pattern and same centralized `logout()
 ## 5. Business owner + consumer test credentials
 Added to `backend/prisma/seed.ts` (upserts existing seeded accounts, adding a short username + fixed password the same way the admin has):
 
-| Role | Username | Password | Email (also works) |
-|---|---|---|---|
-| Business Owner | `owner` | `Owner@123` | eigenaar@boetiek-amsterdam.nl |
-| Consumer | `consumer` | `Consumer@123` | sophie.vis@example.nl |
+Credentials removed (security cleanup, Phase 1): see demo logins (local development only, created by the guarded `backend/prisma/seed.ts`; never on staging or production).
 
 These reuse the existing seeded demo data (Boetiek Amsterdam with real products/workshops/reviews for the owner; a real order history hook for the consumer), so logging in immediately shows populated content instead of an empty account.
 
-Run `npx prisma db seed` again to apply this — it's an upsert, so it's safe to re-run and won't duplicate anything. If you'd rather not re-run the seed, `backend/prisma/manual-supabase-admin-setup.sql` now also has two `UPDATE` statements you can paste into the Supabase SQL editor to set these two accounts' username/password directly (only works if those rows already exist from a prior seed run).
+Run `npx prisma db seed` again to apply this — it's an upsert, so it's safe to re-run and won't duplicate anything. (The former `backend/prisma/manual-supabase-admin-setup.sql` with ready-made `UPDATE` statements was deleted in the Phase 1 security cleanup.) The statements you could paste into the Supabase SQL editor to set these two accounts' username/password directly (only works if those rows already exist from a prior seed run).
 
 ## Verified
 `npm run build` in `frontend/` passes clean — 43 routes, zero TypeScript errors.

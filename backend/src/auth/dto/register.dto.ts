@@ -8,7 +8,7 @@ export class RegisterDto {
   @MaxLength(254)
   email: string;
 
-  @ApiProperty({ example: 'Password123!', description: 'Minimum 8 characters' })
+  @ApiProperty({ example: 'Choose-A-Str0ng-Password', description: 'Minimum 8 characters' })
   @IsString()
   @MinLength(8, { message: 'Wachtwoord moet minimaal 8 tekens lang zijn' })
   @MaxLength(72, { message: 'Wachtwoord mag maximaal 72 tekens lang zijn' })

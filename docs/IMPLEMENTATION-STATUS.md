@@ -56,7 +56,7 @@ Do not treat the project as complete until the "Commands for you" in `REPAIR-CHA
 | Item | Result |
 |---|---|
 | Feedback button | removed (component + layout use) |
-| Demo logins | seed creates `Admin`/`Admin@123`, `Business_owner`/`Owner@123`, `customer`/`Customer@123`; refuses to run without `ALLOW_DEMO_SEED=yes`; `npm run seed:demo:disable` locks them. **Not run against any database.** |
+| Demo logins | seed creates an admin, an owner and a customer login with known passwords (local development only; never staging or production); refuses to run without `ALLOW_DEMO_SEED=yes`; `npm run seed:demo:disable` locks them. **Not run against any database.** |
 | Email | Resend provider (`MAIL_TRANSPORT=resend`, `RESEND_API_KEY`, `MAIL_FROM`); no SMS provider, mobile sign-up disabled in the UI unless `NEXT_PUBLIC_SMS_ENABLED=true`; backend rejects mobile sign-up before creating an unverifiable account |
 | frontend `tsc --noEmit` | exit 0 |
 | frontend `eslint src` | 0 errors, 5 warnings (unchanged) |

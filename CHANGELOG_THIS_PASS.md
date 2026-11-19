@@ -4,8 +4,8 @@ Verified: `cd frontend && npm install && npm run build` completes with **zero er
 Backend: dependencies install cleanly and every edited file is structurally sound (imports resolve, braces balance), but a full `tsc` check couldn't be completed in this sandbox because `binaries.prisma.sh` (needed by `prisma generate` to fetch the query engine) isn't reachable here. Run `npx prisma generate && npx tsc --noEmit` in `backend/` yourself to get the final green check — the errors you'd see *without* running `generate` first (missing enum exports) are expected and not a real defect; they disappear once the real client is generated.
 
 ## Admin credentials (this turn's explicit ask)
-- `backend/prisma/seed.ts` — seeds a `SUPER_ADMIN` user: **username `Admin`, password `Admin@123`** (bcrypt-hashed).
-- `backend/prisma/manual-supabase-admin-setup.sql` — same thing as raw SQL, paste directly into the Supabase SQL editor if you'd rather not run `prisma migrate`/`db seed` yourself. Adds the `username` column and upserts the admin row with the pre-computed bcrypt hash.
+- `backend/prisma/seed.ts` — seeds a `SUPER_ADMIN` user (credentials removed; see demo logins (local development only, created by the guarded `backend/prisma/seed.ts`; never on staging or production)).
+- `backend/prisma/manual-supabase-admin-setup.sql` (deleted in the Phase 1 security cleanup: it held a known admin password) — same thing as raw SQL, paste directly into the Supabase SQL editor if you'd rather not run `prisma migrate`/`db seed` yourself. Adds the `username` column and upserts the admin row with the pre-computed bcrypt hash.
 - Login now accepts **email, mobile, or username** as the identifier (`backend/src/auth/dto/login.dto.ts`, `auth.service.ts#findByIdentifier`) — this is what lets "Admin" log in.
 
 ## Item-by-item status against PROMPT.md

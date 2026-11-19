@@ -11,7 +11,7 @@ export class LoginDto {
   @MinLength(3, { message: 'Ongeldige inloggegevens' })
   identifier: string;
 
-  @ApiProperty({ example: 'Password123!', description: 'User password' })
+  @ApiProperty({ example: 'Choose-A-Str0ng-Password', description: 'User password' })
   @IsString()
   @IsNotEmpty({ message: 'Wachtwoord is verplicht' })
   password: string;
