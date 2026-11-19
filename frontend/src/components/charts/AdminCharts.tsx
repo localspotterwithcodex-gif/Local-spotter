@@ -265,7 +265,6 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
   const id = useId();
   const total = segments.reduce((s, x) => s + x.value, 0);
   const r = 52, c = 2 * Math.PI * r;
-  let offset = 0;
   return (
     <figure className="min-w-0 space-y-3">
       <figcaption className="text-sm font-bold font-rubik text-[#111111]">{title}</figcaption>
@@ -276,15 +275,14 @@ export function Donut({ segments, title, centerLabel, empty }: { segments: { nam
           <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-labelledby={`${id}-t`}>
             <title id={`${id}-t`}>{title}</title>
             <g transform="rotate(-90 70 70)">
-              {segments.map((s) => {
+              {segments.map((s, i) => {
                 const len = (s.value / total) * c;
-                const el = (
+                const offset = segments.slice(0, i).reduce((sum, x) => sum + (x.value / total) * c, 0);
+                return (
                   <circle key={s.name} cx="70" cy="70" r={r} fill="none" stroke={s.color} strokeWidth="18" strokeDasharray={`${Math.max(0, len - 2)} ${c - Math.max(0, len - 2)}`} strokeDashoffset={-offset}>
                     <title>{`${s.name}: ${s.value} (${s.share}%)`}</title>
                   </circle>
                 );
-                offset += len;
-                return el;
               })}
             </g>
             <text x="70" y="68" textAnchor="middle" fontSize="20" fontWeight="800" fill={CHART_COLORS.ink}>{total.toLocaleString()}</text>

@@ -19,7 +19,6 @@ function useRouteProgress(target: number, drifting: boolean): number {
   useEffect(() => {
     if (prefersReducedMotion()) {
       current.current = target;
-      setValue(target);
       return;
     }
     let frame = 0;
@@ -35,7 +34,8 @@ function useRouteProgress(target: number, drifting: boolean): number {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [target, drifting]);
-  return value;
+  // Reduced motion: jump straight to the target (read at render, so no setState in the effect).
+  return prefersReducedMotion() ? target : value;
 }
 
 interface Props {

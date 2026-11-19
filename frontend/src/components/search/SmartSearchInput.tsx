@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Camera, Loader2, Mic, Search } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { api } from "@/lib/api";
@@ -27,12 +27,22 @@ type SpeechRecognitionLike = {
   stop: () => void;
 };
 
+const noSubscribe = () => () => {};
+
 /** Search box with a microphone (speech to text, built into the browser) and an optional camera (search by photo). */
 export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords }: Props) {
   const { t, locale } = useLocale();
   const fileRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
-  const [canSpeak, setCanSpeak] = useState(false);
+  // Browser capability: false on the server, real value on the client, without setState in an effect.
+  const canSpeak = useSyncExternalStore(
+    noSubscribe,
+    () => {
+      const w = window as unknown as Record<string, unknown>;
+      return !!(w.SpeechRecognition || w.webkitSpeechRecognition);
+    },
+    () => false,
+  );
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,11 +54,7 @@ export function SmartSearchInput({ value, onChange, placeholder, onImageKeywords
     return () => window.clearTimeout(id);
   }, [message]);
 
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>;
-    setCanSpeak(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
-    return () => recRef.current?.stop();
-  }, []);
+  useEffect(() => () => recRef.current?.stop(), []);
 
   const toggleMic = useCallback(() => {
     setMessage(null);
