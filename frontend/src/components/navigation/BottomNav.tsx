@@ -81,7 +81,7 @@ export const BottomNav: React.FC = () => {
           const Icon = item.icon;
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               aria-label={item.label}
               aria-current={active[i] ? "page" : undefined}
