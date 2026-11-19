@@ -14,6 +14,7 @@ Precedence used: latest user decision → REQ → PROMPT/docs → CODE. Nothing 
 | D-007 | Product variants | §5: variants/size/colour optional | PROMPT narrower in places | Low | Keep existing `ProductVariant`; no change | — |
 | D-008 | Language | REQ silent on locale | CHANGELOG/code: `en`+`nl` scaffold; default state `en`; UI copy mostly Dutch; PROMPT: "may use English internally" | Which default (nl vs en) | Default **nl** (Dutch market), keep `en` option — please confirm | Phase 4 |
 | D-009 (resolved) | Shop-registration storage | — | CODE: widget → MongoDB via Next route; backend has Postgres `ShopRegistration` | Two stores | **Done:** widget now writes to PostgreSQL via the backend; Mongo route removed. Still open: whether to migrate existing Mongo leads | — |
+| D-011 (resolved 2026-11-18) | Old Neon database | — | `RELEASE-GUIDE.md` names Neon as production; `MASTER-PROMPT.md` says deploy from scratch with no data to migrate. Read-only count: 9 accounts (3 demo), 3 shops, 3 products, 2 orders, Stripe test-mode payments only, no payouts, no reviews, 20 Cloudinary images | Nothing migrated to Supabase | **Owner decision:** disposable. Take one `pg_dump` backup kept outside the repository, keep (not delete) the Neon project until the new production is live | — |
 | D-010 (resolved) | Token storage | FR "securely log in" | CODE: localStorage + JS cookie | XSS exposure | **Done:** HttpOnly SameSite=Lax cookie + Origin check, same-origin via Next rewrite (`BACKEND_URL`) | — |
 
 ## Open owner inputs (from REQ §35, still undecided)

@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "backend", "run", "start:dev"],
+      "port": 4000
+    },
+    {
+      "name": "frontend-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "env": { "BACKEND_URL": "https://local-spotter-alpha.vercel.app", "NEXT_PUBLIC_SMS_ENABLED": "true" },
+      "port": 3000
+    },
+    {
+      "name": "frontend-prod",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "frontend", "next", "start", "frontend", "-p", "3001"],
+      "env": { "BACKEND_URL": "https://local-spotter-alpha.vercel.app" },
+      "port": 3001
+    }
+  ]
+}
