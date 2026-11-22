@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, UserRole, UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus, OtpPurpose } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Resolver } from 'dns/promises';
@@ -102,10 +102,10 @@ export class AuthService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
 
-    const existing = await this.prisma.phoneVerification.findUnique({ where: { mobile } });
+    const existing = await this.prisma.phoneVerification.findUnique({ where: { mobile_purpose: { mobile, purpose: OtpPurpose.SIGNUP } } });
     if (!existing) {
       try {
-        await this.prisma.phoneVerification.create({ data: { mobile, ...fresh, sendCount: 1, sendWindowStart: now } });
+        await this.prisma.phoneVerification.create({ data: { mobile, purpose: OtpPurpose.SIGNUP, ...fresh, sendCount: 1, sendWindowStart: now } });
       } catch (err) {
         if (isUniqueViolation(err)) throw cooldown(now); // a parallel request just sent one
         throw err;
@@ -138,7 +138,7 @@ export class AuthService {
   async verifySignupCode(phone: string, code: string) {
     const invalid = () => new BadRequestException({ code: 'OTP_INVALID', message: 'Ongeldige of verlopen code' });
     const mobile = normalizeMobile(phone);
-    const row = mobile ? await this.prisma.phoneVerification.findUnique({ where: { mobile } }) : null;
+    const row = mobile ? await this.prisma.phoneVerification.findUnique({ where: { mobile_purpose: { mobile, purpose: OtpPurpose.SIGNUP } } }) : null;
     if (!mobile || !row || row.verifiedAt || row.expiresAt < new Date()) throw invalid();
 
     const { count } = await this.prisma.phoneVerification.updateMany({
@@ -173,7 +173,7 @@ export class AuthService {
       // never created through public registration.
       throw new BadRequestException('Rol moet CONSUMER of BUSINESS_OWNER zijn');
     }
-    const verification = { mobile, tokenHash: sha256(dto.phoneVerificationToken), verifiedAt: { not: null }, expiresAt: { gt: new Date() } };
+    const verification = { mobile, purpose: OtpPurpose.SIGNUP, tokenHash: sha256(dto.phoneVerificationToken), verifiedAt: { not: null }, expiresAt: { gt: new Date() } };
     const notVerified = () => new BadRequestException({ code: 'PHONE_NOT_VERIFIED', message: 'Bevestig eerst je mobiele nummer met de sms-code.' });
     // Checked before the duplicate check, so only the owner of the number learns which details are taken.
     if (!(await this.prisma.phoneVerification.findFirst({ where: verification, select: { id: true } }))) throw notVerified();

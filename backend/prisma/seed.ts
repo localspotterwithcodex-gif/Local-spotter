@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, UserStatus, BusinessStatus, SubscriptionPlanSlug, SubscriptionStatus, OrderStatus, ReviewStatus, WorkshopStatus, RouteStatus, PayoutStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { PLAN_ENTITLEMENT_DEFAULTS } from '../src/subscriptions/plan-entitlement-defaults';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,7 @@ async function main() {
     create: {
       name: 'Webshop',
       slug: SubscriptionPlanSlug.WEBSHOP,
+      ...PLAN_ENTITLEMENT_DEFAULTS.WEBSHOP,
       description: 'Online winkelprofiel, productcatalogus, voorraadbeheer en directe verkoop.',
       monthlyPrice: 12.0,
       currency: 'EUR',
@@ -48,6 +50,7 @@ async function main() {
     create: {
       name: 'Shoproutes',
       slug: SubscriptionPlanSlug.SHOPROUTES,
+      ...PLAN_ENTITLEMENT_DEFAULTS.SHOPROUTES,
       description: 'Alle Webshop functies + GPS kaartweergave, winkelroutes en lokale ontdekking.',
       monthlyPrice: 27.0,
       currency: 'EUR',
@@ -61,6 +64,7 @@ async function main() {
     create: {
       name: 'Workshop',
       slug: SubscriptionPlanSlug.WORKSHOP,
+      ...PLAN_ENTITLEMENT_DEFAULTS.WORKSHOP,
       description: 'Alle Webshop & Shoproutes functies + workshop organisatie, reviews & community.',
       monthlyPrice: 57.0,
       currency: 'EUR',

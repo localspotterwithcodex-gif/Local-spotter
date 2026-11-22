@@ -146,10 +146,11 @@ describe('AuthService', () => {
       verifications = [];
       users = [{ id: 'old', email: 'taken@example.nl', mobile: '+31600000000' }];
       prisma.phoneVerification = {
-        findUnique: jest.fn(async ({ where }) => verifications.find((r) => fits(r, where)) ?? null),
+        // Unique key (mobile, purpose), as in the database.
+        findUnique: jest.fn(async ({ where }) => verifications.find((r) => fits(r, where.mobile_purpose ?? where)) ?? null),
         findFirst: jest.fn(async ({ where }) => verifications.find((r) => fits(r, where)) ?? null),
         create: jest.fn(async ({ data }) => {
-          if (verifications.some((r) => r.mobile === data.mobile)) throw p2002();
+          if (verifications.some((r) => r.mobile === data.mobile && r.purpose === data.purpose)) throw p2002();
           const row = { id: `v${verifications.length + 1}`, ...data };
           verifications.push(row);
           return row;

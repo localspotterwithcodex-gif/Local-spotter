@@ -8,6 +8,7 @@
  */
 import { PrismaClient, SubscriptionPlanSlug } from '@prisma/client';
 import { MAX_PLAN_PRICE } from '../src/admin/admin-plans.service';
+import { PLAN_ENTITLEMENT_DEFAULTS } from '../src/subscriptions/plan-entitlement-defaults';
 
 const PLANS: Record<SubscriptionPlanSlug, { arg: string; name: string; description: string }> = {
   WEBSHOP: { arg: 'webshop', name: 'Webshop', description: 'Online winkelprofiel, productcatalogus, voorraadbeheer en directe verkoop.' },
@@ -47,7 +48,7 @@ async function main() {
       const row = await prisma.subscriptionPlan.upsert({
         where: { slug },
         update: { monthlyPrice: prices[slug] },
-        create: { slug, name: plan.name, description: plan.description, monthlyPrice: prices[slug], currency: 'EUR', active: true },
+        create: { slug, name: plan.name, description: plan.description, monthlyPrice: prices[slug], currency: 'EUR', active: true, ...PLAN_ENTITLEMENT_DEFAULTS[slug] },
         select: { name: true, monthlyPrice: true, active: true },
       });
       console.log(`${row.name}: EUR ${row.monthlyPrice.toFixed(2)}/month${row.active ? '' : ' (inactive)'}`);
