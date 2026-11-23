@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Res, Req } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -23,6 +23,13 @@ import { MfaCodeDto, MfaVerifyDto } from './dto/mfa.dto';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { SignupPhoneDto, SignupPhoneVerifyDto } from './dto/signup-phone.dto';
 import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
+
+/** Caller details for SMS codes: the IP (stored hashed) and the language of the SMS text. */
+type SmsRequestInfo = { ip?: string; headers: Record<string, string | string[] | undefined> };
+export const smsContext = (req: SmsRequestInfo): { ip?: string; locale: 'nl' | 'en' } => {
+  const lang = req.headers['x-locale'] ?? req.headers['accept-language'];
+  return { ip: req.ip, locale: String(lang ?? '').toLowerCase().startsWith('en') ? 'en' : 'nl' };
+};
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -58,8 +65,8 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000 }) // per IP; per-number limits live in the service
   @ApiOperation({ summary: 'Sign-up: send an SMS code to a new mobile number' })
-  async sendSignupCode(@Body() dto: SignupPhoneDto) {
-    return this.authService.sendSignupCode(dto.phone);
+  async sendSignupCode(@Body() dto: SignupPhoneDto, @Req() req: SmsRequestInfo) {
+    return this.authService.sendSignupCode(dto.phone, smsContext(req));
   }
 
   @Post('signup/phone/verify')

@@ -14,6 +14,18 @@ export interface RateLimitOptions {
 export const RATE_LIMIT_KEY = 'rate_limit_options';
 export const RateLimit = (options: RateLimitOptions) => SetMetadata(RATE_LIMIT_KEY, options);
 
+/** One atomic fixed-window count in rate_limit_hits (shared by every API instance). `key` must already be hashed. */
+export async function sharedCounterHit(prisma: PrismaService, key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
+  const rows = await prisma.$queryRaw<{ count: number; reset_at: Date }[]>`
+    INSERT INTO "rate_limit_hits" ("key", "count", "reset_at")
+    VALUES (${key}, 1, NOW() + ${windowMs} * INTERVAL '1 millisecond')
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "rate_limit_hits"."reset_at" <= NOW() THEN 1 ELSE "rate_limit_hits"."count" + 1 END,
+      "reset_at" = CASE WHEN "rate_limit_hits"."reset_at" <= NOW() THEN EXCLUDED."reset_at" ELSE "rate_limit_hits"."reset_at" END
+    RETURNING "count", "reset_at"`;
+  return { count: Number(rows[0].count), resetAt: new Date(rows[0].reset_at).getTime() };
+}
+
 /**
  * Fixed-window limiter shared by every API instance: counters live in the `rate_limit_hits`
  * table (one atomic upsert per limited request). Signed-in callers are counted per account,
@@ -53,18 +65,12 @@ export class RateLimitGuard implements CanActivate {
   private async hit(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
     if (this.prisma) {
       try {
-        const rows = await this.prisma.$queryRaw<{ count: number; reset_at: Date }[]>`
-          INSERT INTO "rate_limit_hits" ("key", "count", "reset_at")
-          VALUES (${key}, 1, NOW() + ${windowMs} * INTERVAL '1 millisecond')
-          ON CONFLICT ("key") DO UPDATE SET
-            "count" = CASE WHEN "rate_limit_hits"."reset_at" <= NOW() THEN 1 ELSE "rate_limit_hits"."count" + 1 END,
-            "reset_at" = CASE WHEN "rate_limit_hits"."reset_at" <= NOW() THEN EXCLUDED."reset_at" ELSE "rate_limit_hits"."reset_at" END
-          RETURNING "count", "reset_at"`;
+        const hit = await sharedCounterHit(this.prisma, key, windowMs);
         // Occasional cleanup of expired windows keeps the table small without a separate job.
         if (Math.random() < 0.005) {
           void this.prisma.$executeRaw`DELETE FROM "rate_limit_hits" WHERE "reset_at" < NOW() - INTERVAL '1 hour'`.catch(() => undefined);
         }
-        return { count: Number(rows[0].count), resetAt: new Date(rows[0].reset_at).getTime() };
+        return hit;
       } catch {
         this.logger.warn('Shared rate-limit store unavailable; using per-process counters');
       }

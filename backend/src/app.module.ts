@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { validateEnv } from './config/env.validation';
 import { MailModule } from './mail/mail.module';
+import { SmsModule } from './sms/sms.module';
 import { OriginCheckGuard } from './common/guards/origin-check.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
@@ -42,6 +43,7 @@ import { ReviewsModule } from './reviews/reviews.module';
       validate: validateEnv,
     }),
     MailModule,
+    SmsModule,
     TranslationModule,
     MediaModule,
     FinanceModule,

@@ -14,6 +14,8 @@ import { SMS_VERIFIER } from './sms/sms-verifier';
 import { RegisterDto } from './dto/register.dto';
 import { encryptSecret } from '../common/crypto/secret-box';
 import { generateTotpSecret, hashRecoveryCode, totpAt } from './mfa/totp';
+import { OtpService } from './otp/otp.service';
+import { SmsService } from '../sms/sms.service';
 
 // bcrypt is a native module; a deterministic fake keeps this suite portable across OS/CI images.
 // Hash-format and cost-factor behaviour is bcrypt's own responsibility, not under test here.
@@ -75,6 +77,8 @@ describe('AuthService', () => {
       passwordResetToken: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       auditLog: { create: jest.fn() },
       $executeRaw: jest.fn(),
+      // Shared counter (daily OTP cap): one hit each time.
+      $queryRaw: jest.fn(async () => [{ count: 1, reset_at: new Date(Date.now() + 60_000) }]),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation(async (arg: unknown) => (typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as unknown[])));
@@ -87,6 +91,9 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: { getOrThrow: () => SECRET, get: (k: string) => (k === 'CORS_ORIGIN' ? 'http://localhost:3000' : k === 'ENCRYPTION_KEY' ? ENC_KEY.toString('base64') : undefined) } },
         { provide: MAIL_PROVIDER, useValue: mail },
         { provide: SMS_VERIFIER, useValue: sms },
+        OtpService,
+        // SMS go to the mail fake, so tests read the code from mail.send like the dev outbox.
+        { provide: SmsService, useValue: { isConfigured: () => mail.isConfigured() && mail.supports('SMS'), send: async (m: { to: string; text: string }) => (await mail.send({ to: m.to, channel: 'SMS', subject: 'code', text: m.text }), true) } },
       ],
     }).compile();
     service = moduleRef.get(AuthService);
@@ -277,7 +284,8 @@ describe('AuthService', () => {
       await expect(service.sendSignupCode('6374174789')).rejects.toMatchObject({ response: { code: 'PHONE_FORMAT' } });
     });
 
-    it('with Twilio Verify the provider sends and checks the code; we store no code', async () => {
+    it('without an SMS provider, Twilio Verify (temporary fallback) sends and checks the code; we store no code', async () => {
+      mail.supports.mockImplementation((channel: string) => channel === 'EMAIL'); // no SMS provider
       sms.isConfigured.mockReturnValue(true);
       sms.check.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
       await service.sendSignupCode(PHONE);

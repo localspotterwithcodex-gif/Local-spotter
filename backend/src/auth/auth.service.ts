@@ -25,6 +25,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { normalizeMobile } from '../common/phone';
 import { SMS_VERIFIER, SmsVerifier } from './sms/sms-verifier';
+import { OtpService } from './otp/otp.service';
 import { decryptSecret, encryptSecret, parseEncryptionKey } from '../common/crypto/secret-box';
 import { generateRecoveryCodes, generateTotpSecret, hashRecoveryCode, otpauthUrl, verifyTotp } from './mfa/totp';
 
@@ -45,8 +46,6 @@ const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO5VnVTfKkfUlZqe1k3sFvD0jV6mQXZ3W
 /** Sign-up: a verified number must be used within this time. */
 const SIGNUP_TOKEN_TTL_MS = 30 * 60 * 1000;
 /** Sign-up: at most this many codes per number per window (on top of the 60 s cooldown). */
-const MAX_SIGNUP_SENDS_PER_WINDOW = 5;
-const SIGNUP_SEND_WINDOW_MS = 60 * 60 * 1000;
 
 const PHONE_FORMAT_ERROR = () =>
   new BadRequestException({ code: 'PHONE_FORMAT', message: 'Voer je mobiele nummer in met landcode, bijv. +31 6 12345678 of +91 63741 74789' });
@@ -73,62 +72,28 @@ export class AuthService {
     private config: ConfigService,
     @Inject(MAIL_PROVIDER) private mail: MailProvider,
     @Inject(SMS_VERIFIER) private sms: SmsVerifier,
+    private smsCodes: OtpService,
   ) {}
 
   /**
    * Sign-up step 1: sends a code to a number before any account exists. The server enforces the
    * 60 s cooldown and an hourly cap per number; the route adds a per-IP limit.
    */
-  async sendSignupCode(phone: string) {
+  /** Twilio Verify only when no SMS provider is set (temporary: removed once Bird is verified on staging). */
+  private externalVerifier() {
+    return !this.smsCodes.canSend() && this.sms.isConfigured() ? this.sms : undefined;
+  }
+
+  /**
+   * Sign-up step 1: sends a code to a number before any account exists. OtpService enforces the cooldown and the
+   * hourly/daily caps per number; the route adds a per-IP limit.
+   */
+  async sendSignupCode(phone: string, ctx: { ip?: string; locale?: 'nl' | 'en' } = {}) {
     const mobile = normalizeMobile(phone);
     if (!mobile) throw PHONE_FORMAT_ERROR();
-    const viaProvider = this.sms.isConfigured();
-    if (!viaProvider && !(this.mail.isConfigured() && this.mail.supports('SMS'))) {
-      throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
-    }
-    const now = new Date();
-    const code = viaProvider ? null : crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
-    const fresh = {
-      codeHash: code ? this.hashCode(`signup:${mobile}`, code) : SMS_PROVIDER_CODE,
-      expiresAt: new Date(now.getTime() + VERIFICATION_CODE_TTL_MS),
-      attempts: 0,
-      lastSentAt: now,
-      verifiedAt: null,
-      tokenHash: null,
-    };
-    const cooldown = (lastSentAt: Date) =>
-      new HttpException(
-        { code: 'OTP_COOLDOWN', message: 'Wacht even voordat je een nieuwe code aanvraagt.', retryAfterSeconds: Math.max(1, Math.ceil((lastSentAt.getTime() + RESEND_COOLDOWN_MS - now.getTime()) / 1000)) },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-
-    const existing = await this.prisma.phoneVerification.findUnique({ where: { mobile_purpose: { mobile, purpose: OtpPurpose.SIGNUP } } });
-    if (!existing) {
-      try {
-        await this.prisma.phoneVerification.create({ data: { mobile, purpose: OtpPurpose.SIGNUP, ...fresh, sendCount: 1, sendWindowStart: now } });
-      } catch (err) {
-        if (isUniqueViolation(err)) throw cooldown(now); // a parallel request just sent one
-        throw err;
-      }
-    } else {
-      const newWindow = now.getTime() - existing.sendWindowStart.getTime() >= SIGNUP_SEND_WINDOW_MS;
-      if (!newWindow && existing.sendCount >= MAX_SIGNUP_SENDS_PER_WINDOW) {
-        throw new HttpException({ code: 'OTP_LIMIT', message: 'Te veel codes aangevraagd. Probeer het over een uur opnieuw.' }, HttpStatus.TOO_MANY_REQUESTS);
-      }
-      // Conditional update, so two parallel requests can't both pass the cooldown.
-      const { count } = await this.prisma.phoneVerification.updateMany({
-        where: { id: existing.id, lastSentAt: { lte: new Date(now.getTime() - RESEND_COOLDOWN_MS) } },
-        data: { ...fresh, ...(newWindow ? { sendCount: 1, sendWindowStart: now } : { sendCount: { increment: 1 } }) },
-      });
-      if (count === 0) throw cooldown(existing.lastSentAt);
-    }
-
-    if (code) {
-      await this.mail.send({ to: mobile, channel: 'SMS', subject: 'Je LocalSpotter verificatiecode', text: `Je verificatiecode is ${code}. Deze is 10 minuten geldig. Deel deze code met niemand.` });
-    } else {
-      await this.sms.start(mobile);
-    }
-    return { phone: mobile, resendAfterSeconds: RESEND_COOLDOWN_MS / 1000, expiresInSeconds: VERIFICATION_CODE_TTL_MS / 1000 };
+    const external = this.externalVerifier();
+    if (!this.smsCodes.canSend(external)) throw new HttpException('Registratie is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
+    return this.smsCodes.send(OtpPurpose.SIGNUP, mobile, { ...ctx, external });
   }
 
   /**
@@ -136,26 +101,16 @@ export class AuthService {
    * counted before the check; a used or expired code is refused (no replay).
    */
   async verifySignupCode(phone: string, code: string) {
-    const invalid = () => new BadRequestException({ code: 'OTP_INVALID', message: 'Ongeldige of verlopen code' });
     const mobile = normalizeMobile(phone);
-    const row = mobile ? await this.prisma.phoneVerification.findUnique({ where: { mobile_purpose: { mobile, purpose: OtpPurpose.SIGNUP } } }) : null;
-    if (!mobile || !row || row.verifiedAt || row.expiresAt < new Date()) throw invalid();
-
-    const { count } = await this.prisma.phoneVerification.updateMany({
-      where: { id: row.id, verifiedAt: null, attempts: { lt: MAX_VERIFICATION_ATTEMPTS } },
-      data: { attempts: { increment: 1 } },
-    });
-    if (count === 0) throw new HttpException({ code: 'OTP_ATTEMPTS', message: 'Te veel pogingen. Vraag een nieuwe code aan.' }, HttpStatus.TOO_MANY_REQUESTS);
-
-    const matches = row.codeHash === SMS_PROVIDER_CODE ? await this.sms.check(mobile, code) : this.codeMatches(row.codeHash, `signup:${mobile}`, code);
-    if (!matches) throw invalid();
-
+    if (!mobile) throw new BadRequestException({ code: 'OTP_INVALID', message: 'Ongeldige of verlopen code' });
     const token = crypto.randomBytes(32).toString('base64url');
-    const { count: won } = await this.prisma.phoneVerification.updateMany({
-      where: { id: row.id, verifiedAt: null },
-      data: { verifiedAt: new Date(), tokenHash: sha256(token), expiresAt: new Date(Date.now() + SIGNUP_TOKEN_TTL_MS) },
-    });
-    if (won === 0) throw invalid(); // a parallel request verified first
+    await this.smsCodes.verify(
+      OtpPurpose.SIGNUP,
+      mobile,
+      code,
+      { verifiedAt: new Date(), tokenHash: sha256(token), expiresAt: new Date(Date.now() + SIGNUP_TOKEN_TTL_MS) },
+      this.externalVerifier(),
+    );
     return { phone: mobile, verificationToken: token };
   }
 

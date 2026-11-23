@@ -118,8 +118,20 @@ describe('validateEnv', () => {
     expect(() => validateEnv(prod)).toThrow(/MAIL_TRANSPORT=resend is required/);
     expect(() => validateEnv({ ...prod, MAIL_TRANSPORT: 'resend' })).toThrow(/RESEND_API_KEY/);
     expect(() => validateEnv({ ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x' })).toThrow(/MAIL_FROM/);
-    const good = { ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'A <a@b.com>' };
+    const sms = { SMS_PROVIDER: 'bird', BIRD_API_KEY: 'bk_eu1_x', BIRD_SMS_FROM: 'LocalSpotter', OTP_HMAC_SECRET: 'o'.repeat(40) };
+    const good = { ...prod, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'A <a@b.com>', ...sms };
     expect(validateEnv(good)).toBe(good);
+  });
+  it('requires an SMS provider and OTP_HMAC_SECRET in production, and complete Bird settings', () => {
+    const mail = { MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 're_x', MAIL_FROM: 'A <a@b.com>' };
+    const prod = { ...ok, ...mail, NODE_ENV: 'production', CORS_ORIGIN: 'https://a' };
+    expect(() => validateEnv(prod)).toThrow(/An SMS provider is required in production/);
+    expect(() => validateEnv(prod)).toThrow(/OTP_HMAC_SECRET/);
+    expect(() => validateEnv({ ...prod, SMS_PROVIDER: 'dev-file' })).toThrow(/dev-file is not allowed in production/);
+    expect(() => validateEnv({ ...ok, SMS_PROVIDER: 'bird' })).toThrow(/BIRD_API_KEY/);
+    expect(() => validateEnv({ ...ok, SMS_PROVIDER: 'bird', BIRD_API_KEY: 'k' })).toThrow(/BIRD_SMS_FROM/);
+    expect(() => validateEnv({ ...ok, SMS_PROVIDER: 'carrier-pigeon' })).toThrow(/SMS_PROVIDER must be/);
+    expect(validateEnv({ ...ok, SMS_PROVIDER: 'dev-file' })).toBeDefined();
   });
   it('validates ENCRYPTION_KEY (base64, 32 bytes) without echoing it', () => {
     const key = Buffer.alloc(32, 7).toString('base64');

@@ -8,6 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { SocialTokenVerifier } from './social/social-token.verifier';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { SMS_VERIFIER, TwilioVerify, UnconfiguredSmsVerifier } from './sms/sms-verifier';
+import { OtpService } from './otp/otp.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SMS_VERIFIER, TwilioVerify, UnconfiguredSmsVerifier } from './sms/sms-v
   ],
   providers: [
     AuthService,
+    OtpService,
     JwtStrategy,
     RateLimitGuard,
     SocialTokenVerifier,

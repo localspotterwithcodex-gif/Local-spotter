@@ -59,7 +59,25 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     if (twilio[2] && !/^VA[0-9a-f]{32}$/i.test(twilio[2])) errors.push('TWILIO_VERIFY_SERVICE_SID must look like VA followed by 32 hex characters');
   }
 
-  const encryptionKey = typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
+  // SMS codes and order messages (Phase 8): Bird, or the local outbox outside production.
+  const smsProvider = typeof config.SMS_PROVIDER === 'string' ? config.SMS_PROVIDER.trim() : '';
+  if (smsProvider && smsProvider !== 'bird' && smsProvider !== 'dev-file') errors.push('SMS_PROVIDER must be "bird" or "dev-file"');
+  if (smsProvider === 'bird') {
+    if (!config.BIRD_API_KEY) errors.push('BIRD_API_KEY is required when SMS_PROVIDER=bird');
+    if (!config.BIRD_SMS_FROM) errors.push('BIRD_SMS_FROM is required when SMS_PROVIDER=bird (alphanumeric sender, e.g. LocalSpotter)');
+    const base = String(config.BIRD_API_BASE_URL ?? 'https://eu1.platform.bird.com');
+    if (!/^https:\/\//.test(base)) errors.push('BIRD_API_BASE_URL must be an https URL (e.g. https://eu1.platform.bird.com)');
+  }
+  if (isProd) {
+    if (smsProvider === 'dev-file') errors.push('SMS_PROVIDER=dev-file is not allowed in production');
+    if (smsProvider !== 'bird' && !twilio.every(Boolean)) {
+      errors.push('An SMS provider is required in production (SMS_PROVIDER=bird with BIRD_API_KEY and BIRD_SMS_FROM): sign-up, login and password reset send SMS codes');
+    }
+    const otpSecret = typeof config.OTP_HMAC_SECRET === 'string' ? config.OTP_HMAC_SECRET : '';
+    if (otpSecret.length < MIN_SECRET_LENGTH) errors.push(`OTP_HMAC_SECRET is required in production (at least ${MIN_SECRET_LENGTH} random characters)`);
+  }
+
+  const encryptionKey =typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
   if (encryptionKey && Buffer.from(encryptionKey, 'base64').length !== 32) {
     errors.push('ENCRYPTION_KEY must be base64 of exactly 32 bytes (node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))")');
   }
