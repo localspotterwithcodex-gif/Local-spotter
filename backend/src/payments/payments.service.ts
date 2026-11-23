@@ -228,7 +228,8 @@ export class PaymentsService {
 
   /** After start-up, trial the provider once so a misconfiguration is named in the server log before any customer hits it. */
   onApplicationBootstrap(): void {
-    if (!this.gateway.isConfigured() || process.env.NODE_ENV === 'test') return;
+    // Not on Vercel: it would run a Stripe call on every cold start; admins use the Payments page check instead.
+    if (!this.gateway.isConfigured() || process.env.NODE_ENV === 'test' || process.env.VERCEL) return;
     setTimeout(() => {
       this.diagnose()
         .then((d) =>

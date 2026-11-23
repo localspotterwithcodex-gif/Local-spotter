@@ -1,4 +1,4 @@
-import { Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CronSecretGuard } from '../common/guards/cron-secret.guard';
 import { NotificationsService } from './notifications.service';
@@ -9,6 +9,13 @@ import { NotificationsService } from './notifications.service';
 @UseGuards(CronSecretGuard)
 export class NotificationsJobsController {
   constructor(private readonly notifications: NotificationsService) {}
+
+  /** Vercel Cron calls GET (with Authorization: Bearer CRON_SECRET); same job as the POST below. */
+  @Get('subscription-reminders')
+  @UseGuards(CronSecretGuard)
+  cron() {
+    return this.reminders();
+  }
 
   @Post('subscription-reminders')
   @HttpCode(HttpStatus.OK)

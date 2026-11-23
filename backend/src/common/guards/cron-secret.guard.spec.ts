@@ -14,6 +14,13 @@ describe('CronSecretGuard', () => {
     expect(() => guard(SECRET).canActivate(ctx({ 'x-cron-secret': 'nope' }))).toThrow(ForbiddenException);
     expect(() => guard(SECRET).canActivate(ctx({}))).toThrow(ForbiddenException);
   });
+  it('accepts Vercel Cron\'s "Authorization: Bearer <CRON_SECRET>" and rejects a wrong or non-Bearer one', () => {
+    expect(guard(SECRET).canActivate(ctx({ authorization: `Bearer ${SECRET}` }))).toBe(true);
+    expect(() => guard(SECRET).canActivate(ctx({ authorization: 'Bearer nope' }))).toThrow(ForbiddenException);
+    expect(() => guard(SECRET).canActivate(ctx({ authorization: SECRET }))).toThrow(ForbiddenException);
+    // A user's session token in Authorization never unlocks jobs, even with a valid x-cron-secret next to it.
+    expect(() => guard(SECRET).canActivate(ctx({ authorization: 'Bearer user.jwt', 'x-cron-secret': SECRET }))).toThrow(ForbiddenException);
+  });
   it('is disabled when no (or a too short) secret is configured', () => {
     expect(() => guard(undefined).canActivate(ctx({ 'x-cron-secret': 'x' }))).toThrow(ForbiddenException);
     expect(() => guard('short').canActivate(ctx({ 'x-cron-secret': 'short' }))).toThrow(ForbiddenException);

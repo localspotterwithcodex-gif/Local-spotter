@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
-import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryImageStorage, IMAGE_STORAGE, ImageStorage, UnconfiguredImageStorage } from './image-storage';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
@@ -11,7 +10,6 @@ import { CloudinaryVideoStorage, UnconfiguredVideoStorage, VIDEO_STORAGE, VideoS
   controllers: [MediaController],
   providers: [
     MediaService,
-    PrismaService,
     RateLimitGuard,
     {
       provide: IMAGE_STORAGE,

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { ReviewsController } from './reviews.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 
@@ -10,7 +9,6 @@ import { SubscriptionEntitlementService } from '../subscriptions/subscription-en
   controllers: [ReviewsController],
   providers: [
     ReviewsService,
-    PrismaService,
     SubscriptionEntitlementService,
   ],
   exports: [ReviewsService],

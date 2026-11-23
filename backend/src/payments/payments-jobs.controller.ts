@@ -1,4 +1,4 @@
-import { Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CronSecretGuard } from '../common/guards/cron-secret.guard';
 import { PaymentsService } from './payments.service';
@@ -9,6 +9,13 @@ import { PaymentsService } from './payments.service';
 @UseGuards(CronSecretGuard)
 export class PaymentsJobsController {
   constructor(private readonly payments: PaymentsService) {}
+
+  /** Vercel Cron calls GET (with Authorization: Bearer CRON_SECRET); same job as the POST below. */
+  @Get('expire-unpaid-orders')
+  @UseGuards(CronSecretGuard)
+  cron() {
+    return this.expire();
+  }
 
   @Post('expire-unpaid-orders')
   @HttpCode(HttpStatus.OK)

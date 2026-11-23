@@ -4,7 +4,6 @@ import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsWebhookController } from './payments-webhook.controller';
 import { PaymentsJobsController } from './payments-jobs.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { PAYMENT_GATEWAY, UnconfiguredPaymentGateway } from './payment-gateway';
 import { StripeGateway } from './stripe.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -15,7 +14,6 @@ import { CronSecretGuard } from '../common/guards/cron-secret.guard';
   controllers: [PaymentsController, PaymentsWebhookController, PaymentsJobsController],
   providers: [
     PaymentsService,
-    PrismaService,
     CronSecretGuard,
     StripeGateway,
     {

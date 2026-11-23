@@ -39,6 +39,13 @@ export class ChatAdminController {
 export class ChatJobsController {
   constructor(private readonly chat: ChatService) {}
 
+  /** Vercel Cron calls GET (with Authorization: Bearer CRON_SECRET); same job as the POST below. */
+  @Get('chat-retention')
+  @UseGuards(CronSecretGuard)
+  cron() {
+    return this.retention();
+  }
+
   @Post('chat-retention')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete chat history older than 12 months (messages with open reports are kept)' })

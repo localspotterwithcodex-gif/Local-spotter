@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/v1/internal/jobs/expire-unpaid-orders", "schedule": "*/10 * * * *" },
+    { "path": "/api/v1/internal/jobs/expire-unpaid-bookings", "schedule": "*/10 * * * *" },
+    { "path": "/api/v1/internal/jobs/subscription-reminders", "schedule": "0 7 * * *" },
+    { "path": "/api/v1/internal/jobs/cleanup-guests", "schedule": "15 3 * * *" },
+    { "path": "/api/v1/internal/jobs/chat-retention", "schedule": "30 3 * * *" },
+    { "path": "/api/v1/internal/jobs/weekly-payouts", "schedule": "0 5 * * 1" }
+  ]
+}
