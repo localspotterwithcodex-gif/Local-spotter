@@ -35,6 +35,8 @@ describeDb('cross-portal flows (real database)', () => {
     businessA: '', businessB: '', pendingBusiness: '', product: '', order: '', workshop: '', plan: '',
   };
   let ownerA: Session, ownerB: Session, consumerA: Session, consumerB: Session, admin: Session;
+  const ENCRYPTION_KEY = crypto.randomBytes(32).toString('base64');
+  let adminTotpSecret = '';
 
   async function http(method: string, path: string, opts: { session?: Session; body?: unknown } = {}) {
     const res = await fetch(`${base}/api/v1${path}`, {
@@ -76,7 +78,26 @@ describeDb('cross-portal flows (real database)', () => {
       },
       include: { businessOwnerProfile: true },
     });
+    if (role === 'SUPER_ADMIN') {
+      // Admins must use the authenticator app (no session without it): enrol this one directly.
+      const { generateTotpSecret } = await import('../src/auth/mfa/totp');
+      const { encryptSecret, parseEncryptionKey } = await import('../src/common/crypto/secret-box');
+      adminTotpSecret = generateTotpSecret();
+      await prisma.user.update({ where: { id: user.id }, data: { mfaSecret: encryptSecret(adminTotpSecret, parseEncryptionKey(ENCRYPTION_KEY)!), mfaEnabledAt: new Date() } });
+    }
     return user;
+  }
+
+  async function loginAdmin(identifier: string): Promise<Session> {
+    const { totpAt } = await import('../src/auth/mfa/totp');
+    const step1 = await http('POST', '/auth/login', { body: { identifier, password: PASSWORD } });
+    expect(step1.status).toBe(200);
+    expect(step1.json.mfaRequired).toBe(true);
+    expect(step1.setCookie ?? '').not.toMatch(/ls_session=/); // no session before the second factor
+    const step2 = await http('POST', '/auth/mfa/verify', { body: { mfaToken: step1.json.mfaToken, code: totpAt(adminTotpSecret, Date.now() / 1000) } });
+    expect(step2.status).toBe(200);
+    expect(step2.setCookie).toMatch(/ls_session=/);
+    return { cookie: step2.setCookie!.split(';')[0] };
   }
 
   async function makeBusiness(ownerProfileId: string, tag: string, status: string) {
@@ -102,6 +123,7 @@ describeDb('cross-portal flows (real database)', () => {
     process.env.FRONTEND_URL = ORIGIN;
     process.env.MAIL_TRANSPORT = 'dev-file';
     process.env.NODE_ENV = 'test';
+    process.env.ENCRYPTION_KEY = ENCRYPTION_KEY;
 
     const { Test } = await import('@nestjs/testing');
     const { AppModule } = await import('../src/app.module');
@@ -114,9 +136,12 @@ describeDb('cross-portal flows (real database)', () => {
     base = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     prisma = app.get(PrismaService);
 
-    const plan =
-      (await prisma.subscriptionPlan.findUnique({ where: { slug: 'WORKSHOP' } })) ??
-      (await prisma.subscriptionPlan.create({ data: { name: 'Workshop', slug: 'WORKSHOP', monthlyPrice: 150 } }));
+    const { PLAN_ENTITLEMENT_DEFAULTS } = await import('../src/subscriptions/plan-entitlement-defaults');
+    const plan = await prisma.subscriptionPlan.upsert({
+      where: { slug: 'WORKSHOP' },
+      update: { ...PLAN_ENTITLEMENT_DEFAULTS.WORKSHOP, active: true },
+      create: { name: 'Workshop', slug: 'WORKSHOP', monthlyPrice: 150, ...PLAN_ENTITLEMENT_DEFAULTS.WORKSHOP },
+    });
     ids.plan = plan.id;
 
     const oa = await makeUser('BUSINESS_OWNER', 'ownerA');
@@ -133,7 +158,7 @@ describeDb('cross-portal flows (real database)', () => {
     ownerB = await login(`ownerB-${RUN}@e2e.test`);
     consumerA = await login(`consumerA-${RUN}@e2e.test`);
     consumerB = await login(`consumerB-${RUN}@e2e.test`);
-    admin = await login(`admin-${RUN}`);
+    admin = await loginAdmin(`admin-${RUN}`);
   });
 
   afterAll(async () => {
@@ -142,9 +167,11 @@ describeDb('cross-portal flows (real database)', () => {
       const bizIds = [ids.businessA, ids.businessB, ids.pendingBusiness].filter(Boolean);
       await prisma.workshopBooking.deleteMany({ where: { workshop: { businessId: { in: bizIds } } } });
       await prisma.workshop.deleteMany({ where: { businessId: { in: bizIds } } });
+      await prisma.smsMessage.deleteMany({ where: { order: { businessId: { in: bizIds } } } });
       await prisma.orderStatusEvent.deleteMany({ where: { order: { businessId: { in: bizIds } } } });
       await prisma.orderItem.deleteMany({ where: { order: { businessId: { in: bizIds } } } });
       await prisma.order.deleteMany({ where: { businessId: { in: bizIds } } });
+      await prisma.customerOrder.deleteMany({ where: { consumerProfile: { userId: { in: userIds } } } });
       await prisma.cartItem.deleteMany({ where: { cart: { businessId: { in: bizIds } } } });
       await prisma.cart.deleteMany({ where: { businessId: { in: bizIds } } });
       await prisma.productImage.deleteMany({ where: { product: { businessId: { in: bizIds } } } });
@@ -213,8 +240,15 @@ describeDb('cross-portal flows (real database)', () => {
         body: { deliveryAddress: { street: 'Teststraat', houseNumber: '1', city: 'Amsterdam', postalCode: '1011AA' } },
       });
       expect(order.status).toBe(201);
-      ids.order = order.json.id;
-      expect(Number(order.json.subtotalAmount)).toBe(25);
+      expect(order.json.orders).toHaveLength(1); // one customer order, one order per shop
+      ids.order = order.json.orders[0].id;
+      expect(Number(order.json.orders[0].subtotalAmount)).toBe(25);
+
+      // Shops only see paid orders; mark it paid as the verified Stripe webhook would.
+      const before = await http('GET', `/businesses/${ids.businessA}/orders`, { session: ownerA });
+      expect(before.json.data.map((o: { id: string }) => o.id)).not.toContain(ids.order);
+      const o = await prisma.order.update({ where: { id: ids.order }, data: { paymentStatus: 'PAID' } });
+      await prisma.customerOrder.update({ where: { id: o.customerOrderId }, data: { paymentStatus: 'PAID', paidAt: new Date() } });
     });
 
     it('the order is visible to the consumer, the owning business and the admin', async () => {
