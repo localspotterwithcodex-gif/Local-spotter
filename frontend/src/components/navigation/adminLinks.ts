@@ -1,4 +1,4 @@
-import { ShieldCheck, Users, Store, ShoppingBag, Package, Star, CreditCard, Crown, FileCheck, Route, Presentation, MessageSquareWarning, Tags, Languages, Percent, Undo2, type LucideIcon } from "lucide-react";
+import { ShieldCheck, Users, Store, ShoppingBag, Package, Star, CreditCard, Crown, FileCheck, Route, Presentation, MessageSquareWarning, Tags, Languages, Percent, Undo2, BarChart3, type LucideIcon } from "lucide-react";
 import type { TranslationKey } from "@/i18n/dictionaries";
 
 export interface NavLinkItem {
@@ -21,6 +21,7 @@ export const adminNavLinks = (t: (key: TranslationKey) => string): NavLinkItem[]
   { label: t("admin.reviewModeration"), href: "/admin/reviews", icon: Star },
   { label: t("admin.paymentsLog"), href: "/admin/payments", icon: CreditCard },
   { label: t("admin.payoutsApproval"), href: "/admin/payouts", icon: FileCheck },
+  { label: t("adminx.reports.nav"), href: "/admin/reports", icon: BarChart3 },
   { label: t("admin.commission"), href: "/admin/commission", icon: Percent },
   { label: t("admin.returnsOverview"), href: "/admin/returns", icon: Undo2 },
   { label: t("admin.subscriptionsManagement"), href: "/admin/subscriptions", icon: Crown },

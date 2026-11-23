@@ -430,6 +430,32 @@ export interface PaymentDiagnosis {
   hint: string;
 }
 
+export interface ReportTotals { grossSalesCents: number; refundsCents: number; commissionCents: number; netOwedCents: number }
+export interface MonthlyReport extends ReportTotals {
+  month: string;
+  orders: number;
+  workshopBookings: number;
+  subscriptionPayments: number;
+  subscriptionRevenueCents: number;
+  payoutsCreated: { count: number; cents: number };
+  payoutsPaid: { count: number; cents: number };
+  netPlatformRevenueCents: number;
+}
+export interface ShopReportRow extends ReportTotals {
+  businessId: string;
+  name: string;
+  plan: string | null;
+  commissionRateBps: number;
+  orders: number;
+  payoutStatus: string | null;
+  payoutCents: number;
+}
+export interface ShopReportPage { month: string; page: number; pageSize: number; total: number; items: ShopReportRow[] }
+
+/** Same-origin download link; the session cookie authorises it. */
+export const reportCsvUrl = (path: "monthly" | "businesses", q: Record<string, string | number | undefined>) =>
+  `/api/v1/admin/reports/${path}${qs({ ...q, format: "csv" })}`;
+
 export const adminApi = {
   async checkPaymentSetup(): Promise<PaymentDiagnosis> {
     const res = await apiClient.get<Envelope<PaymentDiagnosis>>("/admin/payment-diagnostics");
@@ -566,6 +592,15 @@ export const adminApi = {
   },
   async setOrderStatus(id: string, status: OrderStatus, reason: string): Promise<void> {
     await apiClient.patch(`/admin/orders/${id}/status`, { status, reason });
+  },
+
+  /** Phase 6 reports (cents, EUR). CSV: the same URL with `&format=csv` (see reportCsvUrl). */
+  async getMonthlyReport(month: string): Promise<MonthlyReport> {
+    return apiClient.get<MonthlyReport>(`/admin/reports/monthly${qs({ month })}`);
+  },
+
+  async getShopReports(q: { month: string; plan?: string; page?: number }): Promise<ShopReportPage> {
+    return apiClient.get<ShopReportPage>(`/admin/reports/businesses${qs(q)}`);
   },
 
   async getPayments(q: PageQuery = {}): Promise<Paged<AdminPayment>> {
