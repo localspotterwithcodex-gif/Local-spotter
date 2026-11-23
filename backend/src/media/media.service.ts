@@ -1,7 +1,10 @@
 import { BadRequestException, Inject, Injectable, Logger, PayloadTooLargeException, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/types/auth-user';
-import { IMAGE_STORAGE, ImageStorage } from './image-storage';
+import { IMAGE_STORAGE, ImageStorage, UnsupportedImageFormatError } from './image-storage';
+import { SUPABASE_STORAGE } from './direct-upload.service';
+import { SupabaseStorageClient } from './supabase-storage';
+import { HttpException } from '@nestjs/common';
 import { MAX_CONTENT_IMAGE_BYTES, detectImageType } from './image-validation';
 import {
   ALLOWED_VIDEO_FORMATS,
@@ -20,7 +23,17 @@ export class MediaService {
     private readonly prisma: PrismaService,
     @Inject(IMAGE_STORAGE) private readonly storage: ImageStorage,
     @Inject(VIDEO_STORAGE) private readonly videos: VideoStorage,
+    @Inject(SUPABASE_STORAGE) private readonly supabase: SupabaseStorageClient | null = null,
   ) {}
+
+  /** URL to show a file: public files as stored, private chat files through a 1-hour signed URL. */
+  async readableUrl(asset: { url: string; bucket?: string | null; storagePath?: string | null } | null): Promise<string | null> {
+    if (!asset) return null;
+    if (asset.bucket === 'chat-attachments' && asset.storagePath && this.supabase) {
+      return this.supabase.signDownload(asset.bucket, asset.storagePath, 3600).catch(() => null);
+    }
+    return asset.url || null;
+  }
 
   private videoFolder(user: AuthUser): string {
     return `localspotter/users/${user.id}/videos`;
@@ -93,13 +106,15 @@ export class MediaService {
     try {
       // Controlled storage path: never derived from the client's filename.
       stored = await this.storage.upload(file.buffer, detected.mime, options.folder ?? `localspotter/users/${user.id}`);
-    } catch {
+    } catch (err) {
+      if (err instanceof UnsupportedImageFormatError) throw new BadRequestException('Gebruik een JPEG-, PNG-, WebP-, GIF- of AVIF-afbeelding');
+      if (err instanceof HttpException) throw err;
       throw new ServiceUnavailableException('Uploaden is mislukt, probeer het later opnieuw');
     }
 
     const asset = await this.prisma.mediaAsset.create({
-      data: { url: stored.url, mimeType: detected.mime, fileSize: stored.bytes },
+      data: { url: stored.url, mimeType: detected.mime, fileSize: stored.bytes, ...(stored.bucket ? { bucket: stored.bucket, storagePath: stored.path, uploadedByUserId: user.id } : {}) },
     });
-    return { id: asset.id, url: asset.url };
+    return { id: asset.id, url: (await this.readableUrl(asset)) ?? asset.url };
   }
 }

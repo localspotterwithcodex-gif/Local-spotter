@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Post, UploadedFile, UseGuards, UseInterceptors, Get } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -11,6 +11,8 @@ import { AuthUser } from '../common/types/auth-user';
 import { MediaService } from './media.service';
 import { MAX_IMAGE_BYTES } from './image-validation';
 import { RegisterVideoDto } from './dto/register-video.dto';
+import { DirectUploadService } from './direct-upload.service';
+import { ConfirmUploadDto, UploadTicketDto } from './dto/upload-ticket.dto';
 
 /** The subset of multer's file object we use (memory storage). */
 type UploadedImage = { buffer: Buffer; size: number };
@@ -18,7 +20,36 @@ type UploadedImage = { buffer: Buffer; size: number };
 @ApiTags('Media')
 @Controller('media')
 export class MediaController {
-  constructor(private readonly media: MediaService) {}
+  constructor(
+    private readonly media: MediaService,
+    private readonly direct: DirectUploadService,
+  ) {}
+
+  @Get('config')
+  @ApiOperation({ summary: 'Which upload flow the browser should use (direct = Supabase signed uploads)' })
+  config() {
+    return { directUploads: this.direct.isEnabled() };
+  }
+
+  @Post('upload-ticket')
+  @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+  @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @RateLimit({ limit: 60, windowMs: 10 * 60 * 1000 })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Step 1 of a direct upload: checks rights, plan limits, type and size; returns a signed upload URL for one object' })
+  uploadTicket(@Body() dto: UploadTicketDto, @CurrentUser() user: AuthUser) {
+    return this.direct.createTicket(user, dto);
+  }
+
+  @Post('confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)
+  @Roles(UserRole.CONSUMER, UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @RateLimit({ limit: 60, windowMs: 10 * 60 * 1000 })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Step 3: re-checks the uploaded object (size, real type, video length) and marks it ready' })
+  confirmUpload(@Body() dto: ConfirmUploadDto, @CurrentUser() user: AuthUser) {
+    return this.direct.confirm(user, dto.assetId);
+  }
 
   @Post('images')
   @UseGuards(JwtAuthGuard, RolesGuard, RateLimitGuard)

@@ -77,7 +77,15 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     if (otpSecret.length < MIN_SECRET_LENGTH) errors.push(`OTP_HMAC_SECRET is required in production (at least ${MIN_SECRET_LENGTH} random characters)`);
   }
 
-  const encryptionKey =typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
+  // File storage (Phase 4): Supabase Storage, or Cloudinary until staging is verified.
+  const storageProvider = typeof config.STORAGE_PROVIDER === 'string' ? config.STORAGE_PROVIDER.trim() : '';
+  if (storageProvider && storageProvider !== 'supabase' && storageProvider !== 'cloudinary') errors.push('STORAGE_PROVIDER must be "supabase" or "cloudinary"');
+  if (storageProvider === 'supabase') {
+    if (!/^https:\/\/[^/]+$/.test(String(config.SUPABASE_URL ?? '').replace(/\/+$/, ''))) errors.push('SUPABASE_URL is required when STORAGE_PROVIDER=supabase (https://<project-ref>.supabase.co)');
+    if (!config.SUPABASE_SERVICE_ROLE_KEY) errors.push('SUPABASE_SERVICE_ROLE_KEY is required when STORAGE_PROVIDER=supabase (API only, never in a frontend)');
+  }
+
+  const encryptionKey = typeof config.ENCRYPTION_KEY === 'string' ? config.ENCRYPTION_KEY.trim() : '';
   if (encryptionKey && Buffer.from(encryptionKey, 'base64').length !== 32) {
     errors.push('ENCRYPTION_KEY must be base64 of exactly 32 bytes (node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))")');
   }

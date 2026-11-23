@@ -94,8 +94,10 @@ export class ChatService {
       where: { conversationId },
       orderBy: { createdAt: 'desc' },
       take: MESSAGE_PAGE,
-      include: { attachment: { select: { url: true } } },
+      include: { attachment: { select: { url: true, bucket: true, storagePath: true } } },
     });
+    // Private chat images (Supabase) are shown through short-lived signed URLs.
+    for (const r of rows) if (r.attachment) r.attachment.url = (await this.media.readableUrl(r.attachment)) ?? '';
     return {
       conversation: {
         id: conversation.id,

@@ -55,7 +55,7 @@ function make(conversation: any = baseConversation) {
   };
   const notifications = { notifyUser: jest.fn().mockResolvedValue(undefined) };
   const employees = { isActiveStaff: jest.fn().mockResolvedValue(false), canAccessShop: jest.fn().mockResolvedValue(false) };
-  const media = { uploadImage: jest.fn().mockResolvedValue({ id: 'asset1', url: 'https://img/new.jpg' }) };
+  const media = { uploadImage: jest.fn().mockResolvedValue({ id: 'asset1', url: 'https://img/new.jpg' }), readableUrl: jest.fn(async (a: { url: string } | null) => a?.url ?? null) };
   return { svc: new ChatService(prisma, notifications as any, media as any, employees as any), prisma, notifications, media, employees };
 }
 
