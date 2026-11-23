@@ -47,6 +47,16 @@ export class SubscriptionsController {
     return this.subscriptionsService.getSubscription(businessId, user);
   }
 
+  @Get('businesses/:businessId/entitlements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Features and limits of the shop's current plan" })
+  @ApiResponse({ status: 200, description: '{ active, plan, features, limits }' })
+  async getEntitlements(@Param('businessId') businessId: string, @CurrentUser() user: any) {
+    return this.subscriptionsService.getEntitlements(businessId, user);
+  }
+
   @Delete('businesses/:businessId/subscription')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)

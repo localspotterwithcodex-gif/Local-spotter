@@ -6,6 +6,7 @@ import { TranslationService } from '../translation/translation.service';
 import { FavoritesService } from '../favorites/favorites.service';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -69,9 +70,9 @@ describe('ProductsService', () => {
       },
     };
 
-    entitlementService = {
+    entitlementService = withEntitlementAsserts({
       hasFeature: jest.fn(),
-    };
+    });
 
     translation = { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) };
 
@@ -149,7 +150,7 @@ describe('ProductsService', () => {
   });
 
   describe('addImage (Max 3 Images Rule)', () => {
-    it('should throw BadRequestException if product already has 3 images', async () => {
+    it('rejects a 4th image with 403 PLAN_FEATURE_REQUIRED (plan limit, 3 by default)', async () => {
       prisma.product.findUnique.mockResolvedValue({
         id: 'prod-1',
         businessId: 'bus-1',
@@ -167,7 +168,7 @@ describe('ProductsService', () => {
         service.addImage('prod-1', mockUser, {
           url: 'https://example.com/fourth-image.jpg',
         }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should allow adding an image if product has fewer than 3 images', async () => {

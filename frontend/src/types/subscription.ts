@@ -23,3 +23,12 @@ export interface BusinessSubscription {
   currentPeriodEnd: string;
   autoRenew: boolean;
 }
+
+/** GET /businesses/:id/entitlements — mirrors the backend's SubscriptionEntitlementService. */
+export type EntitlementFeature = "PRODUCTS" | "SHOPROUTES" | "WORKSHOPS" | "REVIEWS" | "SHOP_VIDEO" | "CUSTOMER_PHOTOS";
+export interface BusinessEntitlements {
+  active: boolean;
+  plan: "WEBSHOP" | "SHOPROUTES" | "WORKSHOP" | null;
+  features: Record<EntitlementFeature, boolean>;
+  limits: { maxProductImages: number; maxReviewPhotos: number; maxReviewVideos: number };
+}

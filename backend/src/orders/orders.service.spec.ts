@@ -8,6 +8,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { BusinessStatus, FulfilmentMethod, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
 import { AllowedOrderStatusInput } from './dto/update-order-status.dto';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -82,7 +83,7 @@ describe('OrdersService', () => {
       $transaction: jest.fn((cb) => cb(prisma)),
       $executeRaw: jest.fn().mockResolvedValue(1),
     };
-    entitlementService = { hasFeature: jest.fn().mockResolvedValue(true) };
+    entitlementService = withEntitlementAsserts({ hasFeature: jest.fn().mockResolvedValue(true) });
     employees = { canAccessShop: jest.fn().mockResolvedValue(false), isActiveStaff: jest.fn().mockResolvedValue(false) };
     payments = { refundOrder: jest.fn().mockResolvedValue({ status: 'NOT_REQUIRED', refundedCents: 0 }) };
     notifications = { notifyUser: jest.fn().mockResolvedValue(undefined), notifyBusinessOwner: jest.fn().mockResolvedValue(undefined) };

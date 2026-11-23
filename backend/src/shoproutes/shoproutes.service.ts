@@ -9,7 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateShopRouteDto, CreateRouteStopDto, UpdateShopRouteDto, UpdateRouteStopDto, QueryShopRouteDto, ReorderStopsDto } from './dto';
-import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus, SubscriptionPlanSlug } from '@prisma/client';
+import { Prisma, RouteStatus, UserRole, BusinessStatus, SubscriptionStatus } from '@prisma/client';
 import { TranslationService } from '../translation/translation.service';
 
 import { routeStats } from '../common/geo';
@@ -50,12 +50,7 @@ export class ShopRoutesService {
       }
       businessId = businesses[0].id;
 
-      const hasEntitlement = await this.entitlementService.hasFeature(businessId, 'SHOPROUTES');
-      if (!hasEntitlement) {
-        throw new ForbiddenException(
-          'Deze winkel heeft geen actief Shoproutes abonnement',
-        );
-      }
+      await this.entitlementService.assertFeature(businessId, 'SHOPROUTES', 'Deze winkel heeft geen actief Shoproutes abonnement');
     }
 
     const existingSlug = await this.prisma.shopRoute.findFirst({
@@ -119,7 +114,7 @@ export class ShopRoutesService {
             subscription: {
               status: SubscriptionStatus.ACTIVE,
               currentPeriodEnd: { gt: new Date() },
-              plan: { slug: { in: [SubscriptionPlanSlug.SHOPROUTES, SubscriptionPlanSlug.WORKSHOP] } },
+              plan: { shoproutesEnabled: true },
             },
           },
         },
@@ -356,10 +351,7 @@ export class ShopRoutesService {
       throw new BadRequestException('De referentiebedrijf is niet actief');
     }
 
-    const hasEntitlement = await this.entitlementService.hasFeature(business.id, 'SHOPROUTES');
-    if (!hasEntitlement) {
-      throw new ForbiddenException('Het referentiebedrijf heeft geen actief Shoproutes abonnement');
-    }
+    await this.entitlementService.assertFeature(business.id, 'SHOPROUTES', 'Het referentiebedrijf heeft geen actief Shoproutes abonnement');
 
     const existingStopCount = await this.prisma.routeStop.count({
       where: { routeId, businessId: dto.businessId },
@@ -404,10 +396,7 @@ export class ShopRoutesService {
       throw new BadRequestException('Het referentiebedrijf is niet actief');
     }
 
-    const hasEntitlement = await this.entitlementService.hasFeature(business.id, 'SHOPROUTES');
-    if (!hasEntitlement) {
-      throw new ForbiddenException('Het referentiebedrijf heeft geen actief Shoproutes abonnement');
-    }
+    await this.entitlementService.assertFeature(business.id, 'SHOPROUTES', 'Het referentiebedrijf heeft geen actief Shoproutes abonnement');
 
     const updatedStop = await this.prisma.routeStop.update({
       where: { id: stopId },
@@ -617,10 +606,7 @@ export class ShopRoutesService {
         throw new BadRequestException(`Bedrijf ${stop.businessId} is niet actief`);
       }
 
-      const hasEntitlement = await this.entitlementService.hasFeature(business.id, 'SHOPROUTES');
-      if (!hasEntitlement) {
-        throw new ForbiddenException(`Bedrijf ${stop.businessId} heeft geen Shoproutes abonnement`);
-      }
+      await this.entitlementService.assertFeature(business.id, 'SHOPROUTES', `Bedrijf ${stop.businessId} heeft geen Shoproutes abonnement`);
     }
 
     await this.prisma.routeStop.createMany({

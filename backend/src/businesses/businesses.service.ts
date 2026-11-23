@@ -9,12 +9,14 @@ import { boundingBox, haversineKm, hasGeo, toNum } from '../common/geo';
 import { QueryBusinessDto } from './dto/query-business.dto';
 import { TranslationService } from '../translation/translation.service';
 import { normalizeSocialLinks } from './social-links';
+import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 
 @Injectable()
 export class BusinessesService {
   constructor(
     private prisma: PrismaService,
     private translation: TranslationService,
+    private entitlements: SubscriptionEntitlementService,
   ) {}
 
   async create(user: any, dto: CreateBusinessDto) {
@@ -252,6 +254,9 @@ export class BusinessesService {
       throw new BadRequestException('Schakel minimaal één leveringswijze in (afhalen, verzenden of lokale bezorging)');
     }
 
+    if (dto.videoAssetId && dto.videoAssetId !== business.videoAssetId) {
+      await this.entitlements.assertFeature(id, 'SHOP_VIDEO', 'Een winkelvideo zit niet in je abonnement');
+    }
     if (dto.videoAssetId) {
       const video = await this.prisma.mediaAsset.findUnique({ where: { id: dto.videoAssetId }, select: { mimeType: true } });
       if (!video || !video.mimeType?.startsWith('video/')) throw new BadRequestException('Video niet gevonden, upload de video opnieuw');

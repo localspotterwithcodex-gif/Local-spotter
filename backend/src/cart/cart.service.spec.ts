@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BusinessStatus, UserRole } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('CartService', () => {
   let service: CartService;
@@ -76,9 +77,9 @@ describe('CartService', () => {
       },
     };
 
-    entitlementService = {
+    entitlementService = withEntitlementAsserts({
       hasFeature: jest.fn(),
-    };
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

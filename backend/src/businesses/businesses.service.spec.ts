@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { BusinessStatus, UserRole } from '@prisma/client';
 import { BusinessesService } from './businesses.service';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
-function make(status: BusinessStatus) {
+function make(status: BusinessStatus, shopVideo = true) {
   const business = { id: 'b1', status, ownerProfileId: 'op-1', deletedAt: null, pickupEnabled: true, shippingEnabled: true, localDeliveryEnabled: false };
   const prisma = {
     businessOwnerProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'op-1', userId: 'owner-1' }) },
@@ -11,7 +12,7 @@ function make(status: BusinessStatus) {
       update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'b1', ...data })),
     },
   };
-  return { service: new BusinessesService(prisma as never, { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } as never), prisma };
+  return { service: new BusinessesService(prisma as never, { backfill: jest.fn().mockResolvedValue(undefined), translateFields: jest.fn().mockResolvedValue({ sourceLocale: null, translations: null }) } as never, withEntitlementAsserts({ hasFeature: jest.fn().mockResolvedValue(shopVideo) }) as never), prisma };
 }
 const owner = { id: 'owner-1', role: UserRole.BUSINESS_OWNER };
 const admin = { id: 'admin-1', role: UserRole.SUPER_ADMIN };
@@ -56,7 +57,7 @@ describe('BusinessesService live counts', () => {
         groupBy: jest.fn().mockResolvedValue([{ businessId: 'b1', _avg: { rating: 4.25 }, _count: { _all: 4 } }]),
       },
     };
-    const service = new BusinessesService(prisma as never, { backfill: jest.fn() } as never);
+    const service = new BusinessesService(prisma as never, { backfill: jest.fn() } as never, {} as never);
     const result = await service.getPublicBusinesses({} as never);
     expect(result[0]).toMatchObject({ id: 'b1', followerCount: 2, averageRating: 4.3, ratingCount: 4 });
     expect(result[1]).toMatchObject({ id: 'b2', followerCount: 0, averageRating: 0, ratingCount: 0 });
@@ -132,6 +133,15 @@ describe('BusinessesService.update shop video', () => {
     (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue({ mimeType: 'image/jpeg' }) };
     await expect(service.update('b1', owner, { videoAssetId: VIDEO_ID })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.business.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a new shop video when the plan has no shop video (403), but still lets the owner remove one', async () => {
+    const { service, prisma } = make(BusinessStatus.ACTIVE, false);
+    (prisma as any).mediaAsset = { findUnique: jest.fn().mockResolvedValue({ id: VIDEO_ID, mimeType: 'video/mp4' }) };
+    await expect(service.update('b1', owner, { videoAssetId: VIDEO_ID })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.business.update).not.toHaveBeenCalled();
+    await service.update('b1', owner, { videoAssetId: null });
+    expect(prisma.business.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ videoAssetId: null }) }));
   });
 });
 

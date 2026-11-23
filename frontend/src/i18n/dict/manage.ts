@@ -227,6 +227,7 @@ export const manage = defineDict({
   
     "error.originBlocked": "This request was blocked for security reasons. Reload the page and sign in again; if it keeps happening the site address is not allowed by the server (administrator: add it to CORS_ORIGIN).",
     "error.noSubscription": "Your shop needs an active subscription before products can be added or changed.",
+    "error.planFeatureRequired": "Your current plan doesn't include this. Upgrade your subscription to use it.",
     "error.notShopOwner": "This shop or product does not belong to your account.",
     "ownerx.settings.logo": "Shop logo",
     "ownerx.settings.cover": "Cover image",
@@ -1052,6 +1053,7 @@ export const manage = defineDict({
     "manage.deletion.emailUs": "E-mail verwijderverzoek",
     "error.originBlocked": "Dit verzoek is om veiligheidsredenen geblokkeerd. Laad de pagina opnieuw en log opnieuw in; blijft het gebeuren, dan staat het siteadres niet toegestaan op de server (beheerder: voeg het toe aan CORS_ORIGIN).",
     "error.noSubscription": "Je winkel heeft een actief abonnement nodig om producten toe te voegen of te wijzigen.",
+    "error.planFeatureRequired": "Dit zit niet in je huidige abonnement. Upgrade je abonnement om het te gebruiken.",
     "error.notShopOwner": "Deze winkel of dit product hoort niet bij jouw account.",
     "ownerx.settings.logo": "Winkellogo",
     "ownerx.settings.cover": "Omslagfoto",

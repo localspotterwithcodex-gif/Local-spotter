@@ -2,15 +2,16 @@
 
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/hooks/useApiResource";
-import { planAllows, type OwnerFeature } from "@/lib/plan-access";
 
-/** Feature access of the owner's shop according to its current subscription. */
+export type OwnerFeature = "products" | "shoproutes" | "workshops";
+
+/** Feature access of the owner's shop, as the API reports it (the API also enforces it). */
 export function useOwnerAccess(businessId: string | null) {
-  const subRes = useApiResource(businessId && `owner-subscription:${businessId}`, () => api.getBusinessSubscription(businessId!));
+  const res = useApiResource(businessId && `owner-entitlements:${businessId}`, () => api.getBusinessEntitlements(businessId!));
   return {
-    loading: Boolean(businessId) && subRes.loading,
-    error: subRes.error,
-    subscription: subRes.data ?? null,
-    can: (feature: OwnerFeature) => planAllows(subRes.data, feature),
+    loading: Boolean(businessId) && res.loading,
+    error: res.error,
+    entitlements: res.data ?? null,
+    can: (feature: OwnerFeature) => Boolean(res.data?.features[feature.toUpperCase() as Uppercase<OwnerFeature>]),
   };
 }

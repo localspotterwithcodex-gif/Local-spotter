@@ -22,15 +22,7 @@ export class FollowersService {
     consumerProfileId: string,
   ): Promise<FollowStatusDto> {
     // Check Workshop entitlement
-    const hasFeature = await this.entitlementService.hasFeature(
-      businessId,
-      'WORKSHOPS',
-    );
-    if (!hasFeature) {
-      throw new ForbiddenException(
-        'Je hebt een WORKSHOP-abonnement nodig om bedrijven te volgen',
-      );
-    }
+    await this.entitlementService.assertFeature(businessId, 'WORKSHOPS', 'Je hebt een WORKSHOP-abonnement nodig om bedrijven te volgen');
 
     // Check if already following - idempotent: return current status
     const existingFollow = await this.prisma.follower.findUnique({

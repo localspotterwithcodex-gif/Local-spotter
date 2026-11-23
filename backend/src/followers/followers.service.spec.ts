@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('FollowersService', () => {
   let service: FollowersService;
@@ -36,7 +37,7 @@ describe('FollowersService', () => {
       $transaction: jest.fn((callback) => callback(prisma)),
     };
 
-    entitlementService = { hasFeature: jest.fn() };
+    entitlementService = withEntitlementAsserts({ hasFeature: jest.fn() });
     entitlementService.hasFeature.mockResolvedValue(true);
 
     const module: TestingModule = await Test.createTestingModule({

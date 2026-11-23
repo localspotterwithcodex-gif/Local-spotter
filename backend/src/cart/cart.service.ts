@@ -124,15 +124,7 @@ export class CartService {
     }
 
     // 2. Validate business subscription entitlement
-    const hasProductsEntitlement = await this.entitlementService.hasFeature(
-      dto.businessId,
-      'PRODUCTS',
-    );
-    if (!hasProductsEntitlement) {
-      throw new ForbiddenException(
-        'Deze winkel heeft momenteel geen actief webshoppakket om bestellingen te ontvangen',
-      );
-    }
+    await this.entitlementService.assertFeature(dto.businessId, 'PRODUCTS', 'Deze winkel heeft momenteel geen actief webshoppakket om bestellingen te ontvangen');
 
     // 3. Validate product
     const product = await this.prisma.product.findUnique({

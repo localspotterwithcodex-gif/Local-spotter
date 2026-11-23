@@ -496,7 +496,7 @@ model SubscriptionPlan {
   active             Boolean              @default(true)
   /// Entitlements, editable by the admin. Read only through SubscriptionEntitlementService.
   reviewsEnabled     Boolean              @default(false) @map("reviews_enabled")
-  maxProductImages   Int                  @default(5) @map("max_product_images")
+  maxProductImages   Int                  @default(3) @map("max_product_images")
   maxReviewPhotos    Int                  @default(0) @map("max_review_photos")
   maxReviewVideos    Int                  @default(0) @map("max_review_videos")
   shopVideoEnabled   Boolean              @default(false) @map("shop_video_enabled")

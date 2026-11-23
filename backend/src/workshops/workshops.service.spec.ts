@@ -13,6 +13,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { UserRole, WorkshopStatus, BookingStatus, BusinessStatus, SessionStatus } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('WorkshopsService', () => {
   let service: WorkshopsService;
@@ -130,7 +131,7 @@ describe('WorkshopsService', () => {
       return fn(mockTx);
     });
 
-    entitlementService = { hasFeature: jest.fn().mockResolvedValue(true) };
+    entitlementService = withEntitlementAsserts({ hasFeature: jest.fn().mockResolvedValue(true) });
 
     payments = {
       refundWorkshopBooking: jest.fn().mockResolvedValue({ status: 'NOT_REQUIRED', refundedCents: 0 }),
@@ -324,7 +325,7 @@ describe('WorkshopsService', () => {
 
       await service.getPublicWorkshops({ status: WorkshopStatus.DRAFT } as any);
       const where = prisma.workshop.findMany.mock.calls[0][0].where;
-      expect(where.business.subscription.plan.slug).toBe('WORKSHOP');
+      expect(where.business.subscription.plan).toEqual({ workshopsEnabled: true });
       expect(where.status).toEqual({ in: [WorkshopStatus.PUBLISHED, WorkshopStatus.FULL] });
     });
 

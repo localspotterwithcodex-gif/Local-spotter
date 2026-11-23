@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ReviewStatus } from '@prisma/client';
 import { UserRole } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
@@ -59,7 +60,7 @@ describe('ReviewsService', () => {
       $transaction: jest.fn((callback) => callback(prisma)),
     };
 
-    entitlementService = { hasFeature: jest.fn() };
+    entitlementService = withEntitlementAsserts({ hasFeature: jest.fn() });
     entitlementService.hasFeature.mockResolvedValue(true);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -318,7 +319,7 @@ describe('ReviewsService', () => {
       );
 
       expect(result.status).toBe(ReviewStatus.PENDING);
-      expect(entitlementService.hasFeature).toHaveBeenCalledWith('bus-1', 'WORKSHOPS');
+      expect(entitlementService.hasFeature).toHaveBeenCalledWith('bus-1', 'REVIEWS');
     });
 
     it('should reject review creation without Workshop entitlement', async () => {

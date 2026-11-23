@@ -98,10 +98,7 @@ export class OrdersService {
         if (business.deletedAt || business.status !== BusinessStatus.ACTIVE) {
           throw new BadRequestException(`De winkel "${business.name}" is momenteel niet actief of niet beschikbaar`);
         }
-        const hasProducts = await this.entitlementService.hasFeature(businessId, 'PRODUCTS');
-        if (!hasProducts) {
-          throw new ForbiddenException(`De winkel "${business.name}" heeft momenteel geen actief webshoppakket om bestellingen te accepteren`);
-        }
+        await this.entitlementService.assertFeature(businessId, 'PRODUCTS', `De winkel "${business.name}" heeft momenteel geen actief webshoppakket om bestellingen te accepteren`);
 
         const orderItemsData: Array<{
           productId: string;

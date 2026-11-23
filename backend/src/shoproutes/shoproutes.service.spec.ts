@@ -10,6 +10,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { UserRole, RouteStatus, BusinessStatus, SubscriptionStatus } from '@prisma/client';
+import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
 
 describe('ShopRoutesService', () => {
   let service: ShopRoutesService;
@@ -86,7 +87,7 @@ describe('ShopRoutesService', () => {
       $transaction: jest.fn((callback) => callback(prisma)),
     };
 
-    entitlementService = { hasFeature: jest.fn() };
+    entitlementService = withEntitlementAsserts({ hasFeature: jest.fn() });
     entitlementService.hasFeature.mockResolvedValue(true);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -306,7 +307,7 @@ describe('ShopRoutesService', () => {
       expect(where.status).toBe(RouteStatus.PUBLISHED);
       const sub = where.OR[1].business.subscription;
       expect(sub.status).toBe('ACTIVE');
-      expect(sub.plan.slug.in).toEqual(['SHOPROUTES', 'WORKSHOP']);
+      expect(sub.plan).toEqual({ shoproutesEnabled: true });
       // search must not clobber the visibility OR
       expect(where.AND).toHaveLength(1);
     });

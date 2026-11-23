@@ -15,7 +15,7 @@ function make(opts: { configured: boolean; existing?: Record<string, unknown> | 
     },
   };
   const gateway = { isConfigured: () => opts.configured };
-  return { service: new SubscriptionsService(prisma as never, gateway as never), prisma };
+  return { service: new SubscriptionsService(prisma as never, gateway as never, {} as never), prisma };
 }
 
 describe('SubscriptionsService.selectPlan', () => {

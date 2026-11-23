@@ -34,14 +34,7 @@ export class ProductsService {
     await this.verifyBusinessOwnership(businessId, user);
 
     // Enforce subscription feature entitlement
-    const hasEntitlement = await this.entitlementService.hasFeature(businessId, 'PRODUCTS');
-    if (!hasEntitlement) {
-      throw new ForbiddenException({
-        statusCode: 403,
-        message: 'Winkel heeft geen actief Webshop abonnement om producten toe te voegen',
-        code: 'NO_SUBSCRIPTION',
-      });
-    }
+    await this.entitlementService.assertFeature(businessId, 'PRODUCTS', 'Winkel heeft geen actief Webshop abonnement om producten toe te voegen');
 
     if (dto.categoryId) {
       const category = await this.prisma.productCategory.findUnique({
@@ -411,17 +404,19 @@ export class ProductsService {
   // ==========================================
 
   async addImage(productId: string, user: any, dto: CreateProductImageDto) {
-    await this.verifyProductOwnership(productId, user);
+    const product = await this.verifyProductOwnership(productId, user);
 
     const existingImages = await this.prisma.productImage.findMany({
       where: { productId },
     });
 
-    if (existingImages.length >= 3) {
-      throw new BadRequestException(
-        'Maximaal 3 afbeeldingen toegestaan per product volgens richtlijnen',
-      );
-    }
+    // Limit per plan (subscription_plans.max_product_images; 3 by default, per the requirements).
+    await this.entitlementService.assertWithinLimit(
+      product.businessId,
+      'maxProductImages',
+      existingImages.length + 1,
+      'Maximaal aantal afbeeldingen voor dit product bereikt in je abonnement',
+    );
 
     let mediaAssetId = dto.mediaAssetId;
     if (!mediaAssetId) {

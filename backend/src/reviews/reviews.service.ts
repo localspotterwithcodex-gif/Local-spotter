@@ -33,10 +33,7 @@ export class ReviewsService {
     if (!verified) {
       // Free-standing review (no delivered order / attended workshop): needs the shop's WORKSHOPS feature
       // and a title + text, and goes through moderation.
-      const hasFeature = await this.entitlementService.hasFeature(businessId, 'WORKSHOPS');
-      if (!hasFeature) {
-        throw new ForbiddenException('Je hebt een WORKSHOP-abonnement nodig om reviews te plaatsen');
-      }
+      await this.entitlementService.assertFeature(businessId, 'REVIEWS', 'Je hebt een WORKSHOP-abonnement nodig om reviews te plaatsen');
       if (!dto.title?.trim() || !dto.comment?.trim()) {
         throw new BadRequestException('Titel en review zijn verplicht');
       }

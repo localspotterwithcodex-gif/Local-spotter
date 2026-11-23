@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SelectSubscriptionPlanDto } from './dto/select-subscription-plan.dto';
 import { UserRole, SubscriptionStatus, PaymentProvider } from '@prisma/client';
 import { PAYMENT_GATEWAY, PaymentGateway } from '../payments/payment-gateway';
+import { SubscriptionEntitlementService } from './subscription-entitlement.service';
 
 @Injectable()
 export class SubscriptionsService {
@@ -11,6 +12,7 @@ export class SubscriptionsService {
   constructor(
     private prisma: PrismaService,
     @Inject(PAYMENT_GATEWAY) private gateway: PaymentGateway,
+    private entitlements: SubscriptionEntitlementService,
   ) {}
 
   async getPlans() {
@@ -93,6 +95,12 @@ export class SubscriptionsService {
     }
 
     return sub;
+  }
+
+  /** What the shop's plan allows right now (owner portal uses it to show, lock or hide features; the API enforces). */
+  async getEntitlements(businessId: string, user: any) {
+    await this.verifyBusinessOwnership(businessId, user);
+    return this.entitlements.getEntitlements(businessId);
   }
 
   async cancelSubscription(businessId: string, user: any) {

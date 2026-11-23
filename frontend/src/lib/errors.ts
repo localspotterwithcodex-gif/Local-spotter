@@ -26,6 +26,7 @@ export function errorCode(err: unknown): string | undefined {
 const CODE_KEY: Record<string, TranslationKey> = {
   ORIGIN_BLOCKED: "error.originBlocked",
   NO_SUBSCRIPTION: "error.noSubscription",
+  PLAN_FEATURE_REQUIRED: "error.planFeatureRequired",
   NOT_SHOP_OWNER: "error.notShopOwner",
   PAYMENTS_UNAVAILABLE: "error.paymentsUnavailable",
   PAYMENT_PROVIDER_ERROR: "error.paymentProviderError",

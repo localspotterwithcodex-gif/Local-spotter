@@ -16,7 +16,7 @@ import type { Workshop, WorkshopBooking, WorkshopParticipant, WorkshopSession } 
 import type { Shoproute } from "@/types/shoproute";
 import type { FulfilmentMethod, Order, OrderStatus, PaymentState } from "@/types/order";
 import type { Review } from "@/types/review";
-import type { BusinessSubscription, PlanSlug, SubscriptionPlan } from "@/types/subscription";
+import type { BusinessEntitlements, BusinessSubscription, PlanSlug, SubscriptionPlan } from "@/types/subscription";
 
 const unwrap = <T>(res: T[] | { data: T[] }): T[] => (Array.isArray(res) ? res : res.data);
 const notFoundToNull = async <T>(p: Promise<T>): Promise<T | null> => {
@@ -1053,6 +1053,11 @@ export const api = {
   async getBusinessSubscription(businessId: string): Promise<BusinessSubscription | null> {
     const raw = await notFoundToNull(apiClient.get<RawSubscription>(`/businesses/${businessId}/subscription`));
     return raw ? toSubscription(raw) : null;
+  },
+
+  /** What the shop's current plan allows (the API enforces it; the owner portal only shows, locks or hides). */
+  async getBusinessEntitlements(businessId: string): Promise<BusinessEntitlements> {
+    return apiClient.get<BusinessEntitlements>(`/businesses/${businessId}/entitlements`);
   },
 
   async selectPlan(businessId: string, planSlug: PlanSlug): Promise<BusinessSubscription> {

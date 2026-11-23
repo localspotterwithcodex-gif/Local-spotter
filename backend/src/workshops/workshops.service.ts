@@ -26,7 +26,6 @@ import {
   UserRole,
   BusinessStatus,
   SubscriptionStatus,
-  SubscriptionPlanSlug,
 } from '@prisma/client';
 
 @Injectable()
@@ -51,12 +50,7 @@ export class WorkshopsService {
 
     const business = await this.verifyBusinessOwnership(dto.businessId, user);
 
-    const hasEntitlement = await this.entitlementService.hasFeature(dto.businessId, 'WORKSHOPS');
-    if (!hasEntitlement) {
-      throw new ForbiddenException(
-        'Deze winkel heeft geen actief WORKSHOP abonnement om workshops te publiceren',
-      );
-    }
+    await this.entitlementService.assertFeature(dto.businessId, 'WORKSHOPS', 'Deze winkel heeft geen actief WORKSHOP abonnement om workshops te publiceren');
 
     const sessionInputs = this.parseSessions(dto);
 
@@ -120,7 +114,7 @@ export class WorkshopsService {
         subscription: {
           status: SubscriptionStatus.ACTIVE,
           currentPeriodEnd: { gt: new Date() },
-          plan: { slug: SubscriptionPlanSlug.WORKSHOP },
+          plan: { workshopsEnabled: true },
         },
       },
     };
@@ -496,12 +490,7 @@ export class WorkshopsService {
       }
 
       const business = workshop.business;
-      const hasEntitlement = await this.entitlementService.hasFeature(business.id, 'WORKSHOPS');
-      if (!hasEntitlement) {
-        throw new ForbiddenException(
-          'De winkel heeft geen actief WORKSHOP abonnement',
-        );
-      }
+      await this.entitlementService.assertFeature(business.id, 'WORKSHOPS', 'De winkel heeft geen actief WORKSHOP abonnement');
 
       if (workshop.minAge && dto.acceptMinAge !== true) {
         throw new BadRequestException(`Bevestig dat alle deelnemers minimaal ${workshop.minAge} jaar zijn`);

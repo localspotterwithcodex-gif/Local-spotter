@@ -54,7 +54,7 @@ ADD COLUMN     "replied_by_user_id" UUID,
 ADD COLUMN     "reply_text" TEXT;
 
 -- AlterTable
-ALTER TABLE "subscription_plans" ADD COLUMN     "max_product_images" INTEGER NOT NULL DEFAULT 5,
+ALTER TABLE "subscription_plans" ADD COLUMN     "max_product_images" INTEGER NOT NULL DEFAULT 3,
 ADD COLUMN     "max_review_photos" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN     "max_review_videos" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN     "reviews_enabled" BOOLEAN NOT NULL DEFAULT false,
@@ -140,8 +140,8 @@ ALTER TABLE "sms_messages" ADD CONSTRAINT "sms_messages_order_status_event_id_fk
 -- Backfill: existing video files are videos.
 UPDATE "media_assets" SET "kind" = 'VIDEO' WHERE "mime_type" LIKE 'video/%';
 
--- Backfill: entitlements per plan (3.5, D3, D11). Reviews, review media and the customer photo gallery are
+-- Backfill: entitlements per plan (3.5, D3, D11, D-012: max 3 product images per the requirements). Reviews, review media and the customer photo gallery are
 -- Workshop-only; reviews tied to a delivered order stay allowed on every plan (enforced in code, as today).
-UPDATE "subscription_plans" SET "reviews_enabled" = false, "max_product_images" = 5,  "max_review_photos" = 0, "max_review_videos" = 0, "shop_video_enabled" = false, "show_customer_photos" = false, "workshops_enabled" = false, "shoproutes_enabled" = false WHERE "slug" = 'WEBSHOP';
-UPDATE "subscription_plans" SET "reviews_enabled" = false, "max_product_images" = 8,  "max_review_photos" = 0, "max_review_videos" = 0, "shop_video_enabled" = true,  "show_customer_photos" = false, "workshops_enabled" = false, "shoproutes_enabled" = true  WHERE "slug" = 'SHOPROUTES';
-UPDATE "subscription_plans" SET "reviews_enabled" = true,  "max_product_images" = 12, "max_review_photos" = 8, "max_review_videos" = 2, "shop_video_enabled" = true,  "show_customer_photos" = true,  "workshops_enabled" = true,  "shoproutes_enabled" = true  WHERE "slug" = 'WORKSHOP';
+UPDATE "subscription_plans" SET "reviews_enabled" = false, "max_product_images" = 3,  "max_review_photos" = 0, "max_review_videos" = 0, "shop_video_enabled" = false, "show_customer_photos" = false, "workshops_enabled" = false, "shoproutes_enabled" = false WHERE "slug" = 'WEBSHOP';
+UPDATE "subscription_plans" SET "reviews_enabled" = false, "max_product_images" = 3,  "max_review_photos" = 0, "max_review_videos" = 0, "shop_video_enabled" = true,  "show_customer_photos" = false, "workshops_enabled" = false, "shoproutes_enabled" = true  WHERE "slug" = 'SHOPROUTES';
+UPDATE "subscription_plans" SET "reviews_enabled" = true,  "max_product_images" = 3,  "max_review_photos" = 8, "max_review_videos" = 2, "shop_video_enabled" = true,  "show_customer_photos" = true,  "workshops_enabled" = true,  "shoproutes_enabled" = true  WHERE "slug" = 'WORKSHOP';
