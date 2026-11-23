@@ -5,6 +5,7 @@ Marketplace connecting local shops with consumers: webshop, shop routes, worksho
 * `frontend/` — Next.js 16 / React 19 / Tailwind 4 (consumer, business-owner and admin portals)
 * `backend/` — NestJS 10 / Prisma 5 / PostgreSQL (REST API under `/api/v1`)
 * `docs/` — specifications, `PROJECT-HEALTH-AUDIT.md`, `DECISIONS-AND-CONFLICTS.md`, `IMPLEMENTATION-STATUS.md`, `REPAIR-CHANGELOG.md`
+* Production set-up (Vercel + Supabase + Bird): `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md`, `docs/DATABASE.md`, `docs/SECURITY.md`; latest audit `docs/PROJECT-HEALTH-AUDIT-2026-11.md`
 
 ## Local setup
 ```bash

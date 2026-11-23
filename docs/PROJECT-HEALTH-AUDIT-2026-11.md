@@ -162,3 +162,31 @@ Drive **C: ran out of space** (0 MB free; 523 MB after cleanup). Docker Desktop'
 ---
 
 **Gate: Phase 0 report delivered. STOP — waiting for the owner's "APPROVED". No changes were made.**
+
+---
+
+## Status after Phases 0.5–11 (2026-11-23)
+
+Branch `feature/production-migration` (on top of `feature/signup-redesign`, which contains `security/production-hardening`). None of it is on `main` until the pull requests are merged.
+
+| Gap | Status |
+|---|---|
+| G-01 public repo, committed admin password, demo logins | **Code done** (SQL file deleted, docs scrubbed, `create-admin.ts`, `seed-plans.ts`). **Owner:** make the repo private, rotate secrets |
+| G-02 Next.js advisory | Done (16.4.6) |
+| G-03 `proxy-addr` | Open: `npm audit fix` changed nothing for it and added a finding; needs the NestJS upgrade (G-04) |
+| G-04 dependency backlog | Open (NestJS major upgrade, separate project); CI reports `npm audit` |
+| G-05 two unmerged branches | Merged into the sign-up branch; **owner:** open/merge the PRs |
+| G-06 serverless blockers | Done in code: Vercel Cron (GET + Bearer), one Prisma client, no Stripe probe on cold start, direct uploads (no large bodies through the API). Vercel preview: **owner** |
+| G-07 backend lint | Open: no ESLint in the backend; CI runs the type check instead |
+| G-08 frontend lint errors | Done (0 errors) |
+| G-09 failing backend tests | Done in CI (753/753). Locally `app.module.spec` still reads a Stripe key from a developer's `backend/.env` |
+| G-10 Node pin, CI | Done (`.nvmrc` 24, `engines`, `.github/workflows/ci.yml`) |
+| G-11 migrations on an empty DB | Done (30 migrations, zero drift, in CI) |
+| G-12 env documentation | Done (`ENVIRONMENT.md`, both `.env.example`) |
+| G-13 D-004 Mollie vs Stripe | Done (corrected) |
+| G-14 admin endpoints without UI | Open (not part of the master prompt's phases) |
+| G-15 stray files | Open (`git` empty file, Python stub) |
+| G-16 master-prompt features | Done in code: Phases 3–9 (see `DEPLOYMENT.md`); gates that need Supabase, Bird or Vercel are BLOCKED on the owner's accounts |
+
+Checks on 2026-11-23: backend 753 unit tests and 14 end-to-end tests pass (fresh database), frontend 39 tests, type
+checks, lint (0 errors) and production build pass. Not run: anything against real Supabase, Bird or Vercel.

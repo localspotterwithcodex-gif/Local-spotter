@@ -1,5 +1,7 @@
 # Environment variables
 
+> **Superseded (2026-11-23):** see `ENVIRONMENT.md` (per Vercel project, incl. Bird SMS, Supabase Storage and the portal switch).
+
 Every variable the code reads (`process.env.*` / `ConfigService.get`), checked against source on 2026-11-01. Secret values are never shown here. Set backend values in the Render service's environment and frontend values in the Vercel project settings. Never commit them.
 
 **Label** — REQUIRED: you must supply a value · GENERATED: create a random value yourself · OPTIONAL: only for that feature · EXISTING: already configured on the live deployment (verified indirectly from live behaviour).

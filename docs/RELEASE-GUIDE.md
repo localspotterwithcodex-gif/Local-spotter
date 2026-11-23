@@ -1,5 +1,7 @@
 # LocalSpotter — Release guide (gap closure complete)
 
+> **Superseded (2026-11-23):** production moves from Render + Neon to Vercel + Supabase + Bird. Use `DEPLOYMENT.md`, `ENVIRONMENT.md`, `DATABASE.md` and `SECURITY.md`. This guide is kept as the record of the October release.
+
 Updated 2026-10-19. Companion to `GAP-CLOSURE-PLAN.md` (all 11 phases done) and `REPAIR-CHANGELOG.md` (sections W–AF describe each phase in detail).
 
 ## 1. What the system is now

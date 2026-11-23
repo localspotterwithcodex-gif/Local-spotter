@@ -1,5 +1,24 @@
 # LocalSpotter — Implementation Status
 
+## 2026-11-23 — MASTER-PROMPT v2 (branch `feature/production-migration`)
+
+| Phase | State |
+|---|---|
+| 0 audit, 0.5 branch merge | Done (PRs to `main` still to open/merge) |
+| 1 security cleanup | Code done; owner: private repo + rotate secrets |
+| 2 Supabase projects | Owner (steps in `DEPLOYMENT.md` §1) |
+| 3 database (storage, reviews, plans, OTP, SMS, RLS) | Done |
+| 4 Supabase Storage (direct uploads, folders, review media, cleanup) | Done in code; staging gate needs Supabase |
+| 5 plan entitlements (server-enforced) | Done |
+| 6 admin monthly reports + CSV | Done |
+| 7 serverless (Vercel Cron, one Prisma client) | Done in code; preview needs Vercel |
+| 8 Bird SMS (sign-up/login/reset codes, order SMS) | Done in code; real-number gate needs Bird |
+| 9 portal switch (`proxy.ts`, `NEXT_PUBLIC_PORTAL`) | Done in code; three Vercel projects: owner |
+| 10 CI, tests | Done (753 unit, 14 end-to-end, 39 frontend) |
+| 11 docs | `DEPLOYMENT.md`, `ENVIRONMENT.md`, `DATABASE.md`, `SECURITY.md` |
+
+Open decisions with defaults applied: D1, D3/D-012, D4, D6, D8, D9, D10, D11, D12, D-013, D-014 (`DECISIONS-AND-CONFLICTS.md`, `MASTER-PROMPT.md` §6).
+
 > **Superseded (2026-10-19):** the gap-closure programme (11 phases) is finished. The tables below are historical; current status, release steps, verification evidence and limitations are in `RELEASE-GUIDE.md`; per-phase details in `REPAIR-CHANGELOG.md` (W–AF).
 
 Updated: 2026-10-14 (after i18n/addresses/ratings round; earlier: 2026-10-13 repair round, see `REPAIR-CHANGELOG.md`). Legend: ✅ wired to the real backend, statically verified · 🟡 wired but needs a live run / partial · 🔴 missing · ⛔ blocked on an owner decision.
