@@ -55,6 +55,8 @@ const securityHeaders = [
   // Photo upload uses the camera, voice search the microphone, "near me" the location; nothing else.
   { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=()" },
   ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
+  // The admin deployment (NEXT_PUBLIC_PORTAL=admin) must never be indexed.
+  ...(process.env.NEXT_PUBLIC_PORTAL === "admin" ? [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] : []),
 ];
 
 const nextConfig: NextConfig = {

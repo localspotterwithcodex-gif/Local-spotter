@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requiredRoleForPath, routeForRole } from "@/lib/auth/redirect";
 import type { UserRole } from "@/types/user";
+import { portalDecision, portalFromEnv } from "@/lib/portal";
+
+const PORTAL = portalFromEnv(process.env.NEXT_PUBLIC_PORTAL);
 
 /**
- * Route guard. Protected areas (owner/admin/account/cart/checkout/onboarding)
+ * Proxy (Next.js 16 name for Middleware). First the portal switch (public vs admin deployment, see lib/portal),
+ * then the route guard. Protected areas (owner/admin/account/cart/checkout/onboarding)
  * need a session; /owner, /admin and /account additionally need the matching
  * role. The session is the HttpOnly `ls_session` cookie issued by the backend.
  *
@@ -56,7 +60,7 @@ function readClaims(token: string | undefined): { role: UserRole; exp?: number }
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (
@@ -67,6 +71,10 @@ export function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+
+  const portal = portalDecision(PORTAL, pathname);
+  if (portal === "not-found") return new NextResponse("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  if (portal !== "continue") return NextResponse.redirect(new URL(portal.redirect, request.url));
 
   const claims = readClaims(request.cookies.get(SESSION_COOKIE)?.value);
 

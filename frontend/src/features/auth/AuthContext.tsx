@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch((err) => {
         if (!cancelled) setUser(null);
-        // A cookie the API rejects (expired, revoked) would make the middleware bounce between
+        // A cookie the API rejects (expired, revoked) would make the proxy (src/proxy.ts) bounce between
         // /login and the portal forever; ask the API to clear it.
         if (err instanceof ApiError && err.status === 401) apiClient.post("/auth/logout").catch(() => undefined);
       })
@@ -180,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     // Ask the backend to clear the HttpOnly cookie, then do a full navigation so
     // every portal's in-memory state (dashboards, cart) is discarded and the
-    // middleware re-evaluates the (now absent) session.
+    // proxy re-evaluates the (now absent) session.
     const finish = () => {
       setUser(null);
       if (typeof window !== "undefined") {

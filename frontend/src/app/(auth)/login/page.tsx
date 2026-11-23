@@ -14,6 +14,8 @@ import { useErrorMessage } from "@/lib/hooks/useErrorMessage";
 import { routeForRole, safeRedirect } from "@/lib/auth/redirect";
 import type { User } from "@/types/user";
 
+const ADMIN_PORTAL = process.env.NEXT_PUBLIC_PORTAL === "admin";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,8 +167,10 @@ function LoginForm() {
           </form>
           )}
 
-          <SocialButtons onSuccess={handleSocialSuccess} onError={setError} />
+          {/* The admin deployment has no guest shopping, sign-up or social login (admins use the authenticator app). */}
+          {!ADMIN_PORTAL && <SocialButtons onSuccess={handleSocialSuccess} onError={setError} />}
 
+          {!ADMIN_PORTAL && (
           <div className="text-center pt-2 space-y-2">
             <button
               type="button"
@@ -185,6 +189,7 @@ function LoginForm() {
               </Link>
             </p>
           </div>
+          )}
         </div>
       </div>
     </AuthShell>
