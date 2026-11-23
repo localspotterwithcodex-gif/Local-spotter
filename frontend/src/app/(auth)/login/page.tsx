@@ -17,7 +17,7 @@ import type { User } from "@/types/user";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, verifyMfa } = useAuth();
+  const { login, verifyMfa, verifyLoginOtp, resendLoginOtp } = useAuth();
   const { t } = useLocale();
   const errMsg = useErrorMessage();
 
@@ -25,9 +25,11 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  // Admin second step: set after a correct password when the account has MFA.
+  // Second step after a correct password: the admin's authenticator code, or an SMS code (customers and shop owners).
   const [mfaToken, setMfaToken] = useState("");
   const [mfaCode, setMfaCode] = useState("");
+  const [smsHint, setSmsHint] = useState(""); // set only for the SMS step
+  const [notice, setNotice] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +44,11 @@ function LoginForm() {
       const result = await login(identifier, password);
       if ("mfaToken" in result) {
         setMfaToken(result.mfaToken);
+        return;
+      }
+      if ("otpToken" in result) {
+        setMfaToken(result.otpToken);
+        setSmsHint(result.phoneHint);
         return;
       }
       const user = result;
@@ -59,12 +66,23 @@ function LoginForm() {
     setError("");
     setIsLoading(true);
     try {
-      const user = await verifyMfa(mfaToken, mfaCode.trim());
+      const user = smsHint ? await verifyLoginOtp(mfaToken, mfaCode.trim()) : await verifyMfa(mfaToken, mfaCode.trim());
       router.push(safeRedirect(searchParams.get("redirectTo"), routeForRole(user.role)));
     } catch (err) {
-      setError(errMsg(err, { unauthorized: "manage.mfa.invalid" }));
+      setError(errMsg(err, { unauthorized: "manage.mfa.invalid", validation: "manage.mfa.invalid" }));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError("");
+    setNotice("");
+    try {
+      await resendLoginOtp(mfaToken);
+      setNotice(t("authx.sms.resent"));
+    } catch (err) {
+      setError(errMsg(err));
     }
   };
 
@@ -90,13 +108,14 @@ function LoginForm() {
           {mfaToken ? (
             <form onSubmit={handleMfa} className="space-y-4">
               <p className="text-xs text-[#111111]">
-                <span className="block text-sm font-bold">{t("manage.mfa.title")}</span>
-                {t("manage.mfa.prompt")}
+                <span className="block text-sm font-bold">{smsHint ? t("authx.sms.title") : t("manage.mfa.title")}</span>
+                {smsHint ? t("authx.sms.prompt", { phone: smsHint }) : t("manage.mfa.prompt")}
               </p>
+              {notice && <p role="status" className="text-xs font-bold text-[#3B9B52]">{notice}</p>}
               <Input
-                label={t("manage.mfa.code")}
+                label={smsHint ? t("authx.sms.code") : t("manage.mfa.code")}
                 type="text"
-                inputMode="text"
+                inputMode={smsHint ? "numeric" : "text"}
                 autoComplete="one-time-code"
                 autoFocus
                 maxLength={11}
@@ -106,8 +125,13 @@ function LoginForm() {
                 onChange={(e) => setMfaCode(e.target.value)}
               />
               <Button type="submit" variant="primary" className={authButtonClass} isLoading={isLoading} disabled={mfaCode.trim().length < 6}>
-                {t("manage.mfa.verify")}
+                {smsHint ? t("authx.sms.verify") : t("manage.mfa.verify")}
               </Button>
+              {smsHint && (
+                <button type="button" onClick={handleResend} className="w-full text-xs font-bold text-ls-accent-text hover:underline">
+                  {t("authx.sms.resend")}
+                </button>
+              )}
             </form>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

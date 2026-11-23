@@ -53,7 +53,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   /** Logs in with an email, mobile number, or username (admins use username). */
-  login: (identifier: string, password: string) => Promise<User | { mfaToken: string }>;
+  login: (identifier: string, password: string) => Promise<User | { mfaToken: string } | { otpToken: string; phoneHint: string }>;
+  /** Login step 2 for customers and shop owners: the SMS code. */
+  verifyLoginOtp: (otpToken: string, code: string) => Promise<User>;
+  resendLoginOtp: (otpToken: string) => Promise<void>;
   /** Admin login step 2: authenticator or recovery code. */
   verifyMfa: (mfaToken: string, code: string) => Promise<User>;
   /** Signs in / up with a Google ID token. `role` is only needed for a brand-new account. */
@@ -101,8 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (identifier: string, password: string) => {
-    const res = await apiClient.post<{ user: BackendUser } | { mfaRequired: true; mfaToken: string }>("/auth/login", { identifier, password });
+    const res = await apiClient.post<{ user: BackendUser } | { mfaRequired: true; mfaToken: string } | { otpRequired: true; otpToken: string; phoneHint: string }>("/auth/login", { identifier, password });
     if ("mfaToken" in res) return { mfaToken: res.mfaToken };
+    if ("otpToken" in res) return { otpToken: res.otpToken, phoneHint: res.phoneHint };
     const mapped = mapBackendUser(res.user);
     setUser(mapped);
     return mapped;
@@ -113,6 +117,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const mapped = mapBackendUser(res.user);
     setUser(mapped);
     return mapped;
+  }, []);
+
+  const verifyLoginOtp = useCallback(async (otpToken: string, code: string) => {
+    const res = await apiClient.post<{ user: BackendUser }>("/auth/login/otp", { otpToken, code });
+    const mapped = mapBackendUser(res.user);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const resendLoginOtp = useCallback(async (otpToken: string) => {
+    await apiClient.post("/auth/login/otp/resend", { otpToken });
   }, []);
 
   const socialLogin = useCallback(async (provider: "google", token: string, role?: UserRole) => {
@@ -185,6 +200,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         verifyMfa,
+        verifyLoginOtp,
+        resendLoginOtp,
         socialLogin,
         register,
         startGuest,
