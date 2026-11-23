@@ -29,6 +29,18 @@ export default function ProfileEditPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const prefs = useApiResource("notification-prefs", () => api.getNotificationPreferences());
+  const [smsOverride, setSmsOverride] = useState<boolean | null>(null);
+  const smsOrders = smsOverride ?? prefs.data?.smsOrderUpdates ?? true;
+  const toggleSms = async (on: boolean) => {
+    setSmsOverride(on);
+    try {
+      await api.updateNotificationPreferences({ smsOrderUpdates: on });
+    } catch (e) {
+      setSmsOverride(!on);
+      setSaveError(errMsg(e));
+    }
+  };
 
   const name = nameInput ?? profile?.displayName ?? "";
   const phone = phoneInput ?? profile?.phone ?? "";
@@ -112,6 +124,20 @@ export default function ProfileEditPage() {
               )}
             </Button>
           </form>
+          )}
+          {prefs.data && (
+            <label className="mt-6 flex items-start gap-3 p-4 bg-[#F9F9F9] rounded-2xl border border-[#EAEAEA] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={smsOrders}
+                onChange={(e) => toggleSms(e.target.checked)}
+                className="mt-1 rounded text-ls-accent-text focus:ring-[#FA1EFF]"
+              />
+              <div>
+                <span className="block text-xs font-bold text-[#111111]">{t("account.smsOrdersTitle")}</span>
+                <span className="block text-[11px] text-ls-muted">{t("account.smsOrdersText")}</span>
+              </div>
+            </label>
           )}
         </div>
       </div>

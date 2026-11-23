@@ -9,6 +9,8 @@ import { BadRequestException, ConflictException, ForbiddenException, NotFoundExc
 import { BusinessStatus, FulfilmentMethod, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
 import { AllowedOrderStatusInput } from './dto/update-order-status.dto';
 import { withEntitlementAsserts } from '../subscriptions/entitlement-test-stub';
+import { ConfigService } from '@nestjs/config';
+import { SmsService } from '../sms/sms.service';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -17,6 +19,7 @@ describe('OrdersService', () => {
   let employees: any;
   let payments: any;
   let notifications: any;
+  let sms: any;
 
   const consumer = { id: 'user-consumer-1', role: UserRole.CONSUMER };
   const otherConsumer = { id: 'user-consumer-2', role: UserRole.CONSUMER };
@@ -77,7 +80,9 @@ describe('OrdersService', () => {
         findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'order-1' }),
       },
       orderItem: { createMany: jest.fn() },
-      orderStatusEvent: { create: jest.fn() },
+      orderStatusEvent: { create: jest.fn().mockResolvedValue({ id: 'ev-1' }) },
+      user: { findUnique: jest.fn().mockResolvedValue({ mobile: '+31612345678', mobileVerifiedAt: new Date(), isGuest: false }) },
+      smsMessage: { create: jest.fn().mockResolvedValue({ id: 'sms-1' }) },
       cart: { findUnique: jest.fn() },
       cartItem: { deleteMany: jest.fn() },
       $transaction: jest.fn((cb) => cb(prisma)),
@@ -86,6 +91,7 @@ describe('OrdersService', () => {
     entitlementService = withEntitlementAsserts({ hasFeature: jest.fn().mockResolvedValue(true) });
     employees = { canAccessShop: jest.fn().mockResolvedValue(false), isActiveStaff: jest.fn().mockResolvedValue(false) };
     payments = { refundOrder: jest.fn().mockResolvedValue({ status: 'NOT_REQUIRED', refundedCents: 0 }) };
+    sms = { provider: 'bird', deliver: jest.fn().mockResolvedValue(true) };
     notifications = { notifyUser: jest.fn().mockResolvedValue(undefined), notifyBusinessOwner: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,6 +102,8 @@ describe('OrdersService', () => {
         { provide: NotificationsService, useValue: notifications },
         { provide: EmployeesService, useValue: employees },
         { provide: PaymentsService, useValue: payments },
+        { provide: SmsService, useValue: sms },
+        { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     }).compile();
     service = module.get(OrdersService);
@@ -266,6 +274,55 @@ describe('OrdersService', () => {
       expect(prisma.order.updateMany).not.toHaveBeenCalled();
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
       expect(payments.refundOrder).not.toHaveBeenCalled();
+    });
+
+    describe('order SMS (8.4)', () => {
+      const withNumber = (pref?: { smsOrderUpdates: boolean }) => {
+        prisma.customerOrder.findUnique.mockResolvedValue({ notifyPhoneE164: '+31612345678' });
+        prisma.consumerProfile.findUnique.mockResolvedValue({ ...consumerProfile, userId: 'user-consumer-1', user: { isGuest: false, notificationPreference: pref ?? null } });
+      };
+
+      it('"On the way" queues one SMS inside the status transaction, keyed on the status event, then sends it', async () => {
+        withNumber();
+        prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.READY }));
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.OUT_FOR_DELIVERY });
+        expect(prisma.smsMessage.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ purpose: 'ORDER_SHIPPED', orderId: 'order-1', orderStatusEventId: 'ev-1', idempotencyKey: 'sms:ev-1', phoneLast4: '5678' }),
+        });
+        expect(sms.deliver).toHaveBeenCalledWith('sms-1', '+31612345678', expect.stringMatching(/^LocalSpotter: je bestelling #LS-1-1 van .* is verzonden\. Volg: http/), 'transactional');
+      });
+
+      it('no SMS for statuses without one, without a number, or when the customer switched order SMS off', async () => {
+        withNumber();
+        prisma.order.findUnique.mockResolvedValue(base());
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.ACCEPTED });
+        withNumber({ smsOrderUpdates: false });
+        prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.READY }));
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.OUT_FOR_DELIVERY });
+        prisma.customerOrder.findUnique.mockResolvedValue({ notifyPhoneE164: null });
+        prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.OUT_FOR_DELIVERY }));
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.DELIVERED });
+        expect(prisma.smsMessage.create).not.toHaveBeenCalled();
+        expect(sms.deliver).not.toHaveBeenCalled();
+      });
+
+      it('a failed SMS never undoes the order change', async () => {
+        withNumber();
+        sms.deliver.mockRejectedValueOnce(new Error('provider down'));
+        prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.OUT_FOR_DELIVERY }));
+        await expect(service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.DELIVERED })).resolves.toBeDefined();
+        expect(prisma.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.DELIVERED }) }));
+      });
+
+      it('a rejected order sends the cancelled text; a pickup order gets "ready for pickup"', async () => {
+        withNumber();
+        prisma.order.findUnique.mockResolvedValue(base());
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.REJECTED });
+        expect(prisma.smsMessage.create).toHaveBeenLastCalledWith({ data: expect.objectContaining({ purpose: 'ORDER_CANCELLED' }) });
+        prisma.order.findUnique.mockResolvedValue(base({ status: OrderStatus.PREPARING, fulfilmentMethod: FulfilmentMethod.PICKUP }));
+        await service.updateOrderStatus('order-1', owner, { status: AllowedOrderStatusInput.READY });
+        expect(prisma.smsMessage.create).toHaveBeenLastCalledWith({ data: expect.objectContaining({ purpose: 'ORDER_READY' }) });
+      });
     });
 
     it('accepts a paid order and tells the customer', async () => {

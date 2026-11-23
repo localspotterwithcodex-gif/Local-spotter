@@ -12,10 +12,14 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { AllowedOrderStatusInput, UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-import { BusinessStatus, FulfilmentMethod, NotificationType, OrderStatus, PaymentStatus, Prisma, UserRole } from '@prisma/client';
+import { BusinessStatus, FulfilmentMethod, NotificationType, OrderStatus, PaymentStatus, Prisma, SmsPurpose, UserRole } from '@prisma/client';
 import { EmployeesService } from '../employees/employees.service';
 import { PaymentsService } from '../payments/payments.service';
 import { quoteFulfilment, requiresAddress } from './fulfilment';
+import { ConfigService } from '@nestjs/config';
+import { SmsService, phoneLast4 } from '../sms/sms.service';
+import { normalizeMobile } from '../common/phone';
+import { orderSmsPurpose, orderSmsText } from './order-sms';
 
 /** Payment states in which a store may see and process an order. */
 const PAID_STATES: PaymentStatus[] = [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED];
@@ -31,6 +35,8 @@ export class OrdersService {
     private notifications: NotificationsService,
     private employees: EmployeesService,
     private payments: PaymentsService,
+    private sms: SmsService,
+    private config: ConfigService,
   ) {}
 
   // ==========================================
@@ -45,6 +51,9 @@ export class OrdersService {
    */
   async createOrderFromCart(user: any, dto: CreateOrderDto) {
     const consumerProfile = await this.getConsumerProfile(user);
+    // 8.4: the number order SMS go to, fixed at checkout so later profile edits don't redirect them.
+    const contact = await this.prisma.user.findUnique({ where: { id: consumerProfile.userId }, select: { mobile: true, mobileVerifiedAt: true, isGuest: true } });
+    const notifyPhoneE164 = contact?.isGuest ? normalizeMobile(consumerProfile.phone ?? '') : contact?.mobileVerifiedAt ? contact.mobile : null;
 
     return this.prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
@@ -86,7 +95,7 @@ export class OrdersService {
 
       const customerNumber = this.generateOrderNumber();
       const customerOrder = await tx.customerOrder.create({
-        data: { orderNumber: customerNumber, consumerProfileId: consumerProfile.id, paymentStatus: PaymentStatus.PENDING, totalAmount: 0, currency: 'EUR' },
+        data: { orderNumber: customerNumber, consumerProfileId: consumerProfile.id, paymentStatus: PaymentStatus.PENDING, totalAmount: 0, currency: 'EUR', notifyPhoneE164 },
       });
 
       let grandTotal = 0;
@@ -447,6 +456,7 @@ export class OrdersService {
       throw new BadRequestException('Een bestelling om af te halen kan niet "onderweg" zijn');
     }
 
+    let smsJob: OrderSmsJob | null = null;
     const updated = await this.prisma.$transaction(async (tx) => {
       const updateData: any = {
         status: targetStatus,
@@ -478,8 +488,8 @@ export class OrdersService {
         },
       });
 
-      // Record status transition event
-      await tx.orderStatusEvent.create({
+      // Record status transition event (and, in the same transaction, the one SMS it may send: 8.4)
+      const event = await tx.orderStatusEvent.create({
         data: {
           orderId,
           fromStatus: order.status,
@@ -488,12 +498,13 @@ export class OrdersService {
           reason: dto.reason || `Status gewijzigd naar ${targetStatus}`,
         },
       });
+      smsJob = await this.queueOrderSms(tx, order, targetStatus, event.id);
 
       return updatedOrder;
     });
 
     const refund = isRelease ? await this.payments.refundOrder(orderId, dto.reason || `Bestelling ${targetStatus === OrderStatus.REJECTED ? 'afgewezen' : 'geannuleerd'} door de winkel`) : undefined;
-    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, targetStatus, refund?.status);
+    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, targetStatus, refund?.status, smsJob, updated.business?.name);
     return refund ? { ...updated, refund } : updated;
   }
 
@@ -542,6 +553,7 @@ export class OrdersService {
       await this.verifyBusinessAccess(order.businessId, user);
     }
 
+    let smsJob: OrderSmsJob | null = null;
     const cancelled = await this.prisma.$transaction(async (tx) => {
       // 1. Claim the status change (fails if someone else changed the order meanwhile)
       await this.claimStatus(tx, orderId, order.status, { status: OrderStatus.CANCELLED, cancelledAt: new Date() });
@@ -557,8 +569,8 @@ export class OrdersService {
         },
       });
 
-      // 3. Record status event
-      await tx.orderStatusEvent.create({
+      // 3. Record status event (and the cancel SMS it may send, in the same transaction)
+      const event = await tx.orderStatusEvent.create({
         data: {
           orderId,
           fromStatus: order.status,
@@ -567,12 +579,13 @@ export class OrdersService {
           reason: dto.reason || 'Bestelling geannuleerd',
         },
       });
+      smsJob = await this.queueOrderSms(tx, order, OrderStatus.CANCELLED, event.id);
 
       return updatedOrder;
     });
 
     const refund = await this.payments.refundOrder(orderId, dto.reason || 'Bestelling geannuleerd');
-    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, OrderStatus.CANCELLED, refund.status);
+    await this.notifyStatus(order.consumerProfileId, order.orderNumber, order.fulfilmentMethod, OrderStatus.CANCELLED, refund.status, smsJob, cancelled.business?.name);
     return { ...cancelled, refund };
   }
 
@@ -700,7 +713,10 @@ export class OrdersService {
     method: FulfilmentMethod,
     status: OrderStatus,
     refundStatus?: 'REFUNDED' | 'NOT_REQUIRED' | 'FAILED',
+    smsJob?: OrderSmsJob | null,
+    shopName?: string,
   ) {
+    if (smsJob) await this.deliverOrderSms(smsJob, orderNumber, shopName ?? '');
     const pickup = method === FulfilmentMethod.PICKUP;
     const texts: Partial<Record<OrderStatus, [string, string, boolean]>> = {
       [OrderStatus.CONFIRMED]: ['Bestelling geaccepteerd', `De winkel heeft bestelling ${orderNumber} geaccepteerd.`, false],
@@ -723,9 +739,54 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Writes the QUEUED sms_messages row for a status change inside its transaction. The row is unique per status
+   * event (and its Idempotency-Key is sms:{eventId}), so double clicks and retries never send twice.
+   * No number snapshot, or the customer switched order SMS off: no SMS (e-mail and in-app still go out).
+   */
+  private async queueOrderSms(
+    tx: Prisma.TransactionClient,
+    order: { id: string; customerOrderId: string | null; consumerProfileId: string; fulfilmentMethod: FulfilmentMethod },
+    status: OrderStatus,
+    eventId: string,
+  ): Promise<OrderSmsJob | null> {
+    const purpose = orderSmsPurpose(status, order.fulfilmentMethod);
+    if (!purpose || !order.customerOrderId) return null;
+    const co = await tx.customerOrder.findUnique({ where: { id: order.customerOrderId }, select: { notifyPhoneE164: true } });
+    if (!co?.notifyPhoneE164) return null;
+    const profile = await tx.consumerProfile.findUnique({
+      where: { id: order.consumerProfileId },
+      select: { userId: true, user: { select: { isGuest: true, notificationPreference: { select: { smsOrderUpdates: true } } } } },
+    });
+    if (profile?.user.notificationPreference?.smsOrderUpdates === false) return null;
+    const row = await tx.smsMessage.create({
+      data: { purpose, orderId: order.id, orderStatusEventId: eventId, idempotencyKey: `sms:${eventId}`, phoneLast4: phoneLast4(co.notifyPhoneE164), provider: this.sms.provider, userId: profile?.userId ?? null },
+    });
+    return { messageId: row.id, phone: co.notifyPhoneE164, purpose, guest: !!profile?.user.isGuest };
+  }
+
+  /** After commit. Never throws: a failed SMS is recorded (FAILED) and never undoes the order change. */
+  private async deliverOrderSms(job: OrderSmsJob, orderNumber: string, shopName: string) {
+    try {
+      const base = (this.config.get<string>('FRONTEND_URL') || (this.config.get<string>('CORS_ORIGIN') || 'http://localhost:3000').split(',')[0]).trim().replace(/\/+$/, '');
+      // D-014: no signed token in the SMS (it would not fit one segment); guests open their order from the e-mail link.
+      const link = `${base}${job.guest ? '/guest/orders' : '/account/orders'}`;
+      await this.sms.deliver(job.messageId, job.phone, orderSmsText(job.purpose, orderNumber, shopName, link), 'transactional');
+    } catch {
+      /* best effort: the row stays QUEUED/FAILED for the owner and admin */
+    }
+  }
+
   private generateOrderNumber(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
     const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `LS-${timestamp}-${randomHex}`;
   }
+}
+
+interface OrderSmsJob {
+  messageId: string;
+  phone: string;
+  purpose: SmsPurpose;
+  guest: boolean;
 }

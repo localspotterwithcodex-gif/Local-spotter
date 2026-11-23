@@ -263,6 +263,8 @@ export interface NotificationPreferences {
   notifyOrders: boolean;
   notifyReviews: boolean;
   notifyTips: boolean;
+  /** Order SMS (shipped, delivered, cancelled, ready for pickup). */
+  smsOrderUpdates: boolean;
 }
 
 export interface WorkshopSessionInput {

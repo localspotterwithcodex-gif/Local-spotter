@@ -129,7 +129,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
   const [uploadsBusy, setUploadsBusy] = useState(false);
 
   // Notification preferences
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ notifyOrders: true, notifyReviews: true, notifyTips: true });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ smsOrderUpdates: true, notifyOrders: true, notifyReviews: true, notifyTips: true });
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [prefsDirty, setPrefsDirty] = useState(false);
   useEffect(() => {

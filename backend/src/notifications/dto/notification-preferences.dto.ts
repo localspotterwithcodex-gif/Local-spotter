@@ -16,4 +16,9 @@ export class UpdateNotificationPreferencesDto {
   @IsOptional()
   @IsBoolean()
   notifyTips?: boolean;
+
+  @ApiPropertyOptional({ description: 'SMS when an order is shipped, delivered, cancelled or ready for pickup (codes are always sent)' })
+  @IsOptional()
+  @IsBoolean()
+  smsOrderUpdates?: boolean;
 }

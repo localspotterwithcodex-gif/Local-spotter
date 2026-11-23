@@ -16,7 +16,7 @@ describe('NotificationsService preferences & owner notifications', () => {
 
   it('defaults every preference to on when nothing is stored', async () => {
     prisma.notificationPreference.findUnique.mockResolvedValue(null);
-    await expect(service.getPreferences('owner-1')).resolves.toEqual({ notifyOrders: true, notifyReviews: true, notifyTips: true });
+    await expect(service.getPreferences('owner-1')).resolves.toEqual({ notifyOrders: true, notifyReviews: true, notifyTips: true, smsOrderUpdates: true });
   });
 
   it('creates an ORDER notification for the owner when enabled', async () => {

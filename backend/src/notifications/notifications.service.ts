@@ -30,6 +30,7 @@ export class NotificationsService {
       notifyOrders: pref?.notifyOrders ?? true,
       notifyReviews: pref?.notifyReviews ?? true,
       notifyTips: pref?.notifyTips ?? true,
+      smsOrderUpdates: pref?.smsOrderUpdates ?? true,
     };
   }
 
@@ -38,13 +39,14 @@ export class NotificationsService {
       ...(dto.notifyOrders !== undefined ? { notifyOrders: dto.notifyOrders } : {}),
       ...(dto.notifyReviews !== undefined ? { notifyReviews: dto.notifyReviews } : {}),
       ...(dto.notifyTips !== undefined ? { notifyTips: dto.notifyTips } : {}),
+      ...(dto.smsOrderUpdates !== undefined ? { smsOrderUpdates: dto.smsOrderUpdates } : {}),
     };
     const pref = await this.prisma.notificationPreference.upsert({
       where: { userId },
       create: { userId, ...data },
       update: data,
     });
-    return { notifyOrders: pref.notifyOrders, notifyReviews: pref.notifyReviews, notifyTips: pref.notifyTips };
+    return { notifyOrders: pref.notifyOrders, notifyReviews: pref.notifyReviews, notifyTips: pref.notifyTips, smsOrderUpdates: pref.smsOrderUpdates };
   }
 
   /**
