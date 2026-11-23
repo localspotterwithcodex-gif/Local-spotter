@@ -40,6 +40,11 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
 /** Purpose of the short-lived token between password and TOTP step; never accepted as a session. */
 export const MFA_LOGIN_PURPOSE = 'mfa-login';
+/** Purpose of the short-lived token between password and SMS code; never accepted as a session. */
+export const OTP_LOGIN_PURPOSE = 'otp-login';
+/** Purpose of the signed 'trusted device' cookie (LOGIN_OTP_TRUST_DAYS > 0). */
+export const TRUSTED_DEVICE_PURPOSE = 'trusted-device';
+const RESET_CODE_TOKEN_TTL_MS = 10 * 60 * 1000;
 /** Pre-computed hash so login timing does not reveal whether an account exists. */
 const DUMMY_HASH = '$2b$12$C6UzMDM.H6dfI/f/IKcEeO5VnVTfKkfUlZqe1k3sFvD0jV6mQXZ3W';
 
@@ -344,7 +349,7 @@ export class AuthService {
     });
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ctx: { ip?: string; locale?: 'nl' | 'en'; trustedDevice?: string } = {}) {
     const user = await this.findByIdentifier(dto.identifier);
 
     // Always run one bcrypt comparison so response time does not reveal
@@ -367,9 +372,81 @@ export class AuthService {
       return { mfaRequired: true as const, mfaToken: this.jwtService.sign({ sub: user.id, purpose: MFA_LOGIN_PURPOSE, sv: user.sessionVersion }, { expiresIn: '5m' }) };
     }
 
+    // Customers and shop owners with a verified mobile confirm each login with an SMS code (8.3; D1: every login
+    // unless LOGIN_OTP_TRUST_DAYS trusts this device). Admins use the authenticator app instead (D9).
+    // D-013: accounts without a verified mobile (older or social-login accounts) cannot get a code and log in as before.
+    const external = this.externalVerifier();
+    if (user.role !== UserRole.SUPER_ADMIN && user.mobile && user.mobileVerifiedAt && this.smsCodes.canSend(external) && !this.isTrustedDevice(ctx.trustedDevice, user)) {
+      await this.sendLoginCode(user.id, user.mobile, ctx);
+      return {
+        otpRequired: true as const,
+        otpToken: this.jwtService.sign({ sub: user.id, purpose: OTP_LOGIN_PURPOSE, sv: user.sessionVersion }, { expiresIn: '10m' }),
+        phoneHint: `•••• ${user.mobile.slice(-4)}`,
+      };
+    }
+
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return { accessToken: this.generateJwt(user), user: this.sanitizeUser(user) };
+  }
+
+  /** Sends a login code; a second login within the cooldown re-uses the code that was just sent. */
+  private async sendLoginCode(userId: string, mobile: string, ctx: { ip?: string; locale?: 'nl' | 'en' }) {
+    try {
+      return await this.smsCodes.send(OtpPurpose.LOGIN, mobile, { userId, ip: ctx.ip, locale: ctx.locale, external: this.externalVerifier() });
+    } catch (err) {
+      if (err instanceof HttpException && (err.getResponse() as { code?: string })?.code === 'OTP_COOLDOWN') return null;
+      throw err;
+    }
+  }
+
+  private async loginOtpUser(otpToken: string) {
+    const invalid = () => new UnauthorizedException('Ongeldige of verlopen code');
+    let payload: { sub?: string; purpose?: string; sv?: number };
+    try {
+      payload = this.jwtService.verify(otpToken);
+    } catch {
+      throw invalid();
+    }
+    if (payload.purpose !== OTP_LOGIN_PURPOSE || !payload.sub) throw invalid();
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, include: WITH_PROFILES });
+    if (!user || user.status !== UserStatus.ACTIVE || !user.mobile || !user.mobileVerifiedAt || (payload.sv ?? 0) !== user.sessionVersion) throw invalid();
+    return user as UserWithProfiles & { mobile: string };
+  }
+
+  /** Login step 2: the SMS code. Issues the session (and, if enabled, a trusted-device token). */
+  async verifyLoginOtp(otpToken: string, code: string) {
+    const user = await this.loginOtpUser(otpToken);
+    await this.smsCodes.verify(OtpPurpose.LOGIN, user.mobile, code, { consumedAt: new Date() }, this.externalVerifier());
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    const days = this.trustDays();
+    return {
+      accessToken: this.generateJwt(user),
+      user: this.sanitizeUser(user),
+      trustedDevice: days > 0 ? this.jwtService.sign({ sub: user.id, purpose: TRUSTED_DEVICE_PURPOSE, sv: user.sessionVersion }, { expiresIn: `${days}d` }) : null,
+      trustedDeviceMaxAgeMs: days * 24 * 60 * 60 * 1000,
+    };
+  }
+
+  async resendLoginOtp(otpToken: string, ctx: { ip?: string; locale?: 'nl' | 'en' } = {}) {
+    const user = await this.loginOtpUser(otpToken);
+    return this.smsCodes.send(OtpPurpose.LOGIN, user.mobile, { userId: user.id, ...ctx, external: this.externalVerifier() });
+  }
+
+  private trustDays(): number {
+    const n = Number(this.config.get<string>('LOGIN_OTP_TRUST_DAYS') ?? 0);
+    return Number.isInteger(n) && n > 0 ? Math.min(n, 90) : 0;
+  }
+
+  /** A device stays trusted until it expires or the account's sessions are revoked (password reset, ...). */
+  private isTrustedDevice(token: string | undefined, user: { id: string; sessionVersion: number }): boolean {
+    if (!token || this.trustDays() === 0) return false;
+    try {
+      const p = this.jwtService.verify(token) as { sub?: string; purpose?: string; sv?: number };
+      return p.purpose === TRUSTED_DEVICE_PURPOSE && p.sub === user.id && (p.sv ?? 0) === user.sessionVersion;
+    } catch {
+      return false;
+    }
   }
 
   // ==========================================
@@ -558,15 +635,31 @@ export class AuthService {
     return this.sanitizeUser(user);
   }
 
-  async forgotPassword(dto: ForgotPasswordDto) {
-    const response = { message: 'Als de e-mail bekend is bij ons, is er een herstelinstructie verzonden.' };
-    if (!this.mail.isConfigured()) {
+  /**
+   * Step 1 of a password reset, by e-mail address or phone number. With a verified mobile the code goes by SMS
+   * (8.3); otherwise the e-mail link is sent. The answer is the same in every case, so it never reveals an account.
+   */
+  async forgotPassword(dto: ForgotPasswordDto, ctx: { ip?: string; locale?: 'nl' | 'en' } = {}) {
+    const response = { message: 'Als het account bij ons bekend is, hebben we een sms-code of een herstellink gestuurd.' };
+    const external = this.externalVerifier();
+    if (!this.mail.isConfigured() && !this.smsCodes.canSend(external)) {
       throw new HttpException('Wachtwoordherstel is tijdelijk niet beschikbaar', HttpStatus.SERVICE_UNAVAILABLE);
     }
+    const identifier = (dto.identifier ?? dto.email ?? '').trim();
+    const user = identifier ? await this.findByIdentifier(identifier) : null;
+    if (!user || user.status === UserStatus.DELETED || user.isGuest) return response;
 
-    const email = dto.email.toLowerCase().trim();
-    const user = await this.prisma.user.findFirst({ where: { email } });
-    if (!user || user.status === UserStatus.DELETED) return response;
+    if (user.mobile && user.mobileVerifiedAt && this.smsCodes.canSend(external)) {
+      try {
+        await this.smsCodes.send(OtpPurpose.PASSWORD_RESET, user.mobile, { userId: user.id, ...ctx, external });
+      } catch (err) {
+        // Cooldown, limits or a failed SMS must not reveal that the account exists.
+        this.logger.warn(`Password reset code not sent (${err instanceof HttpException ? err.getStatus() : 'error'})`);
+      }
+      return response;
+    }
+    if (!user.email || !this.mail.isConfigured()) return response;
+    const email = user.email;
 
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -593,6 +686,23 @@ export class AuthService {
 
     // The token is deliberately NOT part of the response.
     return response;
+  }
+
+  /** Step 2 with an SMS code: returns a one-time reset token (10 min) for /auth/reset-password. */
+  async verifyResetCode(identifier: string, code: string) {
+    const invalid = () => new BadRequestException({ code: 'OTP_INVALID', message: 'Ongeldige of verlopen code' });
+    const user = await this.findByIdentifier(identifier);
+    if (!user || !user.mobile || !user.mobileVerifiedAt || user.status === UserStatus.DELETED) throw invalid();
+    await this.smsCodes.verify(OtpPurpose.PASSWORD_RESET, user.mobile, code, { consumedAt: new Date() }, this.externalVerifier());
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } }),
+      this.prisma.passwordResetToken.create({
+        data: { userId: user.id, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + RESET_CODE_TOKEN_TTL_MS) },
+      }),
+    ]);
+    return { resetToken: token };
   }
 
   async resetPassword(dto: ResetPasswordDto) {

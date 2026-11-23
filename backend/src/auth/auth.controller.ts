@@ -9,6 +9,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { LoginOtpTokenDto, LoginOtpVerifyDto, ResetCodeVerifyDto } from './dto/sms-otp.dto';
 import { VerifyCodeDto, ResendCodeDto } from './dto/verify-code.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -22,7 +23,10 @@ import type { AuthUser } from '../common/types/auth-user';
 import { MfaCodeDto, MfaVerifyDto } from './dto/mfa.dto';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { SignupPhoneDto, SignupPhoneVerifyDto } from './dto/signup-phone.dto';
-import { SESSION_COOKIE, sessionCookieOptions } from './utils/session-cookie';
+import { SESSION_COOKIE, readCookie, sessionCookieOptions } from './utils/session-cookie';
+
+/** HttpOnly cookie that skips the login SMS code on this device (only when LOGIN_OTP_TRUST_DAYS > 0). */
+const TRUSTED_DEVICE_COOKIE = 'ls_device';
 
 /** Caller details for SMS codes: the IP (stored hashed) and the language of the SMS text. */
 type SmsRequestInfo = { ip?: string; headers: Record<string, string | string[] | undefined> };
@@ -45,8 +49,11 @@ export class AuthController {
    * the response body, so page scripts (and any XSS) cannot read it.
    */
   private startSession(res: Response, accessToken: string): void {
-    const secure = this.config.get<string>('NODE_ENV') === 'production' || this.config.get<string>('COOKIE_SECURE') === 'true';
-    res.cookie(SESSION_COOKIE, accessToken, sessionCookieOptions(secure));
+    res.cookie(SESSION_COOKIE, accessToken, sessionCookieOptions(this.secureCookies()));
+  }
+
+  private secureCookies(): boolean {
+    return this.config.get<string>('NODE_ENV') === 'production' || this.config.get<string>('COOKIE_SECURE') === 'true';
   }
 
   @Post('register')
@@ -84,11 +91,34 @@ export class AuthController {
   @RateLimit({ limit: 10, windowMs: 15 * 60 * 1000, bodyKey: 'identifier' })
   @ApiOperation({ summary: 'Authenticate user with email/mobile/username and password (sets HttpOnly session cookie)' })
   @ApiResponse({ status: 200, description: 'Login successful.', type: AuthResponseDto })
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: SmsRequestInfo, @Res({ passthrough: true }) res: Response) {
+    const trustedDevice = readCookie(typeof req.headers.cookie === 'string' ? req.headers.cookie : undefined, TRUSTED_DEVICE_COOKIE);
+    const result = await this.authService.login(dto, { ...smsContext(req), trustedDevice });
     if ('mfaRequired' in result) return result; // admin: no session until the second factor
+    if ('otpRequired' in result) return result; // no session until the SMS code
     this.startSession(res, result.accessToken);
     return { user: result.user };
+  }
+
+  @Post('login/otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 10, windowMs: 5 * 60 * 1000 })
+  @ApiOperation({ summary: 'Login step 2: the 6-digit SMS code (sets the session cookie)' })
+  async verifyLoginOtp(@Body() dto: LoginOtpVerifyDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, user, trustedDevice, trustedDeviceMaxAgeMs } = await this.authService.verifyLoginOtp(dto.otpToken, dto.code);
+    this.startSession(res, accessToken);
+    if (trustedDevice) res.cookie(TRUSTED_DEVICE_COOKIE, trustedDevice, { ...sessionCookieOptions(this.secureCookies()), maxAge: trustedDeviceMaxAgeMs });
+    return { user };
+  }
+
+  @Post('login/otp/resend')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000 })
+  @ApiOperation({ summary: 'Login: send a new SMS code (60 s cooldown, hourly and daily caps per number)' })
+  async resendLoginOtp(@Body() dto: LoginOtpTokenDto, @Req() req: SmsRequestInfo) {
+    return this.authService.resendLoginOtp(dto.otpToken, smsContext(req));
   }
 
   @Post('mfa/verify')
@@ -196,11 +226,20 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimitGuard)
-  @RateLimit({ limit: 3, windowMs: 60 * 60 * 1000, bodyKey: 'email' })
-  @ApiOperation({ summary: 'Request password reset token' })
-  @ApiResponse({ status: 200, description: 'Instructions sent if email exists.' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000 })
+  @ApiOperation({ summary: 'Password reset step 1 by e-mail or phone: SMS code (verified mobile) or e-mail link' })
+  @ApiResponse({ status: 200, description: 'Same answer whether or not the account exists.' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: SmsRequestInfo) {
+    return this.authService.forgotPassword(dto, smsContext(req));
+  }
+
+  @Post('forgot-password/verify')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 10, windowMs: 15 * 60 * 1000 })
+  @ApiOperation({ summary: 'Password reset step 2: the SMS code; returns a one-time reset token (10 min)' })
+  async verifyResetCode(@Body() dto: ResetCodeVerifyDto) {
+    return this.authService.verifyResetCode(dto.identifier, dto.code);
   }
 
   @Post('reset-password')

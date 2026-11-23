@@ -528,7 +528,7 @@ describe('AuthService', () => {
     it('answers identically for unknown e-mail addresses and fails closed without a provider', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       const res = await service.forgotPassword({ email: 'ghost@example.nl' });
-      expect(res.message).toMatch(/Als de e-mail bekend is/);
+      expect(res.message).toMatch(/Als het account bij ons bekend is/);
       mail.isConfigured.mockReturnValue(false);
       await expect(service.forgotPassword({ email: 'a@b.nl' })).rejects.toThrow(HttpException);
     });
