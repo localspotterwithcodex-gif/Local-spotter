@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SubscriptionEntitlementService } from '../subscriptions/subscription-entitlement.service';
 import { CreateReviewDto } from './dto/create-review.dto';
-import { BookingStatus, OrderStatus, ReviewStatus } from '@prisma/client';
+import { BookingStatus, OrderStatus, ReviewStatus, MediaPurpose, MediaStatus } from '@prisma/client';
 import { ConsumerProfile } from '@prisma/client';
 
 @Injectable()
@@ -48,8 +48,9 @@ export class ReviewsService {
         rating: dto.rating,
         title: dto.title?.trim() || null,
         comment: dto.comment?.trim() ?? '',
-        // A review after a real delivery / attended workshop is published straight away.
-        status: verified ? ReviewStatus.PUBLISHED : ReviewStatus.PENDING,
+        // A review after a real delivery / attended workshop is published straight away; with media it waits
+        // until its files are uploaded and confirmed (POST /reviews/:id/media).
+        status: verified && !dto.withMedia ? ReviewStatus.PUBLISHED : ReviewStatus.PENDING,
       },
       include: {
         business: {
@@ -97,6 +98,11 @@ export class ReviewsService {
     const reviews = await this.prisma.review.findMany({
       where,
       include: {
+        images: {
+          where: { mediaAsset: { status: MediaStatus.READY } },
+          orderBy: { sortOrder: 'asc' },
+          select: { sortOrder: true, mediaAsset: { select: { id: true, url: true, kind: true } } },
+        },
         consumerProfile: {
           select: { id: true, displayName: true, firstName: true, lastName: true },
         },
@@ -137,6 +143,11 @@ export class ReviewsService {
     const reviews = await this.prisma.review.findMany({
       where: { businessId, status: ReviewStatus.PUBLISHED, deletedAt: null },
       include: {
+        images: {
+          where: { mediaAsset: { status: MediaStatus.READY } },
+          orderBy: { sortOrder: 'asc' },
+          select: { sortOrder: true, mediaAsset: { select: { id: true, url: true, kind: true } } },
+        },
         consumerProfile: { select: { id: true, displayName: true, firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -147,6 +158,64 @@ export class ReviewsService {
       reviews,
       aggregation: { averageRating: Math.round(averageRating * 10) / 10, ratingCount },
     };
+  }
+
+  /**
+   * Attaches the review's uploaded files (each confirmed READY, uploaded by the author into this review's folder)
+   * in the given order, then publishes the review when it is a verified one (delivered order / attended workshop).
+   * Free-standing reviews keep waiting for moderation. An empty list means "no media after all".
+   */
+  async attachMedia(reviewId: string, consumerProfileId: string, assetIds: string[]) {
+    const review = await this.prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review || review.deletedAt || review.consumerProfileId !== consumerProfileId) throw new NotFoundException('Review niet gevonden');
+    if (review.status !== ReviewStatus.PENDING) throw new BadRequestException('Deze review heeft al media of is al gepubliceerd');
+    const folder = `shops/${review.businessId}/reviews/${reviewId}/`;
+    const assets = assetIds.length
+      ? await this.prisma.mediaAsset.findMany({
+          where: {
+            id: { in: assetIds },
+            status: MediaStatus.READY,
+            purpose: { in: [MediaPurpose.REVIEW_PHOTO, MediaPurpose.REVIEW_VIDEO] },
+            consumerProfileId,
+            storagePath: { startsWith: folder },
+          },
+          select: { id: true },
+        })
+      : [];
+    if (assets.length !== new Set(assetIds).size) throw new BadRequestException('Niet alle bestanden zijn (al) geüpload voor deze review');
+
+    const verified = !!(review.orderId || review.workshopId);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.reviewImage.deleteMany({ where: { reviewId } });
+      if (assetIds.length) {
+        await tx.reviewImage.createMany({ data: [...new Set(assetIds)].map((mediaAssetId, sortOrder) => ({ reviewId, mediaAssetId, sortOrder })) });
+      }
+      return tx.review.update({
+        where: { id: reviewId },
+        data: { status: verified ? ReviewStatus.PUBLISHED : ReviewStatus.PENDING },
+        include: { images: {
+            where: { mediaAsset: { status: MediaStatus.READY } },
+            orderBy: { sortOrder: 'asc' },
+            select: { sortOrder: true, mediaAsset: { select: { id: true, url: true, kind: true } } },
+          }, },
+      });
+    });
+  }
+
+  /** Public reply by the shop owner (or an admin); empty text removes the reply. */
+  async replyToReview(businessId: string, reviewId: string, user: { id: string; role: string }, text: string) {
+    const business = await this.prisma.business.findUnique({ where: { id: businessId }, include: { ownerProfile: true } });
+    if (!business || business.deletedAt) throw new NotFoundException('Bedrijf niet gevonden');
+    if (user.role !== 'SUPER_ADMIN' && business.ownerProfile.userId !== user.id) throw new ForbiddenException('Geen toegang tot reviews van dit bedrijf');
+    const review = await this.prisma.review.findUnique({ where: { id: reviewId }, select: { businessId: true, status: true, deletedAt: true } });
+    if (!review || review.deletedAt || review.businessId !== businessId) throw new NotFoundException('Review niet gevonden');
+    if (review.status !== ReviewStatus.PUBLISHED) throw new BadRequestException('Je kunt alleen op gepubliceerde reviews reageren');
+    const reply = text.trim();
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: reply ? { replyText: reply, repliedAt: new Date(), repliedByUserId: user.id } : { replyText: null, repliedAt: null, repliedByUserId: null },
+      select: { id: true, replyText: true, repliedAt: true },
+    });
   }
 
   /** The signed-in consumer's own reviews (any moderation status). */

@@ -7,6 +7,7 @@ import { GuestJobsController } from '../../guest/guest-jobs.controller';
 import { NotificationsJobsController } from '../../notifications/notifications-jobs.controller';
 import { PaymentsJobsController } from '../../payments/payments-jobs.controller';
 import { WorkshopsJobsController } from '../../workshops/workshops-jobs.controller';
+import { MediaJobsController } from '../../media/media-cleanup';
 
 const JOBS: [Function, string][] = [
   [ChatJobsController, 'chat-retention'],
@@ -15,6 +16,7 @@ const JOBS: [Function, string][] = [
   [NotificationsJobsController, 'subscription-reminders'],
   [PaymentsJobsController, 'expire-unpaid-orders'],
   [WorkshopsJobsController, 'expire-unpaid-bookings'],
+  [MediaJobsController, 'media-cleanup'],
 ];
 
 /** Vercel Cron calls GET; other schedulers POST. Two route decorators on one method would silently keep only one. */

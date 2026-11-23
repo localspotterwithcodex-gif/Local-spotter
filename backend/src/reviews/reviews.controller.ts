@@ -20,6 +20,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { AttachReviewMediaDto, ReviewReplyDto } from './dto/review-media.dto';
 import { ReviewsService } from './reviews.service';
 
 @Controller()
@@ -65,6 +66,29 @@ export class ReviewsController {
     @CurrentUser() user: any,
   ) {
     return this.reviewsService.getBusinessReviews(businessId, user);
+  }
+
+  @Post('reviews/:reviewId/media')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CONSUMER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Attach the uploaded photos/videos to my new review; publishes it when verified' })
+  async attachMedia(@Param('reviewId', ParseUUIDPipe) reviewId: string, @Body() dto: AttachReviewMediaDto, @CurrentUser() user: any) {
+    return this.reviewsService.attachMedia(reviewId, user.profileId, dto.assetIds);
+  }
+
+  @Post('businesses/:businessId/reviews/:reviewId/reply')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUSINESS_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Public reply of the shop to a published review' })
+  async reply(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @Body() dto: ReviewReplyDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.reviewsService.replyToReview(businessId, reviewId, user, dto.text);
   }
 
   @Get('reviews/mine')

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsString, IsOptional, IsUUID, Min, Max, Length, MaxLength } from 'class-validator';
+import { IsInt, IsString, IsOptional, IsUUID, Min, Max, Length, MaxLength, IsBoolean } from 'class-validator';
 
 export class CreateReviewDto {
   @ApiProperty({ example: 5, description: 'Rating from 1 to 5 stars' })
@@ -29,4 +29,9 @@ export class CreateReviewDto {
   @IsOptional()
   @IsUUID()
   workshopId?: string;
+
+  @ApiPropertyOptional({ description: 'Photos/videos follow (POST /reviews/:id/media); the review stays pending until then' })
+  @IsOptional()
+  @IsBoolean()
+  withMedia?: boolean;
 }

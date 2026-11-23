@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Star, CheckCircle2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLocale } from "@/i18n/LocaleContext";
@@ -25,13 +25,33 @@ export function ReviewModal({ item, onClose, onSubmitted }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [mediaOn, setMediaOn] = useState(false);
+  const [mediaNote, setMediaNote] = useState<string | null>(null);
+  useEffect(() => {
+    void api.mediaDirectUploads().then(setMediaOn);
+  }, []);
 
   const submit = async () => {
     if (rating < 1) return setError(t("manage.review.pickStars"));
     setBusy(true);
     setError(null);
     try {
-      await api.createReviewFor(item, rating, comment.trim());
+      const review = await api.createReviewFor(item, rating, comment.trim(), files.length > 0);
+      if (files.length > 0) {
+        // Upload each file into the review's folder; whatever fails, the review is still published with the rest.
+        const ids: string[] = [];
+        let failed: unknown = null;
+        for (const file of files) {
+          try {
+            ids.push((await api.uploadReviewMedia(file, review.id)).id);
+          } catch (e) {
+            failed ??= e;
+          }
+        }
+        await api.attachReviewMedia(review.id, ids);
+        if (failed) setMediaNote(errMsg(failed));
+      }
       setDone(true);
       onSubmitted();
     } catch (err) {
@@ -61,6 +81,7 @@ export function ReviewModal({ item, onClose, onSubmitted }: Props) {
           <div className="text-center space-y-3 py-2">
             <CheckCircle2 className="w-12 h-12 mx-auto text-[#2E9E6B]" />
             <p className="text-sm font-bold text-[#111111]">{t("manage.review.thanks")}</p>
+            {mediaNote && <p className="text-xs text-[#E54666]">{t("manage.review.mediaPartly")} {mediaNote}</p>}
             <Button variant="primary" fullWidth onClick={onClose}>{t("common.close")}</Button>
           </div>
         ) : (
@@ -90,6 +111,19 @@ export function ReviewModal({ item, onClose, onSubmitted }: Props) {
               placeholder={t("manage.review.placeholder")}
               className="w-full rounded-2xl border border-[#EAEAEA] bg-[#F9F9F9] p-3 text-xs outline-none focus:border-[#FA1EFF]"
             />
+            {mediaOn && (
+              <label className="block text-xs text-ls-muted space-y-1">
+                <span className="font-bold text-[#111111]">{t("manage.review.media")}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,video/mp4"
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 10))}
+                  className="block w-full text-xs"
+                />
+                <span className="block text-[11px]">{t("manage.review.mediaHelp")}</span>
+              </label>
+            )}
             {error && <p role="alert" className="text-xs font-bold text-[#E54666]">{error}</p>}
             <div className="flex gap-2">
               <Button variant="outline" fullWidth disabled={busy} onClick={onClose}>{t("manage.review.later")}</Button>

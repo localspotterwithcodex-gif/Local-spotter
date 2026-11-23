@@ -8,6 +8,8 @@ import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { DirectUploadService, SUPABASE_STORAGE } from './direct-upload.service';
 import { SupabaseStorageClient } from './supabase-storage';
+import { MediaCleanupService, MediaJobsController } from './media-cleanup';
+import { CronSecretGuard } from '../common/guards/cron-secret.guard';
 import { CloudinaryVideoStorage, UnconfiguredVideoStorage, VIDEO_STORAGE, VideoStorage } from './video-storage';
 
 /** STORAGE_PROVIDER=supabase switches uploads to Supabase Storage; otherwise Cloudinary (until staging is verified). */
@@ -25,10 +27,12 @@ const cloudinary = (config: ConfigService) => {
 
 @Module({
   imports: [EmployeesModule],
-  controllers: [MediaController],
+  controllers: [MediaController, MediaJobsController],
   providers: [
     MediaService,
     DirectUploadService,
+    MediaCleanupService,
+    CronSecretGuard,
     SubscriptionEntitlementService,
     RateLimitGuard,
     { provide: SUPABASE_STORAGE, inject: [ConfigService], useFactory: supabaseClient },

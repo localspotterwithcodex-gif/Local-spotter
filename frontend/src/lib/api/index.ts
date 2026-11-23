@@ -801,12 +801,23 @@ export const api = {
     apiClient.post(`/businesses/${businessId}/reviews`, input),
 
   /** Review after a delivered order / attended workshop (stars + optional remark). */
-  createReviewFor: (item: ReviewableItem, rating: number, comment: string) =>
-    apiClient.post(`/businesses/${item.businessId}/reviews`, {
+  createReviewFor: (item: ReviewableItem, rating: number, comment: string, withMedia = false) =>
+    apiClient.post<{ id: string }>(`/businesses/${item.businessId}/reviews`, {
       rating,
       ...(comment ? { comment } : {}),
       ...(item.kind === "order" ? { orderId: item.id } : { workshopId: item.id }),
+      ...(withMedia ? { withMedia: true } : {}),
     }),
+
+  /** Attaches confirmed review photos/videos (in order); publishes the review when it is verified. */
+  attachReviewMedia: (reviewId: string, assetIds: string[]) => apiClient.post(`/reviews/${reviewId}/media`, { assetIds }),
+
+  /** Photos/video on reviews need direct uploads (Supabase Storage). */
+  mediaDirectUploads: () => directUploadsEnabled(),
+
+  /** Uploads one review photo (JPEG/PNG/WebP) or video (MP4) straight to storage. */
+  uploadReviewMedia: (file: File, reviewId: string) =>
+    directUpload(file, { purpose: file.type === "video/mp4" ? "REVIEW_VIDEO" : "REVIEW_PHOTO", reviewId }),
 
   async getReviewable(): Promise<ReviewableItem[]> {
     const res = await apiClient.get<{ items: ReviewableItem[] }>("/reviews/reviewable");
