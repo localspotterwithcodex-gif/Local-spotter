@@ -323,6 +323,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                   max={1}
                   label={t("ownerx.settings.logo")}
                   onBusyChange={setUploadsBusy}
+                  target={{ purpose: "SHOP_ICON", businessId: business.id }}
                 />
                 <ServerImageUploader
                   value={cover}
@@ -330,6 +331,7 @@ function SettingsForm({ business, categories }: { business: Business; categories
                   max={1}
                   label={t("ownerx.settings.cover")}
                   onBusyChange={setUploadsBusy}
+                  target={{ purpose: "SHOP_COVER", businessId: business.id }}
                 />
               </div>
 
@@ -341,11 +343,12 @@ function SettingsForm({ business, categories }: { business: Business; categories
                   maxEdge={4096}
                   label={t("panorama.settingsLabel")}
                   onBusyChange={setUploadsBusy}
+                  target={{ purpose: "SHOP_PANORAMA", businessId: business.id }}
                 />
                 <p className="text-[11px] text-ls-muted">{t("panorama.settingsHelp")}</p>
               </div>
 
-              <ShopVideoUploader value={video} onChange={setVideo} label={t("manage.video.label")} onBusyChange={setUploadsBusy} />
+              <ShopVideoUploader value={video} onChange={setVideo} businessId={business.id} label={t("manage.video.label")} onBusyChange={setUploadsBusy} />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input

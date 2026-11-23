@@ -203,7 +203,7 @@ function ProductForm({ business, product }: FormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <ServerImageUploader label={t("ownerx.product.imagesLabel")} value={images} onChange={setImages} max={3} onBusyChange={setUploading} />
+        <ServerImageUploader label={t("ownerx.product.imagesLabel")} value={images} onChange={setImages} max={3} onBusyChange={setUploading} target={{ purpose: "PRODUCT_IMAGE", businessId: business.id, productId: product?.id }} />
 
         <p className="text-xs text-[#790166] bg-[#FAE2F0] rounded-xl px-3 py-2">{t("manage.product.translateHint")}</p>
 

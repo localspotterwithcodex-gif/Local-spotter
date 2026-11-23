@@ -182,6 +182,15 @@ export interface UploadedImage {
   url: string;
 }
 
+/** Where a direct upload belongs (MASTER-PROMPT Phase 4): the backend checks rights and limits per purpose. */
+export interface UploadTarget {
+  purpose: "SHOP_ICON" | "SHOP_COVER" | "SHOP_PANORAMA" | "SHOP_VIDEO" | "PRODUCT_IMAGE" | "REVIEW_PHOTO" | "REVIEW_VIDEO" | "CHAT_ATTACHMENT";
+  businessId?: string;
+  productId?: string;
+  reviewId?: string;
+  conversationId?: string;
+}
+
 /** Server-signed ticket for a direct browser → Cloudinary video upload (POST /media/videos/ticket). */
 export interface VideoUploadTicket {
   uploadUrl: string;
@@ -429,10 +438,45 @@ export interface ProductSearchParams {
   anyOf?: string[];
 }
 
+let directUploads: Promise<boolean> | null = null;
+/** True when the backend uses Supabase Storage (browser -> storage with a signed URL). Asked once per page load. */
+function directUploadsEnabled(): Promise<boolean> {
+  directUploads ??= apiClient.get<{ directUploads: boolean }>("/media/config").then((r) => r.directUploads, () => false);
+  return directUploads;
+}
+
+/** Ticket -> PUT the file to the signed URL (with progress) -> confirm; the backend re-checks the stored object. */
+async function directUpload(file: File, target: UploadTarget, onProgress?: (fraction: number) => void, signal?: AbortSignal): Promise<UploadedImage> {
+  const ticket = await apiClient.post<{ assetId: string; uploadUrl: string; contentType: string }>("/media/upload-ticket", {
+    ...target,
+    contentType: file.type,
+    size: file.size,
+  });
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", ticket.uploadUrl);
+    xhr.setRequestHeader("Content-Type", ticket.contentType);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("UPLOAD_FAILED")));
+    xhr.onerror = () => reject(new Error("UPLOAD_FAILED"));
+    xhr.onabort = () => reject(new Error("VIDEO_UPLOAD_ABORTED"));
+    signal?.addEventListener("abort", () => xhr.abort());
+    xhr.send(file);
+  });
+  return apiClient.post<UploadedImage>("/media/confirm", { assetId: ticket.assetId });
+}
+
 export const api = {
   // ---------------- MEDIA ----------------
-  /** Uploads one image (any common raster image, max 5 MB) to the backend, which stores it in Cloudinary. */
-  async uploadImage(file: File): Promise<UploadedImage> {
+  /**
+   * Uploads one image. With a target and Supabase Storage active it goes straight to storage (signed URL);
+   * otherwise through the backend (max 5 MB), which stores it with the configured provider.
+   */
+  async uploadImage(file: File, target?: UploadTarget): Promise<UploadedImage> {
+    if (target && (await directUploadsEnabled())) return directUpload(file, target);
     const body = new FormData();
     body.append("file", file);
     return apiClient.post<UploadedImage>("/media/images", body);
@@ -443,7 +487,12 @@ export const api = {
    * server-signed ticket (so it never passes through the Vercel proxy); the backend then re-checks the
    * stored file (format, size, duration, ownership) and returns the MediaAsset.
    */
-  async uploadShopVideo(file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal): Promise<UploadedImage> {
+  async uploadShopVideo(file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal, businessId?: string): Promise<UploadedImage> {
+    if (businessId && (await directUploadsEnabled())) {
+      // Supabase Storage cannot convert video: MP4 only (the backend checks the real format and length).
+      if (file.type !== "video/mp4") throw new Error("VIDEO_FORMAT_MP4");
+      return directUpload(file, { purpose: "SHOP_VIDEO", businessId }, onProgress, signal);
+    }
     const ticket = await apiClient.post<VideoUploadTicket>("/media/videos/ticket", {});
     if (file.size > ticket.maxBytes) throw new Error("VIDEO_TOO_LARGE");
     const form = new FormData();

@@ -18,13 +18,15 @@ interface Props {
   label?: string;
   /** True while an upload is in flight so the parent can disable its submit button. */
   onBusyChange?: (busy: boolean) => void;
+  /** The shop; enables the direct (Supabase) MP4 upload when the backend uses it. */
+  businessId?: string;
 }
 
 /**
  * Uploads one shop video directly to storage (see api.uploadShopVideo) and reports the stored
  * { id, url }. The asset only becomes part of the shop when the parent form is saved.
  */
-export function ShopVideoUploader({ value, onChange, label, onBusyChange }: Props) {
+export function ShopVideoUploader({ value, onChange, label, onBusyChange, businessId }: Props) {
   const { t } = useLocale();
   const describe = useErrorMessage();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,12 +54,13 @@ export function ShopVideoUploader({ value, onChange, label, onBusyChange }: Prop
     setProgress(0);
     onBusyChange?.(true);
     try {
-      const uploaded = await api.uploadShopVideo(file, setProgress, controller.signal);
+      const uploaded = await api.uploadShopVideo(file, setProgress, controller.signal, businessId);
       onChange(uploaded);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       if (msg === "VIDEO_UPLOAD_ABORTED") return;
       if (msg === "VIDEO_TOO_LARGE") setError(t("manage.video.errSize"));
+      else if (msg === "VIDEO_FORMAT_MP4") setError(t("manage.video.errMp4"));
       else if (msg === "VIDEO_UPLOAD_FAILED") setError(t("manage.video.errUpload"));
       else setError(describe(err));
     } finally {

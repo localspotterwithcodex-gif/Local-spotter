@@ -24,6 +24,9 @@ function resolveBackendUrl(): string {
 
 const BACKEND_URL = resolveBackendUrl();
 const isDev = process.env.NODE_ENV !== "production";
+// Supabase Storage host (e.g. abcd.supabase.co): images/video are served from it and browsers upload to it directly.
+const STORAGE_HOST = (process.env.SUPABASE_STORAGE_HOST ?? "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+const storageOrigin = STORAGE_HOST ? ` https://${STORAGE_HOST}` : "";
 
 // Every third-party origin the browser talks to: Google sign-in, Cloudinary (images, video,
 // direct video upload), Unsplash images, OpenStreetMap (map iframes, address search).
@@ -32,10 +35,10 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://accounts.google.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.unsplash.com https://lh3.googleusercontent.com",
+  `img-src 'self' data: blob: https://res.cloudinary.com https://*.unsplash.com https://lh3.googleusercontent.com${storageOrigin}`,
   "font-src 'self' data:",
-  `connect-src 'self' https://api.cloudinary.com https://nominatim.openstreetmap.org https://accounts.google.com${isDev ? " ws:" : ""}`,
-  "media-src 'self' blob: https://res.cloudinary.com",
+  `connect-src 'self' https://api.cloudinary.com https://nominatim.openstreetmap.org https://accounts.google.com${storageOrigin}${isDev ? " ws:" : ""}`,
+  `media-src 'self' blob: https://res.cloudinary.com${storageOrigin}`,
   "frame-src https://www.openstreetmap.org https://accounts.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -69,6 +72,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com",
       },
+      ...(STORAGE_HOST ? [{ protocol: "https" as const, hostname: STORAGE_HOST, pathname: "/storage/v1/object/public/**" }] : []),
     ],
   },
   async headers() {

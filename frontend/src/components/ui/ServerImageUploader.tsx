@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { useLocale } from "@/i18n/LocaleContext";
-import { api, type UploadedImage } from "@/lib/api";
+import { api, type UploadedImage, type UploadTarget } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import { errorCode } from "@/lib/errors";
 import type { TranslationKey } from "@/i18n/dictionaries";
@@ -51,6 +51,8 @@ interface Props {
   onBusyChange?: (busy: boolean) => void;
   /** Longest edge after in-browser re-encoding (default 2000; a 360° photo needs more). */
   maxEdge?: number;
+  /** Where the image belongs; enables direct uploads to Supabase Storage when the backend uses it. */
+  target?: UploadTarget;
 }
 
 /**
@@ -58,7 +60,7 @@ interface Props {
  * the real file type and stores it in Cloudinary) and reports the stored
  * { id, url } pairs. Nothing is kept in the browser beyond a preview.
  */
-export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3, label, onBusyChange, maxEdge = MAX_EDGE }) => {
+export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3, label, onBusyChange, maxEdge = MAX_EDGE, target }) => {
   const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +103,7 @@ export const ServerImageUploader: React.FC<Props> = ({ value, onChange, max = 3,
             setErrorKey("manage.upload.errSize");
             continue;
           }
-          const uploaded = await api.uploadImage(prepared);
+          const uploaded = await api.uploadImage(prepared, target);
           current = [...current, uploaded];
           onChange(current);
         } catch (err) {
